@@ -153,6 +153,15 @@ export function usePostgres() {
         isConnected.value = true
         return normalized as T[]
       }
+      if (res.status === 401 || res.status === 403) {
+        // Authentication/authorization problem — never mask it with the
+        // localStorage fallback or the user would see stale, misleading data.
+        const body = await res.json().catch(() => ({}))
+        const message = (body as any).error || `Access denied (${res.status})`
+        dbError.value = message
+        return []
+      }
+      dbError.value = `API error ${res.status}`
     } catch {
       // Backend not running or in offline dev mode; fallback to JSONB local storage store
     }
@@ -193,7 +202,13 @@ export function usePostgres() {
         saveLocalEntities(tableName, local)
         return savedRecord as T
       }
-    } catch {
+      if (res.status === 401 || res.status === 403 || res.status === 400) {
+        const body = await res.json().catch(() => ({}))
+        dbError.value = (body as any).error || `API error ${res.status}`
+        throw new Error(dbError.value || 'Request failed')
+      }
+    } catch (err: any) {
+      if (err instanceof Error && dbError.value) throw err
       // Fallback
     }
 
@@ -225,9 +240,16 @@ export function usePostgres() {
         }),
       })
       if (!res.ok) {
+        if (res.status === 401 || res.status === 403) {
+          const body = await res.json().catch(() => ({}))
+          const message = (body as any).error || `Access denied (${res.status})`
+          dbError.value = message
+          throw new Error(message)
+        }
         console.warn('API update failed, updating local state')
       }
-    } catch {
+    } catch (err: any) {
+      if (err instanceof Error && dbError.value && dbError.value === err.message) throw err
       // Fallback to local
     }
 
@@ -244,7 +266,7 @@ export function usePostgres() {
     const endpoint = `${apiUrl.value.replace(/\/+$/, '')}/${tableName}/${id}`
 
     try {
-      await fetch(endpoint, {
+      const res = await fetch(endpoint, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
@@ -252,7 +274,14 @@ export function usePostgres() {
         },
         credentials: 'include',
       })
-    } catch {
+      if (!res.ok && (res.status === 401 || res.status === 403)) {
+        const body = await res.json().catch(() => ({}))
+        const message = (body as any).error || `Access denied (${res.status})`
+        dbError.value = message
+        throw new Error(message)
+      }
+    } catch (err: any) {
+      if (err instanceof Error && dbError.value && dbError.value === err.message) throw err
       // Fallback to local
     }
 

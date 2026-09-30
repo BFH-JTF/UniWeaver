@@ -4,14 +4,19 @@ import { Pool } from 'pg'
 import dotenv from 'dotenv'
 import { initDatabase, getDbConfig } from './migrate'
 
-dotenv.config()
-
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
 // src/db -> src -> backend -> repo root
 export const appRoot = path.resolve(__dirname, '../../..')
 export const reposRoot = path.resolve(appRoot, '..')
+
+// In development the backend is started per workspace (`npm run dev -w backend`),
+// so the process cwd is backend/ and dotenv's default lookup would miss the
+// repo-root .env. Load that one explicitly first; a cwd-local .env may still
+// add values (dotenv never overwrites variables that are already set).
+dotenv.config({ path: path.join(appRoot, '.env') })
+dotenv.config()
 
 let pool: Pool | null = null
 

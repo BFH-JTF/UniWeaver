@@ -36,6 +36,7 @@
         <thead>
           <tr>
             <th class="text-left font-weight-bold">User</th>
+            <th class="text-left font-weight-bold">Display Name</th>
             <th class="text-left font-weight-bold">Email</th>
             <th class="text-left font-weight-bold">OIDC External Identity (Issuer / Subject)</th>
             <th class="text-left font-weight-bold">Role &amp; Status</th>
@@ -45,13 +46,13 @@
         </thead>
         <tbody>
           <tr v-if="loading && users.length === 0">
-            <td colspan="6" class="text-center py-6 text-medium-emphasis">
+            <td colspan="7" class="text-center py-6 text-medium-emphasis">
               <v-progress-circular indeterminate color="primary" size="32" class="mr-2" />
               Loading users...
             </td>
           </tr>
           <tr v-else-if="users.length === 0">
-            <td colspan="6" class="text-center py-6 text-medium-emphasis">
+            <td colspan="7" class="text-center py-6 text-medium-emphasis">
               No users found.
             </td>
           </tr>
@@ -59,6 +60,10 @@
             <td>
               <div class="font-weight-medium">{{ user.name || 'Anonymous User' }}</div>
               <div class="text-caption text-medium-emphasis">ID: {{ user.id }}</div>
+            </td>
+            <td>
+              <span v-if="user.display_name" class="text-body-2 font-weight-regular">{{ user.display_name }}</span>
+              <span v-else class="text-caption text-medium-emphasis font-italic">No display name configured</span>
             </td>
             <td>
               <span v-if="user.email" class="text-body-2 font-weight-regular">{{ user.email }}</span>

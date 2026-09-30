@@ -7,6 +7,7 @@ import { createProxyMiddleware } from 'http-proxy-middleware'
 import { appRoot, initDb, isDbConnected, closeDb } from './db'
 import { authRouter } from './routes/auth'
 import { usersRouter } from './routes/users'
+import { entitiesRouter } from './routes/entities'
 
 export const app = express()
 const PORT = process.env.PORT || 3000
@@ -28,6 +29,11 @@ app.get('/api/health', (_req: Request, res: Response) => {
     timestamp: new Date().toISOString(),
   })
 })
+
+// Generic entity CRUD + per-object access management. Mounted after the fixed
+// routes above so it cannot shadow them; the router itself 404s any table
+// outside its TABLE_SPECS registry.
+app.use('/api', entitiesRouter)
 
 interface AppMount {
   path: string

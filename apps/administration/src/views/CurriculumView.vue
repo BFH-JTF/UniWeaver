@@ -56,7 +56,8 @@
           </template>
           <template #item.name="{ item }">
             <span>{{ item.name }}</span>
-            <v-chip v-if="item._canEdit" size="x-small" variant="tonal" color="primary" class="ml-1">Admin</v-chip>
+            <v-chip v-if="item._isAdmin" size="x-small" variant="tonal" color="primary" class="ml-1">Admin</v-chip>
+            <v-chip v-else-if="item._canEdit" size="x-small" variant="tonal" color="secondary" class="ml-1">Write</v-chip>
           </template>
           <template #item.actions="{ item }">
             <template v-if="item._canEdit">
@@ -64,12 +65,15 @@
                 <v-icon>mdi-pencil</v-icon>
                 <v-tooltip activator="parent">Edit</v-tooltip>
               </v-btn>
-              <v-btn icon variant="text" size="small" @click="confirmDeleteDepartment(item)">
+              <v-btn v-if="item._isAdmin" icon variant="text" size="small" @click="confirmDeleteDepartment(item)">
                 <v-icon>mdi-delete</v-icon>
                 <v-tooltip activator="parent">Delete</v-tooltip>
               </v-btn>
             </template>
-            <span v-else class="text-medium-emphasis text-caption">Read-only</span>
+            <v-btn icon variant="text" size="small" @click="openAccess(item, 'departments')">
+              <v-icon>mdi-account-multiple-outline</v-icon>
+              <v-tooltip activator="parent">Access</v-tooltip>
+            </v-btn>
           </template>
           <template #no-data>
             <div class="text-center pa-4">
@@ -295,7 +299,8 @@
               </template>
               <template #item.name="{ item }">
                 <span>{{ item.name }}</span>
-                <v-chip v-if="item._canEdit" size="x-small" variant="tonal" color="primary" class="ml-1">Admin</v-chip>
+                <v-chip v-if="item._isAdmin" size="x-small" variant="tonal" color="primary" class="ml-1">Admin</v-chip>
+                <v-chip v-else-if="item._canEdit" size="x-small" variant="tonal" color="secondary" class="ml-1">Write</v-chip>
               </template>
               <template #item.actions="{ item }">
                 <template v-if="item._canEdit">
@@ -303,12 +308,15 @@
                     <v-icon>mdi-pencil</v-icon>
                     <v-tooltip activator="parent">Edit</v-tooltip>
                   </v-btn>
-                  <v-btn icon variant="text" size="small" @click="confirmDeleteProgram(item)">
+                  <v-btn v-if="item._isAdmin" icon variant="text" size="small" @click="confirmDeleteProgram(item)">
                     <v-icon>mdi-delete</v-icon>
                     <v-tooltip activator="parent">Delete</v-tooltip>
                   </v-btn>
                 </template>
-                <span v-else class="text-medium-emphasis text-caption">Read-only</span>
+                <v-btn icon variant="text" size="small" @click="openAccess(item, 'programs')">
+                  <v-icon>mdi-account-multiple-outline</v-icon>
+                  <v-tooltip activator="parent">Access</v-tooltip>
+                </v-btn>
               </template>
               <template #no-data>
                 <div class="text-center pa-4">
@@ -322,7 +330,7 @@
           <div v-if="curriculumTab === 'degrees'">
             <v-row class="align-center mb-4">
               <v-col cols="12" sm="6" class="d-flex ga-2">
-                <v-btn v-if="auth.isAdmin" color="primary" prepend-icon="mdi-plus" @click="openAddDegree">Add Degree</v-btn>
+                <v-btn v-if="canCreateDegrees" color="primary" prepend-icon="mdi-plus" @click="openAddDegree">Add Degree</v-btn>
                 <v-btn v-if="auth.isAdmin" variant="outlined" prepend-icon="mdi-file-import" @click="openCsvImport('degrees')">Import CSV</v-btn>
               </v-col>
               <v-col cols="12" sm="6">
@@ -368,7 +376,8 @@
               </template>
               <template #item.name="{ item }">
                 <span>{{ item.name }}</span>
-                <v-chip v-if="item._canEdit" size="x-small" variant="tonal" color="primary" class="ml-1">Admin</v-chip>
+                <v-chip v-if="item._isAdmin" size="x-small" variant="tonal" color="primary" class="ml-1">Admin</v-chip>
+                <v-chip v-else-if="item._canEdit" size="x-small" variant="tonal" color="secondary" class="ml-1">Write</v-chip>
               </template>
               <template #item.actions="{ item }">
                 <template v-if="item._canEdit">
@@ -376,12 +385,15 @@
                     <v-icon>mdi-pencil</v-icon>
                     <v-tooltip activator="parent">Edit</v-tooltip>
                   </v-btn>
-                  <v-btn icon variant="text" size="small" @click="confirmDeleteDegree(item)">
+                  <v-btn v-if="item._isAdmin" icon variant="text" size="small" @click="confirmDeleteDegree(item)">
                     <v-icon>mdi-delete</v-icon>
                     <v-tooltip activator="parent">Delete</v-tooltip>
                   </v-btn>
                 </template>
-                <span v-else class="text-medium-emphasis text-caption">Read-only</span>
+                <v-btn icon variant="text" size="small" @click="openAccess(item, 'degrees')">
+                  <v-icon>mdi-account-multiple-outline</v-icon>
+                  <v-tooltip activator="parent">Access</v-tooltip>
+                </v-btn>
               </template>
               <template #no-data>
                 <div class="text-center pa-4">
@@ -395,7 +407,7 @@
           <div v-if="curriculumTab === 'modules'">
             <v-row class="align-center mb-4">
               <v-col cols="12" sm="6" class="d-flex ga-2">
-                <v-btn v-if="auth.isAdmin" color="primary" prepend-icon="mdi-plus" @click="openAddModule">Add Module</v-btn>
+                <v-btn v-if="canCreateModules" color="primary" prepend-icon="mdi-plus" @click="openAddModule">Add Module</v-btn>
                 <v-btn v-if="auth.isAdmin" variant="outlined" prepend-icon="mdi-file-import" @click="openCsvImport('modules')">Import CSV</v-btn>
               </v-col>
               <v-col cols="12" sm="6">
@@ -453,7 +465,8 @@
               </template>
               <template #item.name="{ item }">
                 <span>{{ item.name }}</span>
-                <v-chip v-if="item._canEdit" size="x-small" variant="tonal" color="primary" class="ml-1">Admin</v-chip>
+                <v-chip v-if="item._isAdmin" size="x-small" variant="tonal" color="primary" class="ml-1">Admin</v-chip>
+                <v-chip v-else-if="item._canEdit" size="x-small" variant="tonal" color="secondary" class="ml-1">Write</v-chip>
               </template>
               <template #item.actions="{ item }">
                 <template v-if="item._canEdit">
@@ -461,12 +474,15 @@
                     <v-icon>mdi-pencil</v-icon>
                     <v-tooltip activator="parent">Edit</v-tooltip>
                   </v-btn>
-                  <v-btn icon variant="text" size="small" @click="confirmDeleteModule(item)">
+                  <v-btn v-if="item._isAdmin" icon variant="text" size="small" @click="confirmDeleteModule(item)">
                     <v-icon>mdi-delete</v-icon>
                     <v-tooltip activator="parent">Delete</v-tooltip>
                   </v-btn>
                 </template>
-                <span v-else class="text-medium-emphasis text-caption">Read-only</span>
+                <v-btn icon variant="text" size="small" @click="openAccess(item, 'modules')">
+                  <v-icon>mdi-account-multiple-outline</v-icon>
+                  <v-tooltip activator="parent">Access</v-tooltip>
+                </v-btn>
               </template>
               <template #no-data>
                 <div class="text-center pa-4">
@@ -537,7 +553,8 @@
               </template>
               <template #item.name="{ item }">
                 <span>{{ item.name }}</span>
-                <v-chip v-if="item._canEdit" size="x-small" variant="tonal" color="primary" class="ml-1">Admin</v-chip>
+                <v-chip v-if="item._isAdmin" size="x-small" variant="tonal" color="primary" class="ml-1">Admin</v-chip>
+                <v-chip v-else-if="item._canEdit" size="x-small" variant="tonal" color="secondary" class="ml-1">Write</v-chip>
               </template>
               <template #item.actions="{ item }">
                 <template v-if="item._canEdit">
@@ -545,12 +562,15 @@
                     <v-icon>mdi-pencil</v-icon>
                     <v-tooltip activator="parent">Edit</v-tooltip>
                   </v-btn>
-                  <v-btn icon variant="text" size="small" @click="confirmDeleteClass(item)">
+                  <v-btn v-if="item._isAdmin" icon variant="text" size="small" @click="confirmDeleteClass(item)">
                     <v-icon>mdi-delete</v-icon>
                     <v-tooltip activator="parent">Delete</v-tooltip>
                   </v-btn>
                 </template>
-                <span v-else class="text-medium-emphasis text-caption">Read-only</span>
+                <v-btn icon variant="text" size="small" @click="openAccess(item, 'classes')">
+                  <v-icon>mdi-account-multiple-outline</v-icon>
+                  <v-tooltip activator="parent">Access</v-tooltip>
+                </v-btn>
               </template>
               <template #no-data>
                 <div class="text-center pa-4">
@@ -613,6 +633,14 @@
       @save="handleVersionSave"
     />
 
+    <AccessDialog
+      v-model="accessDialogOpen"
+      :entity="accessEntity"
+      :entity-id="accessEntityId"
+      :entity-name="accessEntityName"
+      @changed="handleAccessChanged"
+    />
+
     <CsvImportDialog
       v-model="csvImportDialogOpen"
       :initial-type="csvImportType"
@@ -655,6 +683,7 @@ import ModuleFormDialog from '@/components/ModuleFormDialog.vue'
 import ClassFormDialog from '@/components/ClassFormDialog.vue'
 import SemesterFormDialog from '@/components/SemesterFormDialog.vue'
 import CurriculumVersionFormDialog from '@/components/CurriculumVersionFormDialog.vue'
+import AccessDialog from '@/components/AccessDialog.vue'
 import { useCurriculumVersions } from '@/composables/useCurriculumVersions'
 import CsvImportDialog from '@/components/CsvImportDialog.vue'
 import type { Department, Program, Degree, Module } from '@/types/curriculum'
@@ -663,6 +692,12 @@ import type { Semester, CurriculumVersion } from '@/stores/curriculum'
 import type { ImportType } from '@/types/csvImport'
 
 const auth = useAuthStore()
+
+// Degree/module creation requires administrating the referenced parent(s);
+// the button is therefore available to global admins and to users who
+// administer at least one program (degree) / degree (module).
+const canCreateDegrees = computed(() => auth.isAdmin || programs.value.some(p => p._isAdmin))
+const canCreateModules = computed(() => auth.isAdmin || degrees.value.some(d => d._isAdmin))
 
 const {
   departments,
@@ -762,6 +797,29 @@ const displayedVersionId = ref<string>('')
 
 const csvImportDialogOpen = ref(false)
 const csvImportType = ref<ImportType>('departments')
+
+const accessDialogOpen = ref(false)
+const accessEntity = ref<'departments' | 'programs' | 'degrees' | 'modules' | 'classes'>('programs')
+const accessEntityId = ref('')
+const accessEntityName = ref('')
+
+function openAccess(item: { id?: string; _id?: string; name?: string }, entity: typeof accessEntity.value) {
+  const id = item.id || item._id || ''
+  if (!id) return
+  accessEntity.value = entity
+  accessEntityId.value = id
+  accessEntityName.value = item.name ?? ''
+  accessDialogOpen.value = true
+}
+
+async function handleAccessChanged() {
+  // Re-fetch the affected collection so role chips stay current.
+  if (accessEntity.value === 'departments') await fetchDepartments()
+  else if (accessEntity.value === 'programs') await fetchPrograms()
+  else if (accessEntity.value === 'degrees') await fetchDegrees()
+  else if (accessEntity.value === 'modules') await fetchModules()
+  else await fetchClasses()
+}
 
 const deleteDialogOpen = ref(false)
 const deleteTargetName = ref('')
