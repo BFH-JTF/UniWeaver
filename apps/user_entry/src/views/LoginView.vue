@@ -2,9 +2,13 @@
   <v-container class="fill-height" fluid>
     <v-row align="center" justify="center">
       <v-col cols="12" sm="8" md="5">
-        <v-card class="elevation-4 pa-4 rounded-lg">
-          <v-card-title class="text-h5 text-center font-weight-bold">UniWeaver</v-card-title>
-          <v-card-subtitle class="text-center mb-4">Curriculum, Scheduling &amp; Competencies</v-card-subtitle>
+        <v-card class="card-lift pa-4">
+          <div class="d-flex flex-column align-center mb-4">
+            <img src="/Logo.png" class="login-logo" alt="UniWeaver">
+            <p class="text-subtitle-2 text-medium-emphasis mt-3 mb-0 text-center">
+              Curriculum, Scheduling &amp; Competencies
+            </p>
+          </div>
 
           <v-card-text>
             <div v-if="serverError" class="text-center mb-4">
@@ -86,3 +90,10 @@ onMounted(async () => {
   }
 })
 </script>
+<style scoped>
+.login-logo {
+  height: 64px;
+  width: auto;
+  display: block;
+}
+</style>

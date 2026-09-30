@@ -6,3 +6,4 @@ postgres-data/
 docpouch-db/
 docpouch-log/
 .env
+docker-compose.override.yml

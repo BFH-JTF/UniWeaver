@@ -2,27 +2,31 @@
   <v-container class="fill-height" fluid>
     <v-row align="center" justify="center">
       <v-col cols="12" md="10" lg="9">
-        <div class="d-flex align-center justify-space-between mb-6">
-          <div>
-            <h1 class="text-h4 font-weight-bold">Welcome, {{ auth.userName }}</h1>
-            <p class="text-subtitle-1 text-medium-emphasis mb-0">
-              Choose one of the UniWeaver tools to continue.
-            </p>
-          </div>
-          <div class="d-flex align-center ga-2">
-            <v-chip
-              :color="auth.isAdmin ? 'primary' : 'default'"
-              variant="flat"
-              size="small"
-              class="font-weight-bold"
-            >
-              <v-icon start size="16">{{ auth.isAdmin ? 'mdi-shield-crown' : 'mdi-account' }}</v-icon>
-              {{ auth.isAdmin ? 'Administrator' : 'User' }}
-            </v-chip>
-            <v-btn icon variant="text" @click="handleLogout">
-              <v-icon>mdi-logout</v-icon>
-              <v-tooltip activator="parent">Logout</v-tooltip>
-            </v-btn>
+        <div class="view-hero mb-6">
+          <div class="d-flex align-center justify-space-between hero-row">
+            <div class="d-flex align-center ga-4 hero-brand">
+              <img src="/Logo.png" class="hero-logo" alt="UniWeaver">
+              <div class="hero-text">
+                <h1 class="text-h5 font-weight-bold mb-1">Welcome, {{ auth.userName }}</h1>
+                <p class="text-body-2 mb-0 hero-subtitle">
+                  Choose one of the UniWeaver tools to continue.
+                </p>
+              </div>
+            </div>
+            <div class="d-flex align-center ga-3">
+              <v-chip
+                variant="flat"
+                color="rgba(255, 255, 255, 0.18)"
+                class="text-white font-weight-bold"
+              >
+                <v-icon start size="16">{{ auth.isAdmin ? 'mdi-shield-crown' : 'mdi-account' }}</v-icon>
+                {{ auth.isAdmin ? 'Administrator' : 'User' }}
+              </v-chip>
+              <v-btn icon variant="text" color="white" @click="handleLogout">
+                <v-icon>mdi-logout</v-icon>
+                <v-tooltip activator="parent">Logout</v-tooltip>
+              </v-btn>
+            </div>
           </div>
         </div>
 
@@ -30,7 +34,7 @@
           {{ error }}
         </v-alert>
 
-        <v-card v-if="auth.bootstrapRequired" class="rounded-lg elevation-2 mb-6">
+        <v-card v-if="auth.bootstrapRequired" class="card-lift mb-6">
           <v-card-title class="d-flex align-center">
             <v-icon start color="primary">mdi-shield-crown</v-icon>
             First-Time Deployment Bootstrap
@@ -75,7 +79,7 @@
 
         <v-row>
           <v-col v-for="tool in tools" :key="tool.key" cols="12" md="4">
-            <v-card class="rounded-lg elevation-2 fill-height d-flex flex-column" hover>
+            <v-card class="card-lift fill-height d-flex flex-column" hover>
               <v-card-title class="d-flex align-center">
                 <v-icon start color="primary">{{ tool.icon }}</v-icon>
                 {{ tool.title }}
@@ -150,3 +154,29 @@ async function handleLogout() {
   await auth.logout()
 }
 </script>
+<style scoped>
+.hero-row {
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.hero-brand {
+  min-width: 0;
+}
+.hero-logo {
+  height: 38px;
+  width: auto;
+  display: block;
+  flex-shrink: 0;
+}
+.hero-text {
+  min-width: 0;
+}
+.hero-subtitle {
+  opacity: 0.85;
+}
+@media (max-width: 959px) {
+  .hero-logo {
+    height: 30px;
+  }
+}
+</style>
