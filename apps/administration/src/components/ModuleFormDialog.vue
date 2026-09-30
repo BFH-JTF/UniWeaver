@@ -90,6 +90,29 @@
           <v-btn variant="outlined" size="small" prepend-icon="mdi-plus" @click="addConstraint">
             Add Constraint
           </v-btn>
+
+          <v-divider class="my-4" />
+          <h3 class="text-subtitle-1 mb-2">Scheduling Restrictions</h3>
+          <p class="text-caption text-medium-emphasis mb-2">
+            Weekday/time/date restrictions for scheduling. Inherited restrictions from parent degrees,
+            programs and departments apply automatically.
+          </p>
+          <v-btn
+            v-if="mod.id || mod._id"
+            variant="outlined"
+            size="small"
+            prepend-icon="mdi-shield-lock-outline"
+            @click="restrictionsDialogOpen = true"
+          >
+            Manage Restrictions
+          </v-btn>
+          <v-alert
+            v-else
+            type="info"
+            variant="tonal"
+            density="compact"
+            text="Save the module first to manage its scheduling restrictions."
+          />
         </v-form>
       </v-card-text>
       <v-card-actions>
@@ -98,6 +121,11 @@
         <v-btn color="primary" variant="flat" @click="submit">{{ isEdit ? 'Save' : 'Add' }}</v-btn>
       </v-card-actions>
     </v-card>
+
+    <RestrictionsDialog
+      v-model="restrictionsDialogOpen"
+      :owner="restrictionsOwner"
+    />
   </v-dialog>
 </template>
 
@@ -106,6 +134,8 @@ import { ref, computed, watch } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import type { Module, ModuleConstraint, Degree } from '@/types/curriculum'
 import type { ClassEntity } from '@/types/curriculumClass'
+import RestrictionsDialog from '@/components/RestrictionsDialog.vue'
+import type { RestrictionsOwner } from '@/composables/useRestrictions'
 
 const props = defineProps<{
   modelValue: boolean
@@ -143,6 +173,22 @@ const selectedDegreeIds = computed({
 // selection on the module dialog as a convenient editing field and pass it to
 // the parent for persistence on the class records.
 const selectedClassIds = ref<string[]>([])
+
+const restrictionsDialogOpen = ref(false)
+const restrictionsOwner = ref<RestrictionsOwner | null>(null)
+
+watch(() => props.moduleData?.id || props.moduleData?._id, (moduleId) => {
+  if (moduleId && props.moduleData) {
+    restrictionsOwner.value = {
+      table: 'modules',
+      id: moduleId,
+      name: props.moduleData.name || '',
+      _canEdit: props.moduleData._canEdit,
+    }
+  } else {
+    restrictionsOwner.value = null
+  }
+}, { immediate: true })
 
 const degreeItems = computed(() => {
   const auth = useAuthStore()

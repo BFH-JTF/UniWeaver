@@ -70,6 +70,10 @@
                 <v-tooltip activator="parent">Delete</v-tooltip>
               </v-btn>
             </template>
+            <v-btn icon variant="text" size="small" @click="openRestrictions(item, 'departments')">
+              <v-icon>mdi-shield-lock-outline</v-icon>
+              <v-tooltip activator="parent">Restrictions</v-tooltip>
+            </v-btn>
             <v-btn icon variant="text" size="small" @click="openAccess(item, 'departments')">
               <v-icon>mdi-account-multiple-outline</v-icon>
               <v-tooltip activator="parent">Access</v-tooltip>
@@ -114,7 +118,7 @@
             <span class="font-weight-medium">{{ item.name || item.code }}</span>
           </template>
           <template #item.code="{ item }">
-            {{ item.code || '—' }}
+            {{ item.code || 'â€”' }}
           </template>
           <template #item.startDate="{ item }">
             {{ formatDate(item.startDate) }}
@@ -212,7 +216,7 @@
               {{ getProgramName(item.programId) }}
             </template>
             <template #item.createdAt="{ item }">
-              {{ item.createdAt ? formatDate(item.createdAt) : '—' }}
+              {{ item.createdAt ? formatDate(item.createdAt) : 'â€”' }}
             </template>
             <template #item.actions="{ item }">
               <template v-if="auth.isAdmin">
@@ -313,6 +317,10 @@
                     <v-tooltip activator="parent">Delete</v-tooltip>
                   </v-btn>
                 </template>
+                <v-btn icon variant="text" size="small" @click="openRestrictions(item, 'programs')">
+                  <v-icon>mdi-shield-lock-outline</v-icon>
+                  <v-tooltip activator="parent">Restrictions</v-tooltip>
+                </v-btn>
                 <v-btn icon variant="text" size="small" @click="openAccess(item, 'programs')">
                   <v-icon>mdi-account-multiple-outline</v-icon>
                   <v-tooltip activator="parent">Access</v-tooltip>
@@ -390,6 +398,10 @@
                     <v-tooltip activator="parent">Delete</v-tooltip>
                   </v-btn>
                 </template>
+                <v-btn icon variant="text" size="small" @click="openRestrictions(item, 'degrees')">
+                  <v-icon>mdi-shield-lock-outline</v-icon>
+                  <v-tooltip activator="parent">Restrictions</v-tooltip>
+                </v-btn>
                 <v-btn icon variant="text" size="small" @click="openAccess(item, 'degrees')">
                   <v-icon>mdi-account-multiple-outline</v-icon>
                   <v-tooltip activator="parent">Access</v-tooltip>
@@ -479,6 +491,10 @@
                     <v-tooltip activator="parent">Delete</v-tooltip>
                   </v-btn>
                 </template>
+                <v-btn icon variant="text" size="small" @click="openRestrictions(item, 'modules')">
+                  <v-icon>mdi-shield-lock-outline</v-icon>
+                  <v-tooltip activator="parent">Restrictions</v-tooltip>
+                </v-btn>
                 <v-btn icon variant="text" size="small" @click="openAccess(item, 'modules')">
                   <v-icon>mdi-account-multiple-outline</v-icon>
                   <v-tooltip activator="parent">Access</v-tooltip>
@@ -567,6 +583,10 @@
                     <v-tooltip activator="parent">Delete</v-tooltip>
                   </v-btn>
                 </template>
+                <v-btn icon variant="text" size="small" @click="openRestrictions(item, 'classes')">
+                  <v-icon>mdi-shield-lock-outline</v-icon>
+                  <v-tooltip activator="parent">Restrictions</v-tooltip>
+                </v-btn>
                 <v-btn icon variant="text" size="small" @click="openAccess(item, 'classes')">
                   <v-icon>mdi-account-multiple-outline</v-icon>
                   <v-tooltip activator="parent">Access</v-tooltip>
@@ -641,6 +661,11 @@
       @changed="handleAccessChanged"
     />
 
+    <RestrictionsDialog
+      v-model="restrictionsDialogOpen"
+      :owner="restrictionsOwner"
+    />
+
     <CsvImportDialog
       v-model="csvImportDialogOpen"
       :initial-type="csvImportType"
@@ -684,6 +709,8 @@ import ClassFormDialog from '@/components/ClassFormDialog.vue'
 import SemesterFormDialog from '@/components/SemesterFormDialog.vue'
 import CurriculumVersionFormDialog from '@/components/CurriculumVersionFormDialog.vue'
 import AccessDialog from '@/components/AccessDialog.vue'
+import RestrictionsDialog from '@/components/RestrictionsDialog.vue'
+import type { RestrictionsOwner } from '@/composables/useRestrictions'
 import { useCurriculumVersions } from '@/composables/useCurriculumVersions'
 import CsvImportDialog from '@/components/CsvImportDialog.vue'
 import type { Department, Program, Degree, Module } from '@/types/curriculum'
@@ -803,6 +830,19 @@ const accessEntity = ref<'departments' | 'programs' | 'degrees' | 'modules' | 'c
 const accessEntityId = ref('')
 const accessEntityName = ref('')
 
+const restrictionsDialogOpen = ref(false)
+const restrictionsOwner = ref<RestrictionsOwner | null>(null)
+
+function openRestrictions(
+  item: { id?: string; _id?: string; name?: string; _canEdit?: boolean },
+  entity: 'departments' | 'programs' | 'degrees' | 'modules' | 'classes',
+) {
+  const id = item.id || item._id || ''
+  if (!id) return
+  restrictionsOwner.value = { table: entity, id, name: item.name ?? '', _canEdit: item._canEdit }
+  restrictionsDialogOpen.value = true
+}
+
 function openAccess(item: { id?: string; _id?: string; name?: string }, entity: typeof accessEntity.value) {
   const id = item.id || item._id || ''
   if (!id) return
@@ -835,7 +875,7 @@ const deptHeaders = [
   { title: 'Description', key: 'description', sortable: true },
   { title: 'Contact', key: 'contact', sortable: true },
   { title: 'URL', key: 'url', sortable: true },
-  { title: '', key: 'actions', sortable: false, width: '100px' },
+  { title: '', key: 'actions', sortable: false, width: '150px' },
 ]
 
 const progHeaders = [
@@ -844,7 +884,7 @@ const progHeaders = [
   { title: 'Description', key: 'description', sortable: true },
   { title: 'Contact', key: 'contact', sortable: true },
   { title: 'URL', key: 'url', sortable: true },
-  { title: '', key: 'actions', sortable: false, width: '100px' },
+  { title: '', key: 'actions', sortable: false, width: '150px' },
 ]
 
 const degHeaders = [
@@ -853,7 +893,7 @@ const degHeaders = [
   { title: 'Description', key: 'description', sortable: true },
   { title: 'Contact', key: 'contact', sortable: true },
   { title: 'URL', key: 'url', sortable: true },
-  { title: '', key: 'actions', sortable: false, width: '100px' },
+  { title: '', key: 'actions', sortable: false, width: '150px' },
 ]
 
 const modHeaders = [
@@ -863,7 +903,7 @@ const modHeaders = [
   { title: 'ECTS', key: 'creditPoints', sortable: true },
   { title: 'Contact hrs', key: 'contactHours', sortable: true },
   { title: 'Constraints', key: 'constraints', sortable: false },
-  { title: '', key: 'actions', sortable: false, width: '100px' },
+  { title: '', key: 'actions', sortable: false, width: '150px' },
 ]
 
 const clsHeaders = [
@@ -875,7 +915,7 @@ const clsHeaders = [
   { title: 'Semester', key: 'semesterId', sortable: false },
   { title: 'Description', key: 'description', sortable: true },
   { title: 'Contact', key: 'contact', sortable: true },
-  { title: '', key: 'actions', sortable: false, width: '100px' },
+  { title: '', key: 'actions', sortable: false, width: '150px' },
 ]
 
 const semHeaders = [
@@ -883,7 +923,7 @@ const semHeaders = [
   { title: 'Code', key: 'code', sortable: true },
   { title: 'Start', key: 'startDate', sortable: true },
   { title: 'End', key: 'endDate', sortable: true },
-  { title: '', key: 'actions', sortable: false, width: '100px' },
+  { title: '', key: 'actions', sortable: false, width: '150px' },
 ]
 
 const verHeaders = [
@@ -964,7 +1004,7 @@ const filteredPrograms = computed(() => {
   )
 })
 
-// Programs of the displayed curriculum version — only these can be selected
+// Programs of the displayed curriculum version â€” only these can be selected
 // when adding/editing a degree within the displayed curriculum.
 const programsOfDisplayedVersion = computed(() =>
   displayedVersionId.value === ''
@@ -1059,13 +1099,13 @@ const filteredVersions = computed(() => {
   )
 })
 
-// ── Displayed curriculum version ─────────────────────────────────
+// â”€â”€ Displayed curriculum version â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const hasDisplayedVersion = computed(() => displayedVersionId.value !== '')
 
 const displayedVersionItems = computed(() => [
   { title: 'No version selected', value: '' },
   ...curriculumVersions.value.map(v => ({
-    title: `${v.name || 'Version'} (v${v.versionNumber}) — ${getProgramName(v.programId)}`,
+    title: `${v.name || 'Version'} (v${v.versionNumber}) â€” ${getProgramName(v.programId)}`,
     value: v._id || v.id || '',
   })).filter(i => i.value),
 ])
@@ -1335,7 +1375,7 @@ async function handleVersionSave(version: CurriculumVersion) {
 }
 
 function getProgramName(programId: string | undefined): string {
-  if (!programId) return '—'
+  if (!programId) return 'â€”'
   const prog = programs.value.find(p => p.id === programId)
   return prog ? (prog.name || programId) : programId
 }

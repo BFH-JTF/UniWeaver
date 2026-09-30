@@ -3,6 +3,8 @@ export const TOOL_ROUTES = ['administration', 'scheduling', 'competencies'] as c
 export type ToolRoute = (typeof TOOL_ROUTES)[number]
 
 export { api, ApiRequestError, getApiBaseUrl } from './api'
+export * from './restrictions'
+export * from './restrictionSolver'
 
 export interface ToolLink {
   key: ToolRoute
