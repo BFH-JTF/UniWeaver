@@ -1,0 +1,39 @@
+{
+  "name": "uniweaver",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/shared",
+    "backend",
+    "apps/user_entry",
+    "apps/administration",
+    "apps/scheduling",
+    "apps/competencies"
+  ],
+  "scripts": {
+    "dev": "concurrently -n \"backend,user_entry,admin,sched,comp\" -c \"blue,green,yellow,magenta,cyan\" \"npm run dev -w backend\" \"npm run dev -w apps/user_entry\" \"npm run dev -w apps/administration\" \"npm run dev -w apps/scheduling\" \"npm run dev -w apps/competencies\"",
+    "dev:backend": "npm run dev -w backend",
+    "build": "npm run build -w packages/shared && npm run build -w apps/user_entry && npm run build -w apps/administration && npm run build -w apps/scheduling && npm run build -w apps/competencies",
+    "start": "npm run start -w backend",
+    "typecheck": "npm run typecheck -w packages/shared && npm run typecheck -w backend && npm run typecheck -w apps/user_entry && npm run typecheck -w apps/administration && npm run typecheck -w apps/scheduling && npm run typecheck -w apps/competencies",
+    "lint": "eslint packages backend apps --ext .ts,.vue",
+    "lint:fix": "eslint packages backend apps --ext .ts,.vue --fix",
+    "test": "npm run test -w backend"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^26.5.1",
+    "concurrently": "^10.0.5",
+    "eslint": "^10.10.0",
+    "eslint-plugin-vue": "^10.11.0",
+    "eslint-plugin-vuejs-accessibility": "^2.6.0",
+    "tsx": "^4.23.13",
+    "typescript": "~5.7",
+    "typescript-eslint": "^8.70.0",
+    "vue-eslint-parser": "^10.4.1"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

@@ -1,0 +1,71 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: uniweaver-postgres
+    environment:
+      POSTGRES_DB: uniweaver
+      POSTGRES_USER: uniweaver
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-uniweaver}
+    ports:
+      - "5432:5432"
+    volumes:
+      - "./postgres-data:/var/lib/postgresql/data"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U uniweaver -d uniweaver"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: uniweaver-app
+    ports:
+      - "3000:3000"
+    environment:
+      PORT: 3000
+      NODE_ENV: production
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: uniweaver
+      POSTGRES_USER: uniweaver
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-uniweaver}
+      SESSION_SECRET: ${SESSION_SECRET:-please-set-a-proper-session-secret-with-at-least-32-chars}
+      BOOTSTRAP_ADMIN_SECRET: ${BOOTSTRAP_ADMIN_SECRET:-}
+      OIDC_ISSUER: ${OIDC_ISSUER:-http://localhost:3000/oidc}
+      # Issuer URL as reachable from inside the docker network (backend -> provider).
+      # Only needed when the browser-facing URL differs (e.g. doc-pouch internal hostname).
+      OIDC_INTERNAL_ISSUER: ${OIDC_INTERNAL_ISSUER:-http://doc-pouch:3030/oidc}
+      # Optional: pin the aud claim to this client. Leave empty when the SPA
+      # self-registers its OIDC client via dynamic registration.
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-}
+      OIDC_PROVIDER_NAME: ${OIDC_PROVIDER_NAME:-docPouch}
+      USER_ENTRY_URL: ${USER_ENTRY_URL:-http://localhost:3000/user_entry}
+      ADMINISTRATION_URL: ${ADMINISTRATION_URL:-http://localhost:3000/administration}
+      SCHEDULING_URL: ${SCHEDULING_URL:-http://localhost:3000/scheduling}
+      COMPETENCIES_URL: ${COMPETENCIES_URL:-http://localhost:3000/competencies}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # OIDC identity provider service (docPouch instance as an OIDC provider).
+  # docPouch is not used as data storage. Not behind a compose profile: login
+  # depends on it, and a profile-gated service is destroyed whenever compose
+  # runs without --profile oidc (which took the provider down repeatedly).
+  # To use an external identity provider instead, remove this service and
+  # point OIDC_ISSUER / OIDC_INTERNAL_ISSUER at your provider.
+  doc-pouch:
+    image: ghcr.io/bfh-jtf/doc-pouch:latest
+    container_name: uniweaver-docpouch-oidc
+    ports:
+      # Provider is reached through the app's same-origin /oidc proxy; the
+      # direct port is only published for optional admin access to docPouch.
+      - "127.0.0.1:3030:3030"
+    volumes:
+      - "./docpouch-db:/app/db"
+      - "./docpouch-log:/app/log"
+    env_file: .env
+    restart: unless-stopped

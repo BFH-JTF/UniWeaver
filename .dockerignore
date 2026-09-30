@@ -1,0 +1,10 @@
+node_modules
+dist
+postgres-data
+docpouch-db
+docpouch-log
+.git
+.idea
+*.md
+.env
+.env.example

@@ -1,0 +1,8 @@
+/.idea/
+node_modules/
+dist/
+*.tsbuildinfo
+postgres-data/
+docpouch-db/
+docpouch-log/
+.env
