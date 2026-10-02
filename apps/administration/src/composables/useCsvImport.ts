@@ -17,7 +17,6 @@ export function useCsvImport() {
     programs: EntityTables.PROGRAM,
     degrees: EntityTables.DEGREE,
     availability: EntityTables.LECTURER_AVAILABILITY,
-    scheduling_rules: EntityTables.SCHEDULING_RULE,
     room_availability: EntityTables.ROOM_AVAILABILITY,
     weeks: EntityTables.WEEK,
     schedule_entries: EntityTables.SCHEDULE_ENTRY,

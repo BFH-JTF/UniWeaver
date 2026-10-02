@@ -23,20 +23,3 @@ export interface LecturerAvailability {
   created_at?: string
   updated_at?: string
 }
-
-export type ConstraintCategory = 'hard' | 'soft'
-
-export interface SchedulingRule {
-  _id?: string
-  id?: string
-  ruleType: string
-  category: ConstraintCategory
-  weight: number
-  enabled: boolean
-  description?: string
-  params?: Record<string, unknown>
-  appliesTo?: string[]
-  semesterId?: string
-  created_at?: string
-  updated_at?: string
-}

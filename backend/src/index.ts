@@ -7,6 +7,8 @@ import { createProxyMiddleware } from 'http-proxy-middleware'
 import { appRoot, initDb, isDbConnected, closeDb } from './db'
 import { authRouter } from './routes/auth'
 import { usersRouter } from './routes/users'
+import { entitiesRouter } from './routes/entities'
+import { restrictionsRouter } from './routes/restrictions'
 
 export const app = express()
 const PORT = process.env.PORT || 3000
@@ -28,6 +30,16 @@ app.get('/api/health', (_req: Request, res: Response) => {
     timestamp: new Date().toISOString(),
   })
 })
+
+// Restrictions CRUD + effective (inherited) restriction resolution for
+// curriculum entities. Mounted before the generic entity router so
+// /:table/:id/restrictions is matched here first.
+app.use('/api', restrictionsRouter)
+
+// Generic entity CRUD + per-object access management. Mounted after the fixed
+// routes above so it cannot shadow them; the router itself 404s any table
+// outside its TABLE_SPECS registry.
+app.use('/api', entitiesRouter)
 
 interface AppMount {
   path: string

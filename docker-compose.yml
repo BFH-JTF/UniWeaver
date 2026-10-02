@@ -36,8 +36,10 @@ services:
       BOOTSTRAP_ADMIN_SECRET: ${BOOTSTRAP_ADMIN_SECRET:-}
       OIDC_ISSUER: ${OIDC_ISSUER:-http://localhost:3000/oidc}
       # Issuer URL as reachable from inside the docker network (backend -> provider).
-      # Only needed when the browser-facing URL differs (e.g. doc-pouch internal hostname).
-      OIDC_INTERNAL_ISSUER: ${OIDC_INTERNAL_ISSUER:-http://doc-pouch:3030/oidc}
+      # Deliberately NOT read from OIDC_INTERNAL_ISSUER: that variable in .env
+      # holds the host-visible URL (http://localhost:3030/oidc) used when the
+      # backend runs via `npm run dev`. Override with OIDC_INTERNAL_ISSUER_DOCKER.
+      OIDC_INTERNAL_ISSUER: ${OIDC_INTERNAL_ISSUER_DOCKER:-http://doc-pouch:3030/oidc}
       # Optional: pin the aud claim to this client. Leave empty when the SPA
       # self-registers its OIDC client via dynamic registration.
       OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-}

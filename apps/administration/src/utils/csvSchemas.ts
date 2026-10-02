@@ -4,7 +4,7 @@ import type { Location } from '@/types/location'
 import type { Competency, SkillLevel } from '@/types/competency'
 import type { Department, Program, Degree, Module } from '@/types/curriculum'
 import type { ProofOfCompetency, AnswerFormat } from '@/types/proofOfCompetency'
-import type { LecturerAvailability, SchedulingRule } from '@/types/schedule'
+import type { LecturerAvailability } from '@/types/schedule'
 import type { MatrixCompetency } from '@/types/matrixCompetency'
 import type { RoomAvailability } from '@/types/roomAvailability'
 import type { Week } from '@/types/week'
@@ -670,14 +670,6 @@ export const IMPORT_CONFIGS: Record<ImportType, ImportTypeConfig> = {
         description: 'ECTS credits',
         aliases: ['creditpoints', 'credit_points', 'credits', 'ects', 'points'],
       },
-      {
-        key: 'contactHours',
-        label: 'Contact Hours',
-        required: false,
-        type: 'number',
-        description: 'Classroom teaching hours',
-        aliases: ['contacthours', 'contact_hours', 'contact hours', 'kontaktzeit', 'praesenz'],
-      },
     ],
     transform: (mappedRows: Record<string, any>[]): Module[] => {
       return mappedRows.map(obj => {
@@ -701,9 +693,6 @@ export const IMPORT_CONFIGS: Record<ImportType, ImportTypeConfig> = {
         }
         if (obj.creditPoints !== undefined && obj.creditPoints !== '') {
           mod.creditPoints = Number(obj.creditPoints) || undefined
-        }
-        if (obj.contactHours !== undefined && obj.contactHours !== '') {
-          mod.contactHours = Number(obj.contactHours) || undefined
         }
         return mod
       })
@@ -1123,114 +1112,6 @@ export const IMPORT_CONFIGS: Record<ImportType, ImportTypeConfig> = {
         }
         if (row.weekId) avail.weekId = String(row.weekId).trim()
         return avail
-      })
-    },
-  },
-
-  scheduling_rules: {
-    type: 'scheduling_rules',
-    label: 'Scheduling Rules',
-    icon: 'mdi-tune-vertical',
-    description: 'Constraint rules for CP-SAT timetable generation.',
-    entityName: 'Rule',
-    fields: [
-      {
-        key: 'ruleType',
-        label: 'Rule Type',
-        required: true,
-        type: 'enum',
-        description: 'The scheduling constraint to apply',
-        options: [
-          'NO_TEACHER_OVERLAP', 'ROOM_CAPACITY', 'ROOM_OCCUPANCY', 'UNAVAILABLE_DATES',
-          'ALLOWED_WEEKDAYS', 'ALLOWED_PHASE', 'FIXED_DAY', 'WEEKLY_BALANCE',
-          'AVOID_FRIDAY_AFTERNOON', 'AVOID_SATURDAY', 'PREFER_MORNING',
-          'AVOID_EVENING', 'MINIMIZE_STUDENT_GAPS', 'PREFER_EARLY_DATES',
-        ],
-        aliases: ['ruletype', 'rule_type', 'rule type', 'constraint_id', 'constraint', 'rule', 'regel', 'constraintid', 'rule_id'],
-      },
-      {
-        key: 'semesterId',
-        label: 'Semester ID',
-        required: true,
-        type: 'string',
-        description: 'ID of the semester this rule applies to',
-        aliases: ['semester_id', 'semester id', 'semester', 'semesterid'],
-      },
-      {
-        key: 'category',
-        label: 'Category',
-        required: true,
-        type: 'enum',
-        description: 'hard (must satisfy) or soft (preference with penalty)',
-        options: ['hard', 'soft'],
-        aliases: ['category', 'kategorie', 'type', 'constraint_category'],
-      },
-      {
-        key: 'weight',
-        label: 'Priority Level',
-        required: false,
-        type: 'string',
-        description: 'Priority for soft constraints: nice-to-have(1), preferred(5), desired(10), almost mandatory(20). Also accepts numeric values.',
-        defaultValue: 1,
-        aliases: ['weight', 'gewicht', 'penalty', 'priority', 'priority_level'],
-      },
-      {
-        key: 'enabled',
-        label: 'Enabled',
-        required: false,
-        type: 'boolean',
-        description: 'Whether this rule is active (true/false)',
-        defaultValue: true,
-        aliases: ['enabled', 'active', 'aktiv', 'is_enabled'],
-      },
-      {
-        key: 'description',
-        label: 'Description',
-        required: false,
-        type: 'string',
-        description: 'Human-readable description of the rule',
-        aliases: ['description', 'beschreibung', 'desc', 'text', 'note'],
-      },
-      {
-        key: 'appliesTo',
-        label: 'Applies To',
-        required: false,
-        type: 'string',
-        description: 'Module IDs or names this rule applies to (comma-separated, empty = all)',
-        aliases: ['applies_to', 'applies', 'targets', 'modules', 'module_ids', 'gilt_fuer'],
-      },
-    ],
-    transform: (mappedRows: Record<string, any>[]): SchedulingRule[] => {
-      const WEIGHT_MAP: Record<string, number> = {
-        'nice-to-have': 1,
-        'nice to have': 1,
-        'preferred': 5,
-        'desired': 10,
-        'almost mandatory': 20,
-        'almost-mandatory': 20,
-      }
-      return mappedRows.map(row => {
-        let weight: number
-        const rawWeight = String(row.weight ?? '1').trim().toLowerCase()
-        if (WEIGHT_MAP[rawWeight] !== undefined) {
-          weight = WEIGHT_MAP[rawWeight]
-        } else {
-          weight = Number(row.weight) || 1
-        }
-        const rule: SchedulingRule = {
-          ruleType: String(row.ruleType || ''),
-          semesterId: String(row.semesterId || ''),
-          category: row.category === 'soft' ? 'soft' : 'hard',
-          weight,
-          enabled: parseBoolean(row.enabled ?? true),
-          description: row.description ? String(row.description) : undefined,
-          appliesTo: row.appliesTo ? parseStringArray(row.appliesTo) : undefined,
-          params: undefined,
-        }
-        if (rule.category === 'hard') {
-          rule.weight = 1
-        }
-        return rule
       })
     },
   },

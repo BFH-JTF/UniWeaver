@@ -3,16 +3,16 @@ import { ref } from 'vue'
 import { usePostgres, EntityTables } from '@/composables/usePostgres'
 import type { Room } from '@/types/room'
 import type { Location } from '@/types/location'
-import type { Department, Program, Degree, Module, ModuleConstraint } from '@/types/curriculum'
-import type { LecturerAvailability, SchedulingRule } from '@/types/schedule'
+import type { Department, Program, Degree, Module } from '@/types/curriculum'
+import type { LecturerAvailability } from '@/types/schedule'
 import type { MatrixCompetency } from '@/types/matrixCompetency'
 import type { CompetencyMatrix } from '@/types/competencyMatrix'
 import type { RoomAvailability } from '@/types/roomAvailability'
 import type { Week } from '@/types/week'
 import type { ScheduleEntry } from '@/types/scheduleEntry'
 
-export type { Department, Program, Degree, Module, ModuleConstraint }
-export type { LecturerAvailability, SchedulingRule }
+export type { Department, Program, Degree, Module }
+export type { LecturerAvailability }
 
 export interface CurriculumVersion {
   _id?: string
@@ -22,7 +22,11 @@ export interface CurriculumVersion {
   versionNumber: number
   /** @deprecated Use versionNumber instead */
   version?: number
-  programId?: string
+  /** Semester this curriculum version is for (optional) */
+  semesterId?: string
+  /** User id of the creator; resolved display name in createdByName */
+  createdBy?: string
+  createdByName?: string
   createdAt?: string
 }
 
@@ -33,6 +37,10 @@ export interface Semester {
   code?: string
   startDate: string
   endDate: string
+  /** Length of one timeslot in minutes; slots are the only valid module start times */
+  slotDurationMinutes?: number
+  /** Sorted HH:MM start points of the timeslots, identical for all weekdays */
+  slotStartTimes?: string[]
 }
 
 export interface Lesson {
@@ -76,7 +84,6 @@ export const useCurriculumStore = defineStore('curriculum', () => {
   const locations = ref<Location[]>([])
   const lecturers = ref<Lecturer[]>([])
   const lecturerAvailabilities = ref<LecturerAvailability[]>([])
-  const schedulingRules = ref<SchedulingRule[]>([])
   const taxonomyItems = ref<TaxonomyItem[]>([])
   const competencyMatrices = ref<CompetencyMatrix[]>([])
   const matrixCompetencies = ref<MatrixCompetency[]>([])
@@ -218,18 +225,6 @@ export const useCurriculumStore = defineStore('curriculum', () => {
     }
   }
 
-  async function fetchSchedulingRules() {
-    loading.value = true
-    error.value = null
-    try {
-      schedulingRules.value = await fetchEntities<SchedulingRule>(EntityTables.SCHEDULING_RULE)
-    } catch (e: any) {
-      error.value = e.message
-    } finally {
-      loading.value = false
-    }
-  }
-
   async function fetchTaxonomyItems() {
     loading.value = true
     error.value = null
@@ -314,7 +309,6 @@ export const useCurriculumStore = defineStore('curriculum', () => {
     locations,
     lecturers,
     lecturerAvailabilities,
-    schedulingRules,
     taxonomyItems,
     competencyMatrices,
     matrixCompetencies,
@@ -334,7 +328,6 @@ export const useCurriculumStore = defineStore('curriculum', () => {
     fetchLocations,
     fetchLecturers,
     fetchLecturerAvailabilities,
-    fetchSchedulingRules,
     fetchTaxonomyItems,
     fetchCompetencyMatrices,
     fetchMatrixCompetencies,

@@ -36,6 +36,18 @@
             class="mb-3"
           />
 
+          <v-select
+            v-model="form.semesterId"
+            :items="semesterItems"
+            label="Semester *"
+            variant="outlined"
+            density="compact"
+            :rules="[v => !!v || 'Semester is required']"
+            hint="Semester this curriculum version is intended for; defines the timeslot grid for modules and scheduling"
+            persistent-hint
+            class="mb-3"
+          />
+
           <v-text-field
             :model-value="form.versionNumber"
             label="Version Number"
@@ -71,6 +83,7 @@ import { emptyCurriculumVersion } from '@/composables/useCurriculumVersions'
 const props = defineProps<{
   modelValue: boolean
   versionData: CurriculumVersion | null
+  semesters?: Array<{ _id?: string; id?: string; name?: string; code?: string }>
 }>()
 
 const emit = defineEmits<{
@@ -79,6 +92,15 @@ const emit = defineEmits<{
 }>()
 
 const isEdit = computed(() => !!props.versionData?._id || !!props.versionData?.id)
+
+const semesterItems = computed(() =>
+  (props.semesters ?? [])
+    .map(s => ({
+      title: s.name || s.code || s.id || s._id || 'Unnamed',
+      value: s.id || s._id || '',
+    }))
+    .filter(i => i.value)
+)
 
 const form = ref<CurriculumVersion>(JSON.parse(JSON.stringify(emptyCurriculumVersion())))
 const formRef = ref()

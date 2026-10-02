@@ -2,18 +2,29 @@ import { Router, Response } from 'express'
 import { getAllUsers, getUserById, searchUsers, updateUser, LastAdminError, UpdateUserData } from '../db/users'
 import { getPool } from '../db'
 import type { AuthenticatedRequest } from '../auth/middleware'
-import { requireAdmin } from '../auth/middleware'
+import { requireAdmin, requireAuth } from '../auth/middleware'
 
 export const usersRouter = Router()
 
-usersRouter.get('/search', requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
+// Relaxed to requireAuth so object-level administrators can look up
+// collaborators for the Access dialog; only minimal fields are returned.
+usersRouter.get('/search', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const q = String(req.query.q || '')
     if (!q || q.length < 1) {
       res.json([])
       return
     }
-    res.json(await searchUsers(getPool(), q))
+    const users = await searchUsers(getPool(), q)
+    res.json(users
+      .filter(u => u.is_active !== false)
+      .map(u => ({
+        id: u.id,
+        name: u.display_name || u.name || u.id,
+        email: u.email,
+        is_admin: u.is_admin,
+        is_active: u.is_active,
+      })))
   } catch (error: any) {
     res.status(500).json({ error: error.message || 'Failed to search users' })
   }

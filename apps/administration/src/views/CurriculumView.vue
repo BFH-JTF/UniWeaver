@@ -56,7 +56,8 @@
           </template>
           <template #item.name="{ item }">
             <span>{{ item.name }}</span>
-            <v-chip v-if="item._canEdit" size="x-small" variant="tonal" color="primary" class="ml-1">Admin</v-chip>
+            <v-chip v-if="item._isAdmin" size="x-small" variant="tonal" color="primary" class="ml-1">Admin</v-chip>
+            <v-chip v-else-if="item._canEdit" size="x-small" variant="tonal" color="secondary" class="ml-1">Write</v-chip>
           </template>
           <template #item.actions="{ item }">
             <template v-if="item._canEdit">
@@ -64,12 +65,19 @@
                 <v-icon>mdi-pencil</v-icon>
                 <v-tooltip activator="parent">Edit</v-tooltip>
               </v-btn>
-              <v-btn icon variant="text" size="small" @click="confirmDeleteDepartment(item)">
+              <v-btn v-if="item._isAdmin" icon variant="text" size="small" @click="confirmDeleteDepartment(item)">
                 <v-icon>mdi-delete</v-icon>
                 <v-tooltip activator="parent">Delete</v-tooltip>
               </v-btn>
             </template>
-            <span v-else class="text-medium-emphasis text-caption">Read-only</span>
+            <v-btn icon variant="text" size="small" @click="openRestrictions(item, 'departments')">
+              <v-icon>mdi-shield-lock-outline</v-icon>
+              <v-tooltip activator="parent">Restrictions</v-tooltip>
+            </v-btn>
+            <v-btn icon variant="text" size="small" @click="openAccess(item, 'departments')">
+              <v-icon>mdi-account-multiple-outline</v-icon>
+              <v-tooltip activator="parent">Access</v-tooltip>
+            </v-btn>
           </template>
           <template #no-data>
             <div class="text-center pa-4">
@@ -117,6 +125,15 @@
           </template>
           <template #item.endDate="{ item }">
             {{ formatDate(item.endDate) }}
+          </template>
+          <template #item.slotStartTimes="{ item }">
+            <span v-if="item.slotDurationMinutes && item.slotStartTimes && item.slotStartTimes.length > 0">
+              <v-tooltip activator="parent" location="top">
+                {{ item.slotStartTimes.join(', ') }}
+              </v-tooltip>
+              {{ item.slotDurationMinutes }} min · {{ item.slotStartTimes.length }} starts
+            </span>
+            <span v-else class="text-medium-emphasis">—</span>
           </template>
           <template #item.actions="{ item }">
             <template v-if="auth.isAdmin">
@@ -204,8 +221,11 @@
             <template #item.versionNumber="{ item }">
               {{ item.versionNumber }}
             </template>
-            <template #item.programId="{ item }">
-              {{ getProgramName(item.programId) }}
+            <template #item.semesterId="{ item }">
+              {{ getSemesterName(item.semesterId) || '—' }}
+            </template>
+            <template #item.createdByName="{ item }">
+              {{ item.createdByName || '—' }}
             </template>
             <template #item.createdAt="{ item }">
               {{ item.createdAt ? formatDate(item.createdAt) : '—' }}
@@ -295,7 +315,8 @@
               </template>
               <template #item.name="{ item }">
                 <span>{{ item.name }}</span>
-                <v-chip v-if="item._canEdit" size="x-small" variant="tonal" color="primary" class="ml-1">Admin</v-chip>
+                <v-chip v-if="item._isAdmin" size="x-small" variant="tonal" color="primary" class="ml-1">Admin</v-chip>
+                <v-chip v-else-if="item._canEdit" size="x-small" variant="tonal" color="secondary" class="ml-1">Write</v-chip>
               </template>
               <template #item.actions="{ item }">
                 <template v-if="item._canEdit">
@@ -303,12 +324,19 @@
                     <v-icon>mdi-pencil</v-icon>
                     <v-tooltip activator="parent">Edit</v-tooltip>
                   </v-btn>
-                  <v-btn icon variant="text" size="small" @click="confirmDeleteProgram(item)">
+                  <v-btn v-if="item._isAdmin" icon variant="text" size="small" @click="confirmDeleteProgram(item)">
                     <v-icon>mdi-delete</v-icon>
                     <v-tooltip activator="parent">Delete</v-tooltip>
                   </v-btn>
                 </template>
-                <span v-else class="text-medium-emphasis text-caption">Read-only</span>
+                <v-btn icon variant="text" size="small" @click="openRestrictions(item, 'programs')">
+                  <v-icon>mdi-shield-lock-outline</v-icon>
+                  <v-tooltip activator="parent">Restrictions</v-tooltip>
+                </v-btn>
+                <v-btn icon variant="text" size="small" @click="openAccess(item, 'programs')">
+                  <v-icon>mdi-account-multiple-outline</v-icon>
+                  <v-tooltip activator="parent">Access</v-tooltip>
+                </v-btn>
               </template>
               <template #no-data>
                 <div class="text-center pa-4">
@@ -322,7 +350,7 @@
           <div v-if="curriculumTab === 'degrees'">
             <v-row class="align-center mb-4">
               <v-col cols="12" sm="6" class="d-flex ga-2">
-                <v-btn v-if="auth.isAdmin" color="primary" prepend-icon="mdi-plus" @click="openAddDegree">Add Degree</v-btn>
+                <v-btn v-if="canCreateDegrees" color="primary" prepend-icon="mdi-plus" @click="openAddDegree">Add Degree</v-btn>
                 <v-btn v-if="auth.isAdmin" variant="outlined" prepend-icon="mdi-file-import" @click="openCsvImport('degrees')">Import CSV</v-btn>
               </v-col>
               <v-col cols="12" sm="6">
@@ -368,7 +396,8 @@
               </template>
               <template #item.name="{ item }">
                 <span>{{ item.name }}</span>
-                <v-chip v-if="item._canEdit" size="x-small" variant="tonal" color="primary" class="ml-1">Admin</v-chip>
+                <v-chip v-if="item._isAdmin" size="x-small" variant="tonal" color="primary" class="ml-1">Admin</v-chip>
+                <v-chip v-else-if="item._canEdit" size="x-small" variant="tonal" color="secondary" class="ml-1">Write</v-chip>
               </template>
               <template #item.actions="{ item }">
                 <template v-if="item._canEdit">
@@ -376,12 +405,19 @@
                     <v-icon>mdi-pencil</v-icon>
                     <v-tooltip activator="parent">Edit</v-tooltip>
                   </v-btn>
-                  <v-btn icon variant="text" size="small" @click="confirmDeleteDegree(item)">
+                  <v-btn v-if="item._isAdmin" icon variant="text" size="small" @click="confirmDeleteDegree(item)">
                     <v-icon>mdi-delete</v-icon>
                     <v-tooltip activator="parent">Delete</v-tooltip>
                   </v-btn>
                 </template>
-                <span v-else class="text-medium-emphasis text-caption">Read-only</span>
+                <v-btn icon variant="text" size="small" @click="openRestrictions(item, 'degrees')">
+                  <v-icon>mdi-shield-lock-outline</v-icon>
+                  <v-tooltip activator="parent">Restrictions</v-tooltip>
+                </v-btn>
+                <v-btn icon variant="text" size="small" @click="openAccess(item, 'degrees')">
+                  <v-icon>mdi-account-multiple-outline</v-icon>
+                  <v-tooltip activator="parent">Access</v-tooltip>
+                </v-btn>
               </template>
               <template #no-data>
                 <div class="text-center pa-4">
@@ -395,7 +431,7 @@
           <div v-if="curriculumTab === 'modules'">
             <v-row class="align-center mb-4">
               <v-col cols="12" sm="6" class="d-flex ga-2">
-                <v-btn v-if="auth.isAdmin" color="primary" prepend-icon="mdi-plus" @click="openAddModule">Add Module</v-btn>
+                <v-btn v-if="canCreateModules" color="primary" prepend-icon="mdi-plus" @click="openAddModule">Add Module</v-btn>
                 <v-btn v-if="auth.isAdmin" variant="outlined" prepend-icon="mdi-file-import" @click="openCsvImport('modules')">Import CSV</v-btn>
               </v-col>
               <v-col cols="12" sm="6">
@@ -431,29 +467,19 @@
                 <span v-else class="text-medium-emphasis">-</span>
               </template>
               <template #item.creditPoints="{ item }">
-                {{ item.creditPoints ?? '-' }}
+                {{ item.creditPoints ?? '—' }}
               </template>
-              <template #item.contactHours="{ item }">
-                {{ item.contactHours ?? '-' }}
-              </template>
-              <template #item.constraints="{ item }">
-                <template v-if="item.constraints && item.constraints.length">
-                  <v-chip
-                    v-for="(c, idx) in item.constraints"
-                    :key="idx"
-                    size="x-small"
-                    :color="c.type === 'requires' ? 'info' : c.type === 'corequisite' ? 'warning' : 'error'"
-                    variant="tonal"
-                    class="mr-1"
-                  >
-                    {{ c.type }}: {{ getModuleName(c.targetModuleId) }}
-                  </v-chip>
-                </template>
-                <span v-else class="text-medium-emphasis">-</span>
+              <template #item.timeslots="{ item }">
+                <span v-if="item.timeslots != null && displayedSemesterTimeslots" class="text-medium-emphasis">
+                  {{ item.timeslots }} × {{ displayedSemesterTimeslots.duration }} min
+                </span>
+                <span v-else-if="item.timeslots != null">{{ item.timeslots }}</span>
+                <span v-else class="text-medium-emphasis">—</span>
               </template>
               <template #item.name="{ item }">
                 <span>{{ item.name }}</span>
-                <v-chip v-if="item._canEdit" size="x-small" variant="tonal" color="primary" class="ml-1">Admin</v-chip>
+                <v-chip v-if="item._isAdmin" size="x-small" variant="tonal" color="primary" class="ml-1">Admin</v-chip>
+                <v-chip v-else-if="item._canEdit" size="x-small" variant="tonal" color="secondary" class="ml-1">Write</v-chip>
               </template>
               <template #item.actions="{ item }">
                 <template v-if="item._canEdit">
@@ -461,12 +487,19 @@
                     <v-icon>mdi-pencil</v-icon>
                     <v-tooltip activator="parent">Edit</v-tooltip>
                   </v-btn>
-                  <v-btn icon variant="text" size="small" @click="confirmDeleteModule(item)">
+                  <v-btn v-if="item._isAdmin" icon variant="text" size="small" @click="confirmDeleteModule(item)">
                     <v-icon>mdi-delete</v-icon>
                     <v-tooltip activator="parent">Delete</v-tooltip>
                   </v-btn>
                 </template>
-                <span v-else class="text-medium-emphasis text-caption">Read-only</span>
+                <v-btn icon variant="text" size="small" @click="openRestrictions(item, 'modules')">
+                  <v-icon>mdi-shield-lock-outline</v-icon>
+                  <v-tooltip activator="parent">Restrictions</v-tooltip>
+                </v-btn>
+                <v-btn icon variant="text" size="small" @click="openAccess(item, 'modules')">
+                  <v-icon>mdi-account-multiple-outline</v-icon>
+                  <v-tooltip activator="parent">Access</v-tooltip>
+                </v-btn>
               </template>
               <template #no-data>
                 <div class="text-center pa-4">
@@ -537,7 +570,8 @@
               </template>
               <template #item.name="{ item }">
                 <span>{{ item.name }}</span>
-                <v-chip v-if="item._canEdit" size="x-small" variant="tonal" color="primary" class="ml-1">Admin</v-chip>
+                <v-chip v-if="item._isAdmin" size="x-small" variant="tonal" color="primary" class="ml-1">Admin</v-chip>
+                <v-chip v-else-if="item._canEdit" size="x-small" variant="tonal" color="secondary" class="ml-1">Write</v-chip>
               </template>
               <template #item.actions="{ item }">
                 <template v-if="item._canEdit">
@@ -545,12 +579,19 @@
                     <v-icon>mdi-pencil</v-icon>
                     <v-tooltip activator="parent">Edit</v-tooltip>
                   </v-btn>
-                  <v-btn icon variant="text" size="small" @click="confirmDeleteClass(item)">
+                  <v-btn v-if="item._isAdmin" icon variant="text" size="small" @click="confirmDeleteClass(item)">
                     <v-icon>mdi-delete</v-icon>
                     <v-tooltip activator="parent">Delete</v-tooltip>
                   </v-btn>
                 </template>
-                <span v-else class="text-medium-emphasis text-caption">Read-only</span>
+                <v-btn icon variant="text" size="small" @click="openRestrictions(item, 'classes')">
+                  <v-icon>mdi-shield-lock-outline</v-icon>
+                  <v-tooltip activator="parent">Restrictions</v-tooltip>
+                </v-btn>
+                <v-btn icon variant="text" size="small" @click="openAccess(item, 'classes')">
+                  <v-icon>mdi-account-multiple-outline</v-icon>
+                  <v-tooltip activator="parent">Access</v-tooltip>
+                </v-btn>
               </template>
               <template #no-data>
                 <div class="text-center pa-4">
@@ -589,6 +630,7 @@
       :module-data="editModule"
       :degrees="degreesOfDisplayedVersion"
       :classes="classes"
+      :semester-timeslots="displayedSemesterTimeslots"
       @save="handleModuleSave"
     />
 
@@ -610,7 +652,21 @@
     <CurriculumVersionFormDialog
       v-model="verDialogOpen"
       :version-data="editVersion"
+      :semesters="semesterList"
       @save="handleVersionSave"
+    />
+
+    <AccessDialog
+      v-model="accessDialogOpen"
+      :entity="accessEntity"
+      :entity-id="accessEntityId"
+      :entity-name="accessEntityName"
+      @changed="handleAccessChanged"
+    />
+
+    <RestrictionsDialog
+      v-model="restrictionsDialogOpen"
+      :owner="restrictionsOwner"
     />
 
     <CsvImportDialog
@@ -655,6 +711,9 @@ import ModuleFormDialog from '@/components/ModuleFormDialog.vue'
 import ClassFormDialog from '@/components/ClassFormDialog.vue'
 import SemesterFormDialog from '@/components/SemesterFormDialog.vue'
 import CurriculumVersionFormDialog from '@/components/CurriculumVersionFormDialog.vue'
+import AccessDialog from '@/components/AccessDialog.vue'
+import RestrictionsDialog from '@/components/RestrictionsDialog.vue'
+import type { RestrictionsOwner } from '@/composables/useRestrictions'
 import { useCurriculumVersions } from '@/composables/useCurriculumVersions'
 import CsvImportDialog from '@/components/CsvImportDialog.vue'
 import type { Department, Program, Degree, Module } from '@/types/curriculum'
@@ -663,6 +722,12 @@ import type { Semester, CurriculumVersion } from '@/stores/curriculum'
 import type { ImportType } from '@/types/csvImport'
 
 const auth = useAuthStore()
+
+// Degree/module creation requires administrating the referenced parent(s);
+// the button is therefore available to global admins and to users who
+// administer at least one program (degree) / degree (module).
+const canCreateDegrees = computed(() => auth.isAdmin || programs.value.some(p => p._isAdmin))
+const canCreateModules = computed(() => auth.isAdmin || degrees.value.some(d => d._isAdmin))
 
 const {
   departments,
@@ -763,6 +828,42 @@ const displayedVersionId = ref<string>('')
 const csvImportDialogOpen = ref(false)
 const csvImportType = ref<ImportType>('departments')
 
+const accessDialogOpen = ref(false)
+const accessEntity = ref<'departments' | 'programs' | 'degrees' | 'modules' | 'classes'>('programs')
+const accessEntityId = ref('')
+const accessEntityName = ref('')
+
+const restrictionsDialogOpen = ref(false)
+const restrictionsOwner = ref<RestrictionsOwner | null>(null)
+
+function openRestrictions(
+  item: { id?: string; _id?: string; name?: string; _canEdit?: boolean },
+  entity: 'departments' | 'programs' | 'degrees' | 'modules' | 'classes',
+) {
+  const id = item.id || item._id || ''
+  if (!id) return
+  restrictionsOwner.value = { table: entity, id, name: item.name ?? '', _canEdit: item._canEdit }
+  restrictionsDialogOpen.value = true
+}
+
+function openAccess(item: { id?: string; _id?: string; name?: string }, entity: typeof accessEntity.value) {
+  const id = item.id || item._id || ''
+  if (!id) return
+  accessEntity.value = entity
+  accessEntityId.value = id
+  accessEntityName.value = item.name ?? ''
+  accessDialogOpen.value = true
+}
+
+async function handleAccessChanged() {
+  // Re-fetch the affected collection so role chips stay current.
+  if (accessEntity.value === 'departments') await fetchDepartments()
+  else if (accessEntity.value === 'programs') await fetchPrograms()
+  else if (accessEntity.value === 'degrees') await fetchDegrees()
+  else if (accessEntity.value === 'modules') await fetchModules()
+  else await fetchClasses()
+}
+
 const deleteDialogOpen = ref(false)
 const deleteTargetName = ref('')
 let deleteKind: 'department' | 'program' | 'degree' | 'module' | 'class' | 'semester' | 'version' = 'department'
@@ -777,7 +878,7 @@ const deptHeaders = [
   { title: 'Description', key: 'description', sortable: true },
   { title: 'Contact', key: 'contact', sortable: true },
   { title: 'URL', key: 'url', sortable: true },
-  { title: '', key: 'actions', sortable: false, width: '100px' },
+  { title: '', key: 'actions', sortable: false, width: '150px' },
 ]
 
 const progHeaders = [
@@ -786,7 +887,7 @@ const progHeaders = [
   { title: 'Description', key: 'description', sortable: true },
   { title: 'Contact', key: 'contact', sortable: true },
   { title: 'URL', key: 'url', sortable: true },
-  { title: '', key: 'actions', sortable: false, width: '100px' },
+  { title: '', key: 'actions', sortable: false, width: '150px' },
 ]
 
 const degHeaders = [
@@ -795,7 +896,7 @@ const degHeaders = [
   { title: 'Description', key: 'description', sortable: true },
   { title: 'Contact', key: 'contact', sortable: true },
   { title: 'URL', key: 'url', sortable: true },
-  { title: '', key: 'actions', sortable: false, width: '100px' },
+  { title: '', key: 'actions', sortable: false, width: '150px' },
 ]
 
 const modHeaders = [
@@ -803,9 +904,8 @@ const modHeaders = [
   { title: 'Name', key: 'name', sortable: true },
   { title: 'Degrees', key: 'DegreeIDs', sortable: false },
   { title: 'ECTS', key: 'creditPoints', sortable: true },
-  { title: 'Contact hrs', key: 'contactHours', sortable: true },
-  { title: 'Constraints', key: 'constraints', sortable: false },
-  { title: '', key: 'actions', sortable: false, width: '100px' },
+  { title: 'Timeslots', key: 'timeslots', sortable: true },
+  { title: '', key: 'actions', sortable: false, width: '150px' },
 ]
 
 const clsHeaders = [
@@ -817,7 +917,7 @@ const clsHeaders = [
   { title: 'Semester', key: 'semesterId', sortable: false },
   { title: 'Description', key: 'description', sortable: true },
   { title: 'Contact', key: 'contact', sortable: true },
-  { title: '', key: 'actions', sortable: false, width: '100px' },
+  { title: '', key: 'actions', sortable: false, width: '150px' },
 ]
 
 const semHeaders = [
@@ -825,13 +925,15 @@ const semHeaders = [
   { title: 'Code', key: 'code', sortable: true },
   { title: 'Start', key: 'startDate', sortable: true },
   { title: 'End', key: 'endDate', sortable: true },
-  { title: '', key: 'actions', sortable: false, width: '100px' },
+  { title: 'Timeslots', key: 'slotStartTimes', sortable: false },
+  { title: '', key: 'actions', sortable: false, width: '150px' },
 ]
 
 const verHeaders = [
   { title: 'Name', key: 'name', sortable: true },
   { title: 'Version', key: 'versionNumber', sortable: true },
-  { title: 'Program', key: 'programId', sortable: false },
+  { title: 'Semester', key: 'semesterId', sortable: false },
+  { title: 'Created by', key: 'createdByName', sortable: true },
   { title: 'Created', key: 'createdAt', sortable: true },
   { title: '', key: 'actions', sortable: false, width: '150px' },
 ]
@@ -858,11 +960,6 @@ function getDegreeNames(mod: Module): string[] {
     const deg = degrees.value.find(d => d.id === id)
     return deg ? deg.name : id
   })
-}
-
-function getModuleName(moduleId: string): string {
-  const mod = modules.value.find(m => m.id === moduleId)
-  return mod ? (mod.code || mod.name) : moduleId
 }
 
 function getDegreeName(degreeId: string | undefined): string {
@@ -927,6 +1024,15 @@ const degreesOfDisplayedVersion = computed(() =>
         )
       })
 )
+
+// Timeslot grid of the semester the displayed curriculum version is for;
+// null when no version/semester is selected or the semester has no grid.
+const displayedSemesterTimeslots = computed(() => {
+  const version = curriculumVersions.value.find(v => (v._id || v.id) === displayedVersionId.value)
+  const sem = semesterList.value.find(s => (s._id || s.id) === version?.semesterId)
+  if (!sem?.slotDurationMinutes) return null
+  return { duration: sem.slotDurationMinutes, startTimes: sem.slotStartTimes ?? [] }
+})
 
 const filteredDegrees = computed(() => {
   // Degrees belong to the displayed curriculum via their parent programs:
@@ -997,17 +1103,18 @@ const filteredVersions = computed(() => {
   return curriculumVersions.value.filter(v =>
     (v.name ?? '').toLowerCase().includes(q) ||
     String(v.versionNumber).includes(q) ||
-    getProgramName(v.programId).toLowerCase().includes(q)
+    (getSemesterName(v.semesterId) || '').toLowerCase().includes(q) ||
+    (v.createdByName || '').toLowerCase().includes(q)
   )
 })
 
-// ── Displayed curriculum version ─────────────────────────────────
+// ── Displayed curriculum version ───────────────────────────────
 const hasDisplayedVersion = computed(() => displayedVersionId.value !== '')
 
 const displayedVersionItems = computed(() => [
   { title: 'No version selected', value: '' },
   ...curriculumVersions.value.map(v => ({
-    title: `${v.name || 'Version'} (v${v.versionNumber}) — ${getProgramName(v.programId)}`,
+    title: `${v.name || 'Version'} (v${v.versionNumber}) — ${getSemesterName(v.semesterId) || 'no semester'}`,
     value: v._id || v.id || '',
   })).filter(i => i.value),
 ])
@@ -1276,12 +1383,6 @@ async function handleVersionSave(version: CurriculumVersion) {
   }
 }
 
-function getProgramName(programId: string | undefined): string {
-  if (!programId) return '—'
-  const prog = programs.value.find(p => p.id === programId)
-  return prog ? (prog.name || programId) : programId
-}
-
 function getActiveVersionIds(): string[] {
   return programs.value
     .map(p => p.activeCurriculumVersionId)
@@ -1293,14 +1394,22 @@ function isActiveVersion(version: CurriculumVersion): boolean {
   return !!id && getActiveVersionIds().includes(id)
 }
 
+// A curriculum version is activated by assigning it to one or more programs
+// ("Set as active"); activating sets it on every program currently displaying
+// this version's program name is no longer available.
 async function setAsActiveVersion(version: CurriculumVersion) {
   const versionId = version._id || version.id
-  if (!versionId || !version.programId) return
-  const prog = programs.value.find(p => p.id === version.programId)
-  if (!prog) return
+  if (!versionId) return
+  const candidates = programs.value.filter(p => !p.activeCurriculumVersionId)
+  if (candidates.length === 0) {
+    showSnackbar('No program without an active version. Change a program first.', 'error')
+    return
+  }
   try {
-    await updateProgram({ ...prog, activeCurriculumVersionId: versionId })
-    showSnackbar(`Set as active version of ${prog.name || 'program'}`)
+    for (const prog of candidates) {
+      await updateProgram({ ...prog, activeCurriculumVersionId: versionId })
+    }
+    showSnackbar(`Set as active version for ${candidates.length} program${candidates.length === 1 ? '' : 's'}`)
   } catch {
     showSnackbar('Operation failed', 'error')
   }

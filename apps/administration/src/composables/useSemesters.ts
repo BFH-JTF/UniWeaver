@@ -6,6 +6,8 @@ export const emptySemester: Semester = {
   name: '',
   startDate: '',
   endDate: '',
+  slotDurationMinutes: undefined,
+  slotStartTimes: [],
 }
 
 export function useSemesters() {

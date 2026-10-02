@@ -51,11 +51,6 @@ export interface Degree extends AclInfo {
 
 export type DegreeExport = Degree[]
 
-export interface ModuleConstraint {
-  type: 'requires' | 'corequisite' | 'forbids'
-  targetModuleId: string
-}
-
 export interface Module extends AclInfo {
   id?: string
   _id?: string
@@ -72,8 +67,8 @@ export interface Module extends AclInfo {
   URL?: string
   code?: string
   creditPoints?: number
-  contactHours?: number
-  constraints?: ModuleConstraint[]
+  /** Number of semester timeslots one instance of the module needs (module duration = n × slot length) */
+  timeslots?: number
   curriculumVersionId?: string
   competencyIds?: string[]
   proofOfCompetencyIds?: string[]

@@ -1,14 +1,17 @@
 import { ref } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 
-export interface AclAdminEntry {
+export type AccessRole = 'read' | 'write' | 'admin'
+
+export interface EntityAccessEntry {
   table_name: string
   entity_id: string
   user_id: string
-  role: string
+  role: AccessRole
   created_at: string
   name?: string
   email?: string
+  _canManage?: boolean
 }
 
 export interface UserSearchResult {
@@ -16,10 +19,11 @@ export interface UserSearchResult {
   name: string
   email: string
   is_admin: boolean
+  is_active?: boolean
 }
 
 export function useAcl() {
-  const admins = ref<AclAdminEntry[]>([])
+  const entries = ref<EntityAccessEntry[]>([])
   const loading = ref(false)
   const error = ref<string | null>(null)
 
@@ -60,16 +64,19 @@ export function useAcl() {
     return headers
   }
 
-  async function fetchAdmins(entity: string, id: string) {
+  async function fetchAccess(entity: string, id: string) {
     loading.value = true
     error.value = null
     try {
-      const res = await fetch(`${getApiUrl()}/${entity}/${id}/admins`, {
+      const res = await fetch(`${getApiUrl()}/${entity}/${id}/access`, {
         headers: getHeaders(),
         credentials: 'include',
       })
-      if (!res.ok) throw new Error(`Failed to fetch admins: ${res.statusText}`)
-      admins.value = await res.json()
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error || res.statusText)
+      }
+      entries.value = await res.json()
     } catch (err: any) {
       error.value = err.message
     } finally {
@@ -77,19 +84,19 @@ export function useAcl() {
     }
   }
 
-  async function addAdmin(entity: string, id: string, userId: string): Promise<boolean> {
+  async function addUser(entity: string, id: string, userId: string, role: AccessRole): Promise<boolean> {
     try {
-      const res = await fetch(`${getApiUrl()}/${entity}/${id}/admins`, {
+      const res = await fetch(`${getApiUrl()}/${entity}/${id}/access`, {
         method: 'POST',
         headers: getHeaders(),
         credentials: 'include',
-        body: JSON.stringify({ userId }),
+        body: JSON.stringify({ userId, role }),
       })
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
         throw new Error(data.error || res.statusText)
       }
-      await fetchAdmins(entity, id)
+      entries.value = await res.json()
       return true
     } catch (err: any) {
       error.value = err.message
@@ -97,9 +104,29 @@ export function useAcl() {
     }
   }
 
-  async function removeAdmin(entity: string, id: string, userId: string): Promise<boolean> {
+  async function changeRole(entity: string, id: string, userId: string, role: AccessRole): Promise<boolean> {
     try {
-      const res = await fetch(`${getApiUrl()}/${entity}/${id}/admins/${userId}`, {
+      const res = await fetch(`${getApiUrl()}/${entity}/${id}/access/${encodeURIComponent(userId)}`, {
+        method: 'PUT',
+        headers: getHeaders(),
+        credentials: 'include',
+        body: JSON.stringify({ role }),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error || res.statusText)
+      }
+      entries.value = await res.json()
+      return true
+    } catch (err: any) {
+      error.value = err.message
+      return false
+    }
+  }
+
+  async function removeUser(entity: string, id: string, userId: string): Promise<boolean> {
+    try {
+      const res = await fetch(`${getApiUrl()}/${entity}/${id}/access/${encodeURIComponent(userId)}`, {
         method: 'DELETE',
         headers: getHeaders(),
         credentials: 'include',
@@ -108,7 +135,7 @@ export function useAcl() {
         const data = await res.json().catch(() => ({}))
         throw new Error(data.error || res.statusText)
       }
-      await fetchAdmins(entity, id)
+      entries.value = await res.json()
       return true
     } catch (err: any) {
       error.value = err.message
@@ -130,5 +157,5 @@ export function useAcl() {
     }
   }
 
-  return { admins, loading, error, fetchAdmins, addAdmin, removeAdmin, searchUsers }
+  return { entries, loading, error, fetchAccess, addUser, changeRole, removeUser, searchUsers }
 }

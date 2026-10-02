@@ -1,0 +1,2 @@
+ALTER TABLE curriculum_versions ADD COLUMN IF NOT EXISTS created_by VARCHAR(255) REFERENCES local_users(id) ON DELETE SET NULL;
+ALTER TABLE curriculum_versions ADD COLUMN IF NOT EXISTS semester_id VARCHAR(255) REFERENCES semesters(id) ON DELETE SET NULL;

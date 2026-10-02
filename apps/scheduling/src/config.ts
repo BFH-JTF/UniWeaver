@@ -2,7 +2,7 @@ export const APP_NAME = 'UniWeaver Scheduling'
 
 export function userEntryUrl(): string {
   if (import.meta.env.DEV) {
-    return 'http://localhost:5173/user_entry'
+    return 'http://localhost:5173/user_entry/'
   }
   // Production: all UniWeaver frontend apps are served from the same origin
   // by the backend, so the portal is always <origin>/user_entry.

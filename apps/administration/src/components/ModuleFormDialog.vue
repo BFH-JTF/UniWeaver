@@ -52,10 +52,15 @@
             </v-col>
             <v-col cols="12" sm="6">
               <v-text-field
-                v-model.number="mod.contactHours"
-                label="Contact Hours"
+                v-model.number="mod.timeslots"
+                :label="timeslotInputInfo ? `# of Timeslots (${timeslotInputInfo.duration} minutes)` : '# of Timeslots'"
+                :hint="timeslotInputInfo
+                  ? `One module instance spans ${mod.timeslots ?? '?'} × ${timeslotInputInfo.duration} min`
+                  : 'Semester without timeslot grid — define the grid in the semester settings'"
+                persistent-hint
                 type="number"
                 min="0"
+                step="1"
               />
             </v-col>
           </v-row>
@@ -69,62 +74,27 @@
           />
 
           <v-divider class="my-4" />
-          <h3 class="text-subtitle-1 mb-2">Constraints</h3>
-          <div v-for="(c, idx) in mod.constraints" :key="idx" class="d-flex align-center ga-2 mb-2">
-            <v-select
-              v-model="c.type"
-              :items="constraintTypeOptions"
-              label="Type"
-              density="compact"
-              style="max-width: 180px"
-            />
-            <v-text-field
-              v-model="c.targetModuleId"
-              label="Target Module ID"
-              density="compact"
-            />
-            <v-btn icon variant="text" size="small" color="error" @click="removeConstraint(idx)">
-              <v-icon>mdi-close</v-icon>
-            </v-btn>
-          </div>
-          <v-btn variant="outlined" size="small" prepend-icon="mdi-plus" @click="addConstraint">
-            Add Constraint
+          <h3 class="text-subtitle-1 mb-2">Scheduling Restrictions</h3>
+          <p class="text-caption text-medium-emphasis mb-2">
+            Weekday/time/date restrictions for scheduling. Inherited restrictions from parent degrees,
+            programs and departments apply automatically.
+          </p>
+          <v-btn
+            v-if="mod.id || mod._id"
+            variant="outlined"
+            size="small"
+            prepend-icon="mdi-shield-lock-outline"
+            @click="restrictionsDialogOpen = true"
+          >
+            Manage Restrictions
           </v-btn>
-
-          <template v-if="isEdit && mod.id">
-            <v-divider class="my-4" />
-            <div class="text-subtitle-2 mb-2">Administrators</div>
-            <div v-if="aclLoading" class="text-caption text-medium-emphasis">Loading...</div>
-            <div v-else-if="aclAdmins.length === 0" class="text-caption text-medium-emphasis">No administrators found</div>
-            <div v-else>
-              <v-chip
-                v-for="admin in aclAdmins"
-                :key="admin.user_id"
-                variant="tonal"
-                closable
-                class="mr-1 mb-1"
-                @click:close="handleRemoveAdmin(admin.user_id)"
-              >
-                {{ admin.name || admin.user_id }}
-              </v-chip>
-            </div>
-            <v-autocomplete
-              v-model="selectedUser"
-              v-model:search="userSearchQuery"
-              :items="userSearchResults"
-              item-title="displayLabel"
-              item-value="id"
-              label="Add administrator"
-              placeholder="Search by name or email..."
-              density="compact"
-              hide-details
-              clearable
-              :no-filter="true"
-              class="mt-2"
-              style="max-width: 400px"
-              @update:model-value="handleUserSelected"
-            />
-          </template>
+          <v-alert
+            v-else
+            type="info"
+            variant="tonal"
+            density="compact"
+            text="Save the module first to manage its scheduling restrictions."
+          />
         </v-form>
       </v-card-text>
       <v-card-actions>
@@ -133,22 +103,29 @@
         <v-btn color="primary" variant="flat" @click="submit">{{ isEdit ? 'Save' : 'Add' }}</v-btn>
       </v-card-actions>
     </v-card>
+
+    <RestrictionsDialog
+      v-model="restrictionsDialogOpen"
+      :owner="restrictionsOwner"
+    />
   </v-dialog>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import { useAcl } from '@/composables/useAcl'
-import type { Module, ModuleConstraint, Degree } from '@/types/curriculum'
+import { useAuthStore } from '@/stores/auth'
+import type { Module, Degree } from '@/types/curriculum'
 import type { ClassEntity } from '@/types/curriculumClass'
-
-const ENTITY_TABLE = 'modules'
+import RestrictionsDialog from '@/components/RestrictionsDialog.vue'
+import type { RestrictionsOwner } from '@/composables/useRestrictions'
 
 const props = defineProps<{
   modelValue: boolean
   moduleData?: Module
   degrees: Degree[]
   classes: ClassEntity[]
+  /** Timeslot grid of the semester the displayed curriculum version is for. */
+  semesterTimeslots?: { duration?: number; startTimes?: string[] } | null
 }>()
 
 const emit = defineEmits<{
@@ -156,22 +133,17 @@ const emit = defineEmits<{
   'save': [mod: Module]
 }>()
 
-const { admins: aclAdmins, loading: aclLoading, fetchAdmins, addAdmin, removeAdmin, searchUsers } = useAcl()
-const selectedUser = ref<string | null>(null)
-const userSearchQuery = ref('')
-const userSearchResults = ref<Array<{ id: string; name: string; email: string; displayLabel: string }>>([])
-let searchDebounce: ReturnType<typeof setTimeout> | null = null
-
 const isEdit = computed(() => !!props.moduleData?.id)
+
+// Slot length of the semester the displayed curriculum version is for, used
+// to contextualize the "# of Timeslots" input.
+const timeslotInputInfo = computed(() => {
+  const duration = props.semesterTimeslots?.duration
+  return duration && duration > 0 ? { duration } : null
+})
 
 const formRef = ref()
 const mod = ref<Module>(emptyModule())
-
-const constraintTypeOptions: { title: string; value: ModuleConstraint['type'] }[] = [
-  { title: 'Requires', value: 'requires' },
-  { title: 'Corequisite', value: 'corequisite' },
-  { title: 'Forbids', value: 'forbids' },
-]
 
 const selectedDegreeIds = computed({
   get: () => mod.value.DegreeIDs ?? mod.value.degreeIDs ?? mod.value.degreeIds ?? [],
@@ -187,12 +159,33 @@ const selectedDegreeIds = computed({
 // the parent for persistence on the class records.
 const selectedClassIds = ref<string[]>([])
 
-const degreeItems = computed(() =>
-  props.degrees.map(d => ({
-    title: d.name || d.id || 'Unnamed',
-    value: d.id,
-  })).filter(d => d.value)
-)
+const restrictionsDialogOpen = ref(false)
+const restrictionsOwner = ref<RestrictionsOwner | null>(null)
+
+watch(() => props.moduleData?.id || props.moduleData?._id, (moduleId) => {
+  if (moduleId && props.moduleData) {
+    restrictionsOwner.value = {
+      table: 'modules',
+      id: moduleId,
+      name: props.moduleData.name || '',
+      _canEdit: props.moduleData._canEdit,
+    }
+  } else {
+    restrictionsOwner.value = null
+  }
+}, { immediate: true })
+
+const degreeItems = computed(() => {
+  const auth = useAuthStore()
+  // Non-global admins may only tie modules to degrees they administer.
+  const selectable = auth.isAdmin ? props.degrees : props.degrees.filter(d => d._isAdmin)
+  return selectable
+    .map(d => ({
+      title: d.name || d.id || 'Unnamed',
+      value: d.id,
+    }))
+    .filter(d => d.value)
+})
 
 const classItems = computed(() => props.classes.map(c => ({
   title: c.name || c.code || c.id || 'Unnamed',
@@ -200,19 +193,7 @@ const classItems = computed(() => props.classes.map(c => ({
 })).filter(c => c.value))
 
 function emptyModule(): Module {
-  return { name: '', DegreeIDs: [], degreeIDs: [], degreeIds: [], constraints: [] }
-}
-
-function addConstraint() {
-  if (!mod.value.constraints) mod.value.constraints = []
-  mod.value.constraints.push({ type: 'requires', targetModuleId: '' })
-}
-
-function removeConstraint(idx: number) {
-  mod.value.constraints?.splice(idx, 1)
-  if (mod.value.constraints && mod.value.constraints.length === 0) {
-    mod.value.constraints = undefined
-  }
+  return { name: '', DegreeIDs: [], degreeIDs: [], degreeIds: [] }
 }
 
 watch(() => props.modelValue, (val) => {
@@ -224,43 +205,8 @@ watch(() => props.modelValue, (val) => {
     selectedClassIds.value = moduleId
       ? props.classes.filter(c => (c.moduleIds || []).includes(moduleId)).map(c => c.id || c._id).filter(Boolean) as string[]
       : []
-    if (!mod.value.constraints) mod.value.constraints = []
-    if (props.moduleData?.id) {
-      fetchAdmins(ENTITY_TABLE, props.moduleData.id)
-    }
   }
-  selectedUser.value = null
-  userSearchQuery.value = ''
-  userSearchResults.value = []
 })
-
-watch(userSearchQuery, (q) => {
-  if (searchDebounce) clearTimeout(searchDebounce)
-  if (!q || q.length < 2) {
-    userSearchResults.value = []
-    return
-  }
-  searchDebounce = setTimeout(async () => {
-    const results = await searchUsers(q)
-    const existingIds = new Set(aclAdmins.value.map(a => a.user_id))
-    userSearchResults.value = results
-      .filter(u => !existingIds.has(u.id))
-      .map(u => ({ ...u, displayLabel: u.email ? `${u.name || u.id} (${u.email})` : (u.name || u.id) }))
-  }, 300)
-})
-
-async function handleUserSelected(userId: string | null) {
-  if (!userId || !mod.value.id) return
-  await addAdmin(ENTITY_TABLE, mod.value.id, userId)
-  selectedUser.value = null
-  userSearchQuery.value = ''
-  userSearchResults.value = []
-}
-
-async function handleRemoveAdmin(userId: string) {
-  if (!mod.value.id) return
-  await removeAdmin(ENTITY_TABLE, mod.value.id, userId)
-}
 
 async function submit() {
   const { valid } = await formRef.value?.validate() ?? { valid: false }
@@ -271,12 +217,6 @@ async function submit() {
   result.DegreeIDs = ids
   result.degreeIDs = ids
   result.degreeIds = ids
-  if (result.constraints && result.constraints.length === 0) {
-    delete result.constraints
-  }
-  if (result.constraints) {
-    result.constraints = result.constraints.filter((c: ModuleConstraint) => c.targetModuleId)
-  }
   emit('save', result)
   emit('update:modelValue', false)
 }
