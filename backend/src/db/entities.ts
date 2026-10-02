@@ -19,6 +19,8 @@ export interface TableSpec {
   parentLabel?: string
   columns: ColumnSpec[]
   nameRequired?: boolean
+  /** camel keys of columns that must be non-empty on create and cannot be cleared on update */
+  requiredColumns?: string[]
 }
 
 export class EntityHttpError extends Error {
@@ -99,7 +101,7 @@ export const TABLE_SPECS: Record<string, TableSpec> = {
       jsonCol('competency_ids', 'competencyIds'),
       jsonCol('proof_ids', 'proofOfCompetencyIds', ['proofIds']),
       numCol('credit_points', 'creditPoints'),
-      numCol('contact_hours', 'contactHours'),
+      numCol('timeslots', 'timeslots'),
       col('contact', 'contact'),
       URL_COL,
     ],
@@ -124,17 +126,26 @@ export const TABLE_SPECS: Record<string, TableSpec> = {
   semesters: {
     dbTable: 'semesters',
     kind: 'shared',
-    columns: [col('name', 'name'), col('code', 'code'), col('start_date', 'startDate'), col('end_date', 'endDate')],
+    columns: [
+      col('name', 'name'),
+      col('code', 'code'),
+      col('start_date', 'startDate'),
+      col('end_date', 'endDate'),
+      numCol('slot_duration_minutes', 'slotDurationMinutes'),
+      jsonCol('slot_start_times', 'slotStartTimes'),
+    ],
   },
   curriculum_versions: {
     dbTable: 'curriculum_versions',
     kind: 'shared',
     nameRequired: true,
+    requiredColumns: ['semesterId'],
     columns: [
       col('name', 'name'),
       col('description', 'description'),
       numCol('version_number', 'versionNumber'),
-      col('program_id', 'programId'),
+      col('semester_id', 'semesterId'),
+      col('created_by', 'createdBy'),
     ],
   },
 }

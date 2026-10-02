@@ -18,7 +18,15 @@
 
       <v-card-text class="pa-4 pa-sm-6">
         <div v-if="loading" class="text-caption text-medium-emphasis">Loading…</div>
-        <div v-if="error" class="text-error text-caption mb-2">{{ error }}</div>
+        <v-alert
+          v-if="error"
+          type="error"
+          variant="tonal"
+          density="compact"
+          class="mb-2"
+        >
+          Failed to load restrictions: {{ error }}
+        </v-alert>
 
         <template v-if="!loading">
           <!-- Own restrictions -->
@@ -32,8 +40,8 @@
               </template>
               <v-list-item-title class="text-body-2">
                 {{ specFor(r.ruleType)?.label || r.ruleType }}
-                <v-chip size="x-small" :color="r.weight > 0 ? 'warning' : 'error'" variant="tonal" class="ml-1">
-                  {{ r.weight > 0 ? `soft · ${r.weight}` : 'hard' }}
+                <v-chip size="x-small" :color="priorityColor(r.weight)" variant="tonal" class="ml-1">
+                  {{ priorityLabel(r.weight) || `P${r.weight}` }}
                 </v-chip>
                 <v-chip v-if="!r.enabled" size="x-small" variant="tonal" class="ml-1">disabled</v-chip>
               </v-list-item-title>
@@ -63,25 +71,36 @@
             </h3>
             <v-select
               v-model="form.ruleType"
-              :items="catalogItems"
-              item-title="label"
-              item-value="value"
+              :items="catalogSelectItems"
               :disabled="!!editingId"
-              label="Restriction type *"
+              label="Rule"
+              placeholder="Select a rule…"
               variant="outlined"
               density="compact"
-              class="mb-3"
+              class="mb-1"
             >
               <template #item="{ props: itemProps, item }">
                 <v-list-item v-bind="itemProps">
                   <template #prepend>
-                    <v-chip size="x-small" :color="(item as any).raw?.category === 'hard' ? 'error' : 'warning'" variant="tonal" class="me-2">
-                      {{ (item as any).raw?.category }}
+                    <v-icon size="small" class="me-2">
+                      {{ (item as any).raw?.icon || 'mdi-shield-outline' }}
+                    </v-icon>
+                  </template>
+                  <template #append>
+                    <v-chip
+                      size="x-small"
+                      :color="(item as any).raw?.category === 'hard' ? 'error' : 'warning'"
+                      variant="tonal"
+                    >
+                      {{ (item as any).raw?.category === 'hard' ? 'must' : 'soft' }}
                     </v-chip>
                   </template>
                 </v-list-item>
               </template>
             </v-select>
+            <p v-if="activeSpec" class="text-caption text-medium-emphasis mb-3">
+              {{ activeSpec.description }}
+            </p>
 
             <template v-if="activeSpec">
               <div
@@ -114,6 +133,62 @@
                   density="compact"
                   hide-details
                 />
+                <v-select
+                  v-else-if="param.type === 'timeslotArray'"
+                  v-model="(form.params[param.key] as string[] | undefined)"
+                  :items="timeslotOptions"
+                  label="Slot start times"
+                  multiple
+                  chips
+                  closable-chips
+                  variant="outlined"
+                  density="compact"
+                  hide-details
+                  :no-data-text="timeslotOptions.length === 0 ? 'No timeslots defined on any semester yet' : ''"
+                />
+                <v-select
+                  v-else-if="param.type === 'buildingArray'"
+                  v-model="(form.params[param.key] as string[] | undefined)"
+                  :items="buildingOptions"
+                  label="Buildings"
+                  multiple
+                  chips
+                  closable-chips
+                  variant="outlined"
+                  density="compact"
+                  hide-details
+                  :no-data-text="buildingOptions.length === 0 ? 'No buildings defined on any location yet' : ''"
+                />
+                <v-select
+                  v-else-if="param.type === 'roomArray'"
+                  v-model="(form.params[param.key] as string[] | undefined)"
+                  :items="roomOptions"
+                  item-title="title"
+                  item-value="value"
+                  label="Rooms"
+                  multiple
+                  chips
+                  closable-chips
+                  variant="outlined"
+                  density="compact"
+                  hide-details
+                  :no-data-text="roomOptions.length === 0 ? 'No rooms defined yet' : ''"
+                />
+                <v-select
+                  v-else-if="param.type === 'moduleArray'"
+                  v-model="(form.params[param.key] as string[] | undefined)"
+                  :items="moduleOptions"
+                  item-title="title"
+                  item-value="value"
+                  label="Modules"
+                  multiple
+                  chips
+                  closable-chips
+                  variant="outlined"
+                  density="compact"
+                  hide-details
+                  :no-data-text="moduleOptions.length === 0 ? 'No other modules defined yet' : ''"
+                />
                 <div v-else-if="param.type === 'dateArray'">
                   <div class="d-flex flex-wrap ga-2 mb-2">
                     <v-chip
@@ -144,22 +219,53 @@
                   density="compact"
                   hide-details
                 />
+                <v-select
+                  v-else-if="param.type === 'choice'"
+                  v-model="form.params[param.key]"
+                  :items="choiceOptions(param)"
+                  item-title="title"
+                  item-value="value"
+                  variant="outlined"
+                  density="compact"
+                  hide-details
+                />
+                <v-text-field
+                  v-else-if="param.type === 'number'"
+                  v-model.number="form.params[param.key]"
+                  type="number"
+                  min="0"
+                  variant="outlined"
+                  density="compact"
+                  hide-details
+                  :placeholder="param.required ? '' : 'optional'"
+                />
               </div>
 
-              <v-row v-if="activeSpec.category === 'soft'" dense class="align-center">
+              <v-row dense class="align-center">
                 <v-col cols="12" sm="6">
-                  <v-slider
+                  <v-select
                     v-model="form.weight"
-                    :min="1"
-                    :max="20"
-                    :step="1"
+                    :items="priorityOptions"
+                    item-title="label"
+                    item-value="value"
                     label="Priority"
-                    thumb-label
-                    color="warning"
-                    hide-details
-                  />
+                    hint="How strictly the solver must honor this rule"
+                    persistent-hint
+                    variant="outlined"
+                    density="compact"
+                  >
+                    <template #item="{ props: itemProps, item }">
+                      <v-list-item v-bind="itemProps">
+                        <template #append>
+                          <v-chip size="x-small" :color="(item as any).raw?.color" variant="tonal">
+                            {{ (item as any).raw?.value }}
+                          </v-chip>
+                        </template>
+                      </v-list-item>
+                    </template>
+                  </v-select>
                 </v-col>
-                <v-col cols="12" sm="6">
+                <v-col cols="12" sm="6" class="mt-4">
                   <v-switch
                     v-model="form.enabled"
                     label="Enabled"
@@ -169,14 +275,6 @@
                   />
                 </v-col>
               </v-row>
-              <v-switch
-                v-else
-                v-model="form.enabled"
-                label="Enabled"
-                color="primary"
-                density="compact"
-                hide-details
-              />
             </template>
 
             <div class="d-flex ga-2 mt-4">
@@ -202,8 +300,8 @@
                 </template>
                 <v-list-item-title class="text-body-2 text-medium-emphasis">
                   {{ specFor(r.ruleType)?.label || r.ruleType }}
-                  <v-chip size="x-small" :color="r.weight > 0 ? 'warning' : 'error'" variant="tonal" class="ml-1">
-                    {{ r.weight > 0 ? `soft · ${r.weight}` : 'hard' }}
+                  <v-chip size="x-small" :color="priorityColor(r.weight)" variant="tonal" class="ml-1">
+                    {{ priorityLabel(r.weight) || `P${r.weight}` }}
                   </v-chip>
                   <v-chip v-if="!r.enabled" size="x-small" variant="tonal" class="ml-1">disabled</v-chip>
                 </v-list-item-title>
@@ -212,6 +310,12 @@
                 </v-list-item-subtitle>
               </v-list-item>
             </v-list>
+          </template>
+          <template v-else>
+            <v-divider class="my-4" />
+            <p class="text-caption text-medium-emphasis mb-2">
+              No restrictions are inherited from parent entities (departments, programs, degrees).
+            </p>
           </template>
         </template>
       </v-card-text>
@@ -230,16 +334,20 @@ import { ref, computed, watch } from 'vue'
 import {
   RESTRICTION_CATALOG,
   RESTRICTION_TYPES,
+  RESTRICTION_GROUPS,
   WEEKDAYS,
   PHASE_BOUNDARIES,
   DAY_PHASES,
-  DEFAULT_SOFT_WEIGHT,
+  PRIORITY_LEVELS,
+  DEFAULT_PRIORITY,
+  priorityLabel,
   validateRestrictionParams,
 } from '@uniweaver/shared'
-import type { EntityRestriction, EffectiveRestriction, DayPhase, Weekday } from '@uniweaver/shared'
+import type { EntityRestriction, EffectiveRestriction, DayPhase, Weekday, RestrictionParamSpec } from '@uniweaver/shared'
 import { useRestrictions } from '@/composables/useRestrictions'
 import type { RestrictionsOwner } from '@/composables/useRestrictions'
 import { useAuthStore } from '@/stores/auth'
+import { useCurriculumStore } from '@/stores/curriculum'
 
 const props = defineProps<{
   modelValue: boolean
@@ -252,6 +360,7 @@ const emit = defineEmits<{
 }>()
 
 const auth = useAuthStore()
+const curriculum = useCurriculumStore()
 const {
   loading,
   error,
@@ -286,11 +395,36 @@ const canEdit = computed(() => auth.isAdmin || !!props.owner?._canEdit)
 
 const specFor = (ruleType: string) => RESTRICTION_TYPES[ruleType] ?? null
 
-const catalogItems = RESTRICTION_CATALOG.map(r => ({
-  label: r.label,
-  value: r.value,
-  category: r.category,
-}))
+interface CatalogSelectItem {
+  type?: 'subheader'
+  title?: string
+  value?: string
+  icon?: string
+  category?: string
+}
+
+/**
+ * Flat item list for the rule picker: group subheaders followed by the
+ * catalog entries of that group. Vuetify renders items with
+ * type: 'subheader' as group titles.
+ */
+const catalogSelectItems = computed<CatalogSelectItem[]>(() => {
+  const items: CatalogSelectItem[] = []
+  for (const group of RESTRICTION_GROUPS) {
+    const entries = RESTRICTION_CATALOG.filter(r => r.group === group)
+    if (entries.length === 0) continue
+    items.push({ type: 'subheader', title: group })
+    for (const r of entries) {
+      items.push({
+        title: r.label,
+        value: r.value,
+        icon: r.icon,
+        category: r.category,
+      })
+    }
+  }
+  return items
+})
 
 const activeSpec = computed(() => (form.value.ruleType ? specFor(form.value.ruleType) : null))
 
@@ -298,13 +432,89 @@ const weekdayOptions = WEEKDAYS.map(w => ({ title: (w[0] ?? '').toUpperCase() + 
 
 const phaseOptions = DAY_PHASES.map(p => ({ title: PHASE_BOUNDARIES[p].label, value: p }))
 
+// ── Reference data (loaded lazily so dynamic param options are available) ───
+
+const timeslotOptions = computed(() => {
+  const merged = new Set<string>()
+  for (const sem of curriculum.semesters ?? []) {
+    for (const t of sem.slotStartTimes ?? []) merged.add(t)
+  }
+  return [...merged].sort()
+})
+
+const buildingOptions = computed(() => {
+  const merged = new Set<string>()
+  for (const loc of curriculum.locations ?? []) {
+    if (loc.building && loc.building.trim()) merged.add(loc.building.trim())
+  }
+  return [...merged].sort()
+})
+
+const roomOptions = computed(() =>
+  (curriculum.rooms ?? [])
+    .filter(r => r.id || r.name)
+    .map(r => {
+      const id = r.id || ''
+      const loc = curriculum.locations?.find(l => l.id === r.locationId)
+      const place = loc ? ` (${loc.name || loc.building})` : ''
+      return { title: `${r.name || r.roomNumber || id}${place}`, value: id }
+    })
+    .filter(o => o.value),
+)
+
+const moduleOptions = computed(() =>
+  (curriculum.modules ?? [])
+    .filter(m => m.id && m.id !== ownerModuleId.value)
+    .map(m => ({
+      title: m.code ? `${m.code} — ${m.name || m.id}` : (m.name || m.id),
+      value: m.id!,
+    })),
+)
+
+const ownerModuleId = computed(() => (props.owner?.table === 'modules' ? props.owner.id : ''))
+
+async function loadReferenceData() {
+  if (!curriculum.semesters?.length) void curriculum.fetchSemesters()
+  if (!curriculum.locations?.length) void curriculum.fetchLocations()
+  if (!curriculum.rooms?.length) void curriculum.fetchRooms()
+  if (!curriculum.modules?.length) void curriculum.fetchModules()
+}
+
+function choiceOptions(param: RestrictionParamSpec): { title: string; value: string }[] {
+  return (param.options ?? []).map(o => ({ title: o.label, value: o.value }))
+}
+
+// Human-readable name lookup for ids stored in params.
+function moduleNameFor(id: unknown): string {
+  const key = String(id)
+  const mod = curriculum.modules?.find(m => m.id === key)
+  if (!mod) return key
+  return mod.code ? `${mod.code} — ${mod.name || key}` : (mod.name || key)
+}
+
+function roomNameFor(id: unknown): string {
+  const key = String(id)
+  const room = curriculum.rooms?.find(r => r.id === key)
+  if (!room) return key
+  const loc = curriculum.locations?.find(l => l.id === room.locationId)
+  const place = loc ? ` (${loc.name || loc.building})` : ''
+  return `${room.name || room.roomNumber || key}${place}`
+}
+
 const canSubmit = computed(() => {
   if (!form.value.ruleType) return false
   return validateRestrictionParams(form.value.ruleType, form.value.params) === null
 })
 
 function emptyForm() {
-  return { ruleType: '', params: {} as Record<string, unknown>, enabled: true, weight: DEFAULT_SOFT_WEIGHT }
+  return { ruleType: '', params: {} as Record<string, unknown>, enabled: true, weight: DEFAULT_PRIORITY }
+}
+
+const priorityOptions = PRIORITY_LEVELS.map(l => ({ label: `${l.value} · ${l.label}`, value: l.value, color: l.color }))
+
+/** Vuetify color for a stored priority level. */
+function priorityColor(weight: number): string {
+  return PRIORITY_LEVELS.find(l => l.value === weight)?.color ?? 'grey'
 }
 
 function paramsSummary(r: EntityRestriction): string {
@@ -313,12 +523,26 @@ function paramsSummary(r: EntityRestriction): string {
   return spec.params
     .map(p => {
       const value = (r.params ?? {})[p.key]
-      if (value === undefined) return ''
-      if (Array.isArray(value)) {
-        const pretty = value.map(v => (p.type === 'phaseArray' ? PHASE_BOUNDARIES[v as DayPhase]?.label ?? v : v))
-        return `${p.label}: ${pretty.join(', ')}`
+      if (value === undefined || value === '' || value === null) {
+        return p.type === 'number' && (r.params ?? {})[p.key] === 0 ? `${p.label}: 0` : ''
       }
-      return `${p.label}: ${String(value)}`
+      switch (p.type) {
+        case 'phaseArray': {
+          const pretty = (value as unknown[]).map(v => PHASE_BOUNDARIES[v as DayPhase]?.label ?? v)
+          return `${p.label}: ${pretty.join(', ')}`
+        }
+        case 'roomArray':
+          return `${p.label}: ${(value as unknown[]).map(roomNameFor).join(', ')}`
+        case 'moduleArray':
+          return `${p.label}: ${(value as unknown[]).map(moduleNameFor).join(', ')}`
+        case 'choice':
+          return `${p.label}: ${choiceOptions(p).find(o => o.value === String(value))?.title ?? String(value)}`
+        default:
+          if (Array.isArray(value)) {
+            return `${p.label}: ${value.map(v => String(v)).join(', ')}`
+          }
+          return `${p.label}: ${String(value)}`
+      }
     })
     .filter(Boolean)
     .join(' · ')
@@ -338,7 +562,7 @@ function startEdit(r: EntityRestriction) {
     ruleType: r.ruleType,
     params: JSON.parse(JSON.stringify(r.params ?? {})),
     enabled: r.enabled,
-    weight: r.weight || (specFor(r.ruleType)?.category === 'soft' ? DEFAULT_SOFT_WEIGHT : 0),
+    weight: r.weight || DEFAULT_PRIORITY,
   }
   const dates = (form.value.params['dates'] as string[] | undefined) ?? []
   dateList.value = [...dates]
@@ -400,6 +624,7 @@ watch(() => props.modelValue, val => {
   if (val) {
     cancelEdit()
     void load()
+    void loadReferenceData()
   }
 })
 </script>

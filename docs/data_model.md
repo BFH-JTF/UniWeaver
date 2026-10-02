@@ -129,7 +129,8 @@ erDiagram
         datetime createdAt
     }
 
-    %% selfStudyHours dropped: derivable ≈ 30·creditPoints − contactHours
+    %% selfStudyHours and contactHours dropped; module duration is expressed
+    %% in semester timeslots (timeslots = n × semester slot length)
     MODULE {
         string id PK
         string name
@@ -140,7 +141,7 @@ erDiagram
         array competencyIds FK
         array proofOfCompetencyIds FK
         number creditPoints
-        number contactHours
+        number timeslots
         string contact
         string url
     }
@@ -264,12 +265,16 @@ erDiagram
         time endTime
     }
 
+    %% slotDurationMinutes + slotStartTimes define the daily timeslot grid;
+    %% module sessions may only start at these boundaries
     SEMESTER {
         string id PK
         string name
         string code
         date startDate
         date endDate
+        number slotDurationMinutes
+        array slotStartTimes
     }
 
     %% daysOff: array of dates
@@ -283,11 +288,11 @@ erDiagram
     }
 
     %% ruleType → external constraint catalog; appliesTo = entity ids
-    %% (modules, rooms, lecturers, classes) the rule scopes to
+    %% (modules, rooms, lecturers, classes) the rule scopes to;
+    %% weight = priority 1 (nice-to-have) … 5 (mandatory condition)
     SCHEDULING_RULE {
         string id PK
         string ruleType
-        string category
         number weight
         boolean enabled
         string description

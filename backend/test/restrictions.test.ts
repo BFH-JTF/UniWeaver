@@ -134,6 +134,58 @@ async function main() {
     })
     assert(badDate.status === 400, 'invalid date format is rejected')
 
+    const badFrequency = await fetch(`${base}/modules/${mod.id}/restrictions`, {
+      method: 'POST', headers: auth(adminCookie),
+      body: JSON.stringify({ ruleType: 'frequency_per_week', params: { min: 3, max: 2 } }),
+    })
+    assert(badFrequency.status === 400, 'frequency min > max is rejected')
+
+    const badTimeslot = await fetch(`${base}/modules/${mod.id}/restrictions`, {
+      method: 'POST', headers: auth(adminCookie),
+      body: JSON.stringify({ ruleType: 'allowed_timeslots', params: { startTimes: ['24:00'] } }),
+    })
+    assert(badTimeslot.status === 400, 'invalid timeslot start time is rejected')
+
+    const badChoice = await fetch(`${base}/modules/${mod.id}/restrictions`, {
+      method: 'POST', headers: auth(adminCookie),
+      body: JSON.stringify({ ruleType: 'lecturer_planning', params: { mode: 'sometimes' } }),
+    })
+    assert(badChoice.status === 400, 'invalid choice value is rejected')
+
+    const badRoomList = await fetch(`${base}/modules/${mod.id}/restrictions`, {
+      method: 'POST', headers: auth(adminCookie),
+      body: JSON.stringify({ ruleType: 'allowed_rooms', params: { roomIds: [] } }),
+    })
+    assert(badRoomList.status === 400, 'empty room list is rejected')
+
+    // ── New catalog types are accepted ──────────────────────────────────
+    const okTimeslots = await fetch(`${base}/modules/${mod.id}/restrictions`, {
+      method: 'POST', headers: auth(adminCookie),
+      body: JSON.stringify({ ruleType: 'allowed_timeslots', params: { startTimes: ['08:00', '10:15'] } }),
+    })
+    assert(okTimeslots.status === 201, 'allowed_timeslots is accepted')
+    const okTimeslotsBody = await okTimeslots.json() as any
+    assert(okTimeslotsBody.weight === 3, 'restriction defaults to priority 3')
+
+    const okStability = await fetch(`${base}/modules/${mod.id}/restrictions`, {
+      method: 'POST', headers: auth(adminCookie),
+      body: JSON.stringify({ ruleType: 'weekday_stability', params: {}, weight: 3 }),
+    })
+    assert(okStability.status === 201, 'param-less weekday_stability is accepted')
+
+    const okPrecede = await fetch(`${base}/modules/${mod.id}/restrictions`, {
+      method: 'POST', headers: auth(adminCookie),
+      body: JSON.stringify({ ruleType: 'module_must_precede', params: { moduleIds: ['uw_other_module'] } }),
+    })
+    assert(okPrecede.status === 201, 'module_must_precede is accepted')
+
+    // remove the new-type module restrictions again so the inheritance
+    // section below sees a module without own restrictions
+    const modList = await (await fetch(`${base}/modules/${mod.id}/restrictions`, { headers: auth(adminCookie) })).json() as any[]
+    for (const r of modList) {
+      await fetch(`${base}/modules/${mod.id}/restrictions/${r.id}`, { method: 'DELETE', headers: auth(adminCookie) })
+    }
+
     // ── CRUD on department (the top of the chain) ───────────────────────
     console.log('CRUD...')
     const createRes = await fetch(`${base}/departments/${department.id}/restrictions`, {
@@ -143,7 +195,7 @@ async function main() {
     assert(createRes.status === 201, 'creates department restriction')
     const created = await createRes.json() as any
     assert(created.enabled === true, 'restriction defaults to enabled')
-    assert(created.weight === 0, 'hard restriction defaults to weight 0')
+    assert(created.weight === 3, 'restriction defaults to priority 3')
 
     const listRes = await fetch(`${base}/departments/${department.id}/restrictions`, { headers: auth(adminCookie) })
     const list = await listRes.json() as any[]
@@ -192,11 +244,11 @@ async function main() {
     assert(grant.status === 201, 'admin grants program access')
     const childByProgramAdmin = await fetch(`${base}/degrees/${degree.id}/restrictions`, {
       method: 'POST', headers: auth(programAdminCookie),
-      body: JSON.stringify({ ruleType: 'fixed_day', params: { weekday: 'tuesday' }, weight: 7 }),
+      body: JSON.stringify({ ruleType: 'fixed_day', params: { weekday: 'tuesday' }, weight: 4 }),
     })
     assert(childByProgramAdmin.status === 201, 'parent-entity write role can add restrictions to child entity')
     const createdChild = await childByProgramAdmin.json() as any
-    assert(createdChild.weight === 7, 'soft restriction keeps provided weight')
+    assert(createdChild.weight === 4, 'soft restriction keeps provided priority')
 
     const outsiderDeg = await fetch(`${base}/degrees/${degree.id}/restrictions/effective`, { headers: auth(outsiderCookie) })
     assert(outsiderDeg.status === 403, 'outsider cannot read effective restrictions')

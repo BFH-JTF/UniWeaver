@@ -8,7 +8,6 @@ export type ImportType =
   | 'programs'
   | 'degrees'
   | 'availability'
-  | 'scheduling_rules'
   | 'room_availability'
   | 'weeks'
   | 'schedule_entries'

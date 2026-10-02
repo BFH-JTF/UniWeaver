@@ -20,13 +20,26 @@ export async function requireTable(tableName: string): Promise<TableSpec> {
   return spec
 }
 
+/** Create-time validation for columns that must be present and non-empty. */
+function assertRequiredColumns(spec: TableSpec, payload: Record<string, unknown>): void {
+  for (const camel of spec.requiredColumns ?? []) {
+    const value = payload[camel]
+    if (value === undefined || value === null || value === '') {
+      const label = camel.charAt(0).toUpperCase() + camel.slice(1)
+      throw new EntityHttpError(400, `${label} is required`)
+    }
+  }
+}
+
 export async function fetchEntities(
   pool: Pool,
   tableName: string,
 ): Promise<Record<string, unknown>[]> {
   const spec = await requireTable(tableName)
   const res = await pool.query(`SELECT * FROM ${spec.dbTable} ORDER BY created_at ASC`)
-  return res.rows.map(r => rowToEntity(spec, r))
+  const rows = res.rows.map(r => rowToEntity(spec, r))
+  await resolveCreatedByNames(pool, rows)
+  return rows
 }
 
 export async function fetchEntity(
@@ -36,7 +49,31 @@ export async function fetchEntity(
 ): Promise<Record<string, unknown> | null> {
   const spec = await requireTable(tableName)
   const res = await pool.query(`SELECT * FROM ${spec.dbTable} WHERE id = $1`, [entityId])
-  return res.rows.length > 0 ? rowToEntity(spec, res.rows[0]) : null
+  const rows = res.rows.map(r => rowToEntity(spec, r))
+  await resolveCreatedByNames(pool, rows)
+  return rows.length > 0 ? rows[0] : null
+}
+
+/** Resolves `created_by` user ids to display names (`createdByName`). */
+async function resolveCreatedByNames(
+  pool: Pool,
+  rows: Record<string, unknown>[],
+): Promise<void> {
+  const ids = [...new Set(rows.map(r => r.createdBy).filter((id): id is string => typeof id === 'string' && id.length > 0))]
+  if (ids.length === 0) return
+  const res = await pool.query<{ id: string; display_name: string | null; local_name: string | null; name: string | null }>(
+    `SELECT id, display_name, local_name, name FROM local_users WHERE id = ANY($1)`,
+    [ids],
+  )
+  const names = new Map<string, string>()
+  for (const u of res.rows) {
+    names.set(u.id, u.display_name || u.local_name || u.name || u.id)
+  }
+  for (const r of rows) {
+    if (typeof r.createdBy === 'string') {
+      r.createdByName = names.get(r.createdBy) ?? r.createdBy
+    }
+  }
 }
 
 export async function createEntity(
@@ -54,8 +91,13 @@ export async function createEntity(
       throw new EntityHttpError(400, 'Name is required')
     }
   }
+  assertRequiredColumns(spec, payload)
 
-  const { row, extra, parentIds } = payloadToRowPayload(spec, payload)
+  // The creator of an entity is recorded server-side; client-supplied values
+  // are ignored. Only tables whose schema has a created_by column get it.
+  const { row: mappedRow, extra, parentIds } = payloadToRowPayload(spec, payload)
+  const hasCreatedBy = spec.columns.some(c => c.column === 'created_by')
+  const row = hasCreatedBy ? { ...mappedRow, created_by: creatorUserId } : mappedRow
 
   // Creation authority follows the object hierarchy:
   // - shared tables (semesters, curriculum versions), departments and programs
@@ -125,6 +167,17 @@ export async function updateEntity(
 ): Promise<Record<string, unknown> | null> {
   const spec = await requireTable(tableName)
   const { row, extra, parentIds } = payloadToRowPayload(spec, payload)
+
+  // createdBy is maintained server-side only; ignore client-supplied values.
+  delete row.created_by
+
+  // Required columns cannot be cleared by an update.
+  for (const camel of spec.requiredColumns ?? []) {
+    const c = spec.columns.find(cc => cc.camel === camel)
+    if (c && (row[c.column] === '' || row[c.column] === null)) {
+      throw new EntityHttpError(400, `${camel.charAt(0).toUpperCase()}${camel.slice(1)} is required`)
+    }
+  }
 
   // Parent re-ties must be administered by the acting user (global admins
   // bypass). An update that leaves the parent list unchanged is a plain

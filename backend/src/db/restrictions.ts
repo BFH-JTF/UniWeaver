@@ -3,9 +3,20 @@ import {
   RESTRICTION_TYPES,
   isRestrictableTable,
   validateRestrictionParams,
-  DEFAULT_SOFT_WEIGHT,
+  DEFAULT_PRIORITY,
 } from '@uniweaver/shared'
 import { genEntityId, EntityHttpError } from './entities'
+
+/** Valid priority (weight) range: 1 = nice-to-have … 5 = mandatory condition. */
+const MIN_PRIORITY = 1
+const MAX_PRIORITY = 5
+
+/** Clamps any incoming weight to the 1–5 priority scale. */
+function normalizePriority(value: unknown, fallback: number): number {
+  const n = typeof value === 'number' ? value : Number(value)
+  if (!Number.isFinite(n)) return fallback
+  return Math.min(MAX_PRIORITY, Math.max(MIN_PRIORITY, Math.trunc(n)))
+}
 
 export interface RestrictionRow {
   id: string
@@ -255,10 +266,7 @@ export async function insertRestriction(
   if (paramsError) {
     throw new EntityHttpError(400, paramsError)
   }
-  const spec = RESTRICTION_TYPES[ruleType]
-  const weight = typeof payload.weight === 'number' && Number.isFinite(payload.weight)
-    ? Math.max(0, Math.trunc(payload.weight))
-    : (spec.category === 'soft' ? DEFAULT_SOFT_WEIGHT : 0)
+  const weight = normalizePriority(payload.weight, DEFAULT_PRIORITY)
   const enabled = payload.enabled === undefined ? true : Boolean(payload.enabled)
   const id = genEntityId()
   const res = await pool.query<RestrictionRow>(
@@ -293,9 +301,7 @@ export async function updateRestriction(
   if (paramsError) {
     throw new EntityHttpError(400, paramsError)
   }
-  const weight = typeof payload.weight === 'number' && Number.isFinite(payload.weight)
-    ? Math.max(0, Math.trunc(payload.weight))
-    : current.weight
+  const weight = normalizePriority(payload.weight, current.weight)
   const enabled = payload.enabled === undefined ? current.enabled : Boolean(payload.enabled)
   const res = await pool.query<RestrictionRow>(
     `UPDATE entity_restrictions

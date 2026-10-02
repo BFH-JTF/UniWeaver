@@ -29,7 +29,16 @@ export const PHASE_BOUNDARIES: Record<DayPhase, { start: number; end: number; la
   evening: { start: 18 * 60, end: 22 * 60, label: 'Evening (18:00–22:00)' },
 }
 
-export type RestrictionParamType = 'weekdayArray' | 'phaseArray' | 'dateArray' | 'singleWeekday'
+export type RestrictionParamType = 'weekdayArray' | 'phaseArray' | 'dateArray' | 'singleWeekday' | 'number' | 'choice' | 'timeslotArray' | 'buildingArray' | 'roomArray' | 'moduleArray'
+
+/** Static options for 'choice' params (dynamic reference data uses dynamicOptions). */
+export interface RestrictionChoiceOption {
+  value: string
+  label: string
+}
+
+/** Keys for option lists the GUI resolves from reference data at runtime. */
+export type RestrictionDynamicOptions = 'semesterTimeslots' | 'buildings' | 'rooms' | 'modules'
 
 export interface RestrictionParamSpec {
   key: string
@@ -37,6 +46,10 @@ export interface RestrictionParamSpec {
   type: RestrictionParamType
   required: boolean
   description: string
+  /** for 'choice' params */
+  options?: RestrictionChoiceOption[]
+  /** for option-list params backed by reference data */
+  dynamicOptions?: RestrictionDynamicOptions
 }
 
 export interface RestrictionTypeSpec {
@@ -50,6 +63,35 @@ export interface RestrictionTypeSpec {
   /** matching ruleType in the scheduleSolver SchedulingRule catalog */
   solverRuleType: string
   icon: string
+  /** GUI grouping key (see RESTRICTION_GROUPS) */
+  group?: RestrictionGroup
+}
+
+/** GUI group labels the restriction catalog is organized by. */
+export const RESTRICTION_GROUPS = [
+  'Time & place',
+  'Frequency & stability',
+  'Lecturer planning',
+  'Module relations',
+] as const
+export type RestrictionGroup = (typeof RESTRICTION_GROUPS)[number]
+
+const GROUP_BY_TYPE: Record<string, RestrictionGroup> = {
+  allowed_weekdays: 'Time & place',
+  allowed_phase: 'Time & place',
+  allowed_timeslots: 'Time & place',
+  excluded_dates: 'Time & place',
+  fixed_day: 'Time & place',
+  allowed_buildings: 'Time & place',
+  allowed_rooms: 'Time & place',
+  frequency_teaching_days: 'Frequency & stability',
+  frequency_per_week: 'Frequency & stability',
+  weekday_stability: 'Frequency & stability',
+  timeslot_stability: 'Frequency & stability',
+  lecturer_planning: 'Lecturer planning',
+  module_no_overlap: 'Module relations',
+  module_must_precede: 'Module relations',
+  module_must_follow: 'Module relations',
 }
 
 export const RESTRICTION_CATALOG: RestrictionTypeSpec[] = [
@@ -121,14 +163,238 @@ export const RESTRICTION_CATALOG: RestrictionTypeSpec[] = [
     solverRuleType: 'FIXED_DAY',
     icon: 'mdi-calendar-check',
   },
+  {
+    value: 'allowed_timeslots',
+    label: 'Allowed timeslots',
+    description: 'Sessions may only start in the listed timeslots (slot start times of the semester grid).',
+    category: 'hard',
+    params: [
+      {
+        key: 'startTimes',
+        label: 'Timeslots (start times)',
+        type: 'timeslotArray',
+        required: true,
+        dynamicOptions: 'semesterTimeslots',
+        description: 'Slot start times (HH:MM) in which sessions are allowed to start.',
+      },
+    ],
+    solverRuleType: 'ALLOWED_TIMESLOTS',
+    icon: 'mdi-clock-outline',
+  },
+  {
+    value: 'frequency_teaching_days',
+    label: 'Frequency: teaching day range',
+    description: 'Minimum/maximum number of teaching days that must pass between two occurrences of the module.',
+    category: 'soft',
+    params: [
+      {
+        key: 'minDays',
+        label: 'Minimum teaching days',
+        type: 'number',
+        required: true,
+        description: 'Smallest number of teaching days between two module occurrences.',
+      },
+      {
+        key: 'maxDays',
+        label: 'Maximum teaching days',
+        type: 'number',
+        required: false,
+        description: 'Largest number of teaching days between two module occurrences.',
+      },
+    ],
+    solverRuleType: 'FREQUENCY_TEACHING_DAYS',
+    icon: 'mdi-calendar-range',
+  },
+  {
+    value: 'frequency_per_week',
+    label: 'Frequency: per week',
+    description: 'How often the module may be scheduled per calendar week (exact or a range).',
+    category: 'soft',
+    params: [
+      {
+        key: 'min',
+        label: 'Minimum per week',
+        type: 'number',
+        required: true,
+        description: 'Smallest number of sessions per calendar week.',
+      },
+      {
+        key: 'max',
+        label: 'Maximum per week',
+        type: 'number',
+        required: false,
+        description: 'Largest number of sessions per calendar week.',
+      },
+    ],
+    solverRuleType: 'FREQUENCY_PER_WEEK',
+    icon: 'mdi-calendar-multiple-check',
+  },
+  {
+    value: 'weekday_stability',
+    label: 'Weekday stability',
+    description: 'The module should be scheduled on the same weekday every time it takes place.',
+    category: 'soft',
+    params: [],
+    solverRuleType: 'WEEKDAY_STABILITY',
+    icon: 'mdi-calendar-lock',
+  },
+  {
+    value: 'timeslot_stability',
+    label: 'Timeslot stability',
+    description: 'The module should be scheduled in the same timeslot every time it takes place.',
+    category: 'soft',
+    params: [],
+    solverRuleType: 'TIMESLOT_STABILITY',
+    icon: 'mdi-clock-check-outline',
+  },
+  {
+    value: 'lecturer_planning',
+    label: 'Lecturer planning',
+    description: 'Whether one available lecturer is enough or the number of available lecturers should be maximized.',
+    category: 'soft',
+    params: [
+      {
+        key: 'mode',
+        label: 'Mode',
+        type: 'choice',
+        required: true,
+        options: [
+          { value: 'any_lecturer', label: 'Any lecturer (one available lecturer is enough)' },
+          { value: 'max_lecturer', label: 'Max lecturer (maximize available lecturers)' },
+        ],
+        description: 'Lecturer planning mode for this module.',
+      },
+    ],
+    solverRuleType: 'LECTURER_PLANNING',
+    icon: 'mdi-account-group-outline',
+  },
+  {
+    value: 'allowed_buildings',
+    label: 'Allowed buildings',
+    description: 'Sessions may only take place in the listed buildings.',
+    category: 'hard',
+    params: [
+      {
+        key: 'buildings',
+        label: 'Buildings',
+        type: 'buildingArray',
+        required: true,
+        dynamicOptions: 'buildings',
+        description: 'Buildings in which sessions are allowed.',
+      },
+    ],
+    solverRuleType: 'ALLOWED_BUILDINGS',
+    icon: 'mdi-domain',
+  },
+  {
+    value: 'allowed_rooms',
+    label: 'Allowed rooms',
+    description: 'Sessions may only take place in the listed rooms.',
+    category: 'hard',
+    params: [
+      {
+        key: 'roomIds',
+        label: 'Rooms',
+        type: 'roomArray',
+        required: true,
+        dynamicOptions: 'rooms',
+        description: 'Rooms in which sessions are allowed.',
+      },
+    ],
+    solverRuleType: 'ALLOWED_ROOMS',
+    icon: 'mdi-door-open',
+  },
+  {
+    value: 'module_no_overlap',
+    label: 'Relation: no overlap',
+    description: 'No other modules can be scheduled at the same time as this module (scope-limited).',
+    category: 'hard',
+    params: [
+      {
+        key: 'scope',
+        label: 'Scope',
+        type: 'choice',
+        required: true,
+        options: [
+          { value: 'all', label: 'All other modules' },
+          { value: 'sameDegree', label: 'No other modules of the same degree' },
+          { value: 'sameProgram', label: 'No other modules of the same program' },
+        ],
+        description: 'Which overlapping sessions to forbid.',
+      },
+    ],
+    solverRuleType: 'MODULE_NO_OVERLAP',
+    icon: 'mdi-axis-arrow-info',
+  },
+  {
+    value: 'module_must_precede',
+    label: 'Relation: must precede',
+    description: 'This module must be scheduled before (one of) the listed modules.',
+    category: 'hard',
+    params: [
+      {
+        key: 'moduleIds',
+        label: 'Modules it precedes',
+        type: 'moduleArray',
+        required: true,
+        dynamicOptions: 'modules',
+        description: 'Modules that must come after this module.',
+      },
+    ],
+    solverRuleType: 'MODULE_MUST_PRECEDE',
+    icon: 'mdi-transfer-up',
+  },
+  {
+    value: 'module_must_follow',
+    label: 'Relation: must follow',
+    description: 'This module must be scheduled after (one of) the listed modules.',
+    category: 'hard',
+    params: [
+      {
+        key: 'moduleIds',
+        label: 'Modules it follows',
+        type: 'moduleArray',
+        required: true,
+        dynamicOptions: 'modules',
+        description: 'Modules that must come before this module.',
+      },
+    ],
+    solverRuleType: 'MODULE_MUST_FOLLOW',
+    icon: 'mdi-transfer-down',
+  },
 ]
 
 export const RESTRICTION_TYPES: Record<string, RestrictionTypeSpec> = Object.fromEntries(
   RESTRICTION_CATALOG.map(r => [r.value, r]),
 )
 
+// Assign the GUI group now that the catalog is fully declared.
+for (const entry of RESTRICTION_CATALOG) {
+  entry.group = GROUP_BY_TYPE[entry.value]
+}
+
 /** Hard restrictions ignore weight; soft restrictions use it as penalty weight. */
 export const DEFAULT_SOFT_WEIGHT = 5
+
+/**
+ * Uniform priority scale for all restriction rules. Weight on an
+ * EntityRestriction stores one of these levels; 5 = mandatory condition
+ * (violation makes a schedule infeasible), 1 = nice to have.
+ */
+export const PRIORITY_LEVELS = [
+  { value: 1, label: 'Nice-to-have', color: 'success' },
+  { value: 2, label: 'Somewhat important', color: 'lime' },
+  { value: 3, label: 'Standard importance', color: 'info' },
+  { value: 4, label: 'Whenever possible', color: 'warning' },
+  { value: 5, label: 'Mandatory condition', color: 'error' },
+] as const
+
+export const DEFAULT_PRIORITY = 3
+
+/** Label for a stored weight/priority value ('' for unknown values). */
+export function priorityLabel(weight: number): string {
+  return PRIORITY_LEVELS.find(l => l.value === weight)?.label ?? ''
+}
 
 export interface EntityRestriction {
   id: string
@@ -137,7 +403,7 @@ export interface EntityRestriction {
   ruleType: string
   params: Record<string, unknown>
   enabled: boolean
-  /** 0 = hard for soft-catalog entries too (kept symmetric with SchedulingRule.weight) */
+  /** Priority level 1 (nice-to-have) … 5 (mandatory condition) */
   weight: number
   createdAt?: string
   updatedAt?: string
@@ -159,10 +425,21 @@ export function isRestrictableTable(value: string): value is RestrictableTable {
 
 function isValidISODate(value: string): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
-  const [y, m, d] = value.split('-').map(Number)
+  const parts = value.split('-').map(Number)
+  if (parts.length !== 3 || parts.some((n) => Number.isNaN(n))) return false
+  const [y, m, d] = parts as [number, number, number]
   if (m < 1 || m > 12) return false
   const daysInMonth = new Date(Date.UTC(y, m, 0)).getUTCDate()
   return d >= 1 && d <= daysInMonth
+}
+
+/** Slot start times use 24h HH:MM with 00–23 h and 00–59 min. */
+function isValidSlotTime(value: string): boolean {
+  const match = /^(\d{2}):(\d{2})$/.exec(value)
+  if (!match) return false
+  const h = Number(match[1])
+  const m = Number(match[2])
+  return h >= 0 && h <= 23 && m >= 0 && m <= 59
 }
 
 /**
@@ -209,6 +486,68 @@ export function validateRestrictionParams(ruleType: string, params: unknown): st
         }
         break
       }
+      case 'number': {
+        if (value === undefined || value === null || value === '') {
+          if (param.required) return `Parameter "${param.key}" must be a number`
+          break
+        }
+        const n = typeof value === 'string' ? Number(value) : value
+        if (typeof n !== 'number' || !Number.isFinite(n) || n < 0) {
+          return `Parameter "${param.key}" must be a non-negative number`
+        }
+        break
+      }
+      case 'choice': {
+        if (value === undefined || value === null || value === '') {
+          if (param.required) return `Parameter "${param.key}" must be one of the allowed options`
+          break
+        }
+        const allowed = (param.options ?? []).map(o => o.value)
+        if (!allowed.includes(String(value))) {
+          return `Parameter "${param.key}" must be one of: ${allowed.join(', ')}`
+        }
+        break
+      }
+      case 'timeslotArray': {
+        if (!Array.isArray(value)) return `Parameter "${param.key}" must be an array`
+        if (param.required && value.length === 0) return `Parameter "${param.key}" must not be empty`
+        if (!value.every(v => isValidSlotTime(String(v)))) {
+          return `Parameter "${param.key}" must contain only slot start times in HH:MM format`
+        }
+        break
+      }
+      case 'buildingArray': {
+        if (!Array.isArray(value)) return `Parameter "${param.key}" must be an array`
+        if (param.required && value.length === 0) return `Parameter "${param.key}" must not be empty`
+        if (!value.every(v => String(v).trim().length > 0)) {
+          return `Parameter "${param.key}" must contain only non-empty building names`
+        }
+        break
+      }
+      case 'roomArray':
+      case 'moduleArray': {
+        if (!Array.isArray(value)) return `Parameter "${param.key}" must be an array`
+        if (param.required && value.length === 0) return `Parameter "${param.key}" must not be empty`
+        if (!value.every(v => typeof v === 'string' && v.trim().length > 0)) {
+          return `Parameter "${param.key}" must contain only non-empty entity ids`
+        }
+        break
+      }
+    }
+  }
+  // Cross-checks for range-type frequency restrictions.
+  if (ruleType === 'frequency_per_week' || ruleType === 'frequency_teaching_days') {
+    const minKey = ruleType === 'frequency_per_week' ? 'min' : 'minDays'
+    const maxKey = ruleType === 'frequency_per_week' ? 'max' : 'maxDays'
+    const rawMin = p[minKey]
+    const rawMax = p[maxKey]
+    const min = typeof rawMin === 'string' ? Number(rawMin) : rawMin
+    const max = rawMax === undefined || rawMax === null || rawMax === ''
+      ? undefined
+      : (typeof rawMax === 'string' ? Number(rawMax) : rawMax)
+    if (typeof min === 'number' && Number.isFinite(min)
+      && typeof max === 'number' && Number.isFinite(max) && max < min) {
+      return `Parameter "${maxKey}" must not be smaller than "${minKey}"`
     }
   }
   return null

@@ -118,13 +118,22 @@
             <span class="font-weight-medium">{{ item.name || item.code }}</span>
           </template>
           <template #item.code="{ item }">
-            {{ item.code || 'â€”' }}
+            {{ item.code || '—' }}
           </template>
           <template #item.startDate="{ item }">
             {{ formatDate(item.startDate) }}
           </template>
           <template #item.endDate="{ item }">
             {{ formatDate(item.endDate) }}
+          </template>
+          <template #item.slotStartTimes="{ item }">
+            <span v-if="item.slotDurationMinutes && item.slotStartTimes && item.slotStartTimes.length > 0">
+              <v-tooltip activator="parent" location="top">
+                {{ item.slotStartTimes.join(', ') }}
+              </v-tooltip>
+              {{ item.slotDurationMinutes }} min · {{ item.slotStartTimes.length }} starts
+            </span>
+            <span v-else class="text-medium-emphasis">—</span>
           </template>
           <template #item.actions="{ item }">
             <template v-if="auth.isAdmin">
@@ -212,11 +221,14 @@
             <template #item.versionNumber="{ item }">
               {{ item.versionNumber }}
             </template>
-            <template #item.programId="{ item }">
-              {{ getProgramName(item.programId) }}
+            <template #item.semesterId="{ item }">
+              {{ getSemesterName(item.semesterId) || '—' }}
+            </template>
+            <template #item.createdByName="{ item }">
+              {{ item.createdByName || '—' }}
             </template>
             <template #item.createdAt="{ item }">
-              {{ item.createdAt ? formatDate(item.createdAt) : 'â€”' }}
+              {{ item.createdAt ? formatDate(item.createdAt) : '—' }}
             </template>
             <template #item.actions="{ item }">
               <template v-if="auth.isAdmin">
@@ -455,25 +467,14 @@
                 <span v-else class="text-medium-emphasis">-</span>
               </template>
               <template #item.creditPoints="{ item }">
-                {{ item.creditPoints ?? '-' }}
+                {{ item.creditPoints ?? '—' }}
               </template>
-              <template #item.contactHours="{ item }">
-                {{ item.contactHours ?? '-' }}
-              </template>
-              <template #item.constraints="{ item }">
-                <template v-if="item.constraints && item.constraints.length">
-                  <v-chip
-                    v-for="(c, idx) in item.constraints"
-                    :key="idx"
-                    size="x-small"
-                    :color="c.type === 'requires' ? 'info' : c.type === 'corequisite' ? 'warning' : 'error'"
-                    variant="tonal"
-                    class="mr-1"
-                  >
-                    {{ c.type }}: {{ getModuleName(c.targetModuleId) }}
-                  </v-chip>
-                </template>
-                <span v-else class="text-medium-emphasis">-</span>
+              <template #item.timeslots="{ item }">
+                <span v-if="item.timeslots != null && displayedSemesterTimeslots" class="text-medium-emphasis">
+                  {{ item.timeslots }} × {{ displayedSemesterTimeslots.duration }} min
+                </span>
+                <span v-else-if="item.timeslots != null">{{ item.timeslots }}</span>
+                <span v-else class="text-medium-emphasis">—</span>
               </template>
               <template #item.name="{ item }">
                 <span>{{ item.name }}</span>
@@ -629,6 +630,7 @@
       :module-data="editModule"
       :degrees="degreesOfDisplayedVersion"
       :classes="classes"
+      :semester-timeslots="displayedSemesterTimeslots"
       @save="handleModuleSave"
     />
 
@@ -650,6 +652,7 @@
     <CurriculumVersionFormDialog
       v-model="verDialogOpen"
       :version-data="editVersion"
+      :semesters="semesterList"
       @save="handleVersionSave"
     />
 
@@ -901,8 +904,7 @@ const modHeaders = [
   { title: 'Name', key: 'name', sortable: true },
   { title: 'Degrees', key: 'DegreeIDs', sortable: false },
   { title: 'ECTS', key: 'creditPoints', sortable: true },
-  { title: 'Contact hrs', key: 'contactHours', sortable: true },
-  { title: 'Constraints', key: 'constraints', sortable: false },
+  { title: 'Timeslots', key: 'timeslots', sortable: true },
   { title: '', key: 'actions', sortable: false, width: '150px' },
 ]
 
@@ -923,13 +925,15 @@ const semHeaders = [
   { title: 'Code', key: 'code', sortable: true },
   { title: 'Start', key: 'startDate', sortable: true },
   { title: 'End', key: 'endDate', sortable: true },
+  { title: 'Timeslots', key: 'slotStartTimes', sortable: false },
   { title: '', key: 'actions', sortable: false, width: '150px' },
 ]
 
 const verHeaders = [
   { title: 'Name', key: 'name', sortable: true },
   { title: 'Version', key: 'versionNumber', sortable: true },
-  { title: 'Program', key: 'programId', sortable: false },
+  { title: 'Semester', key: 'semesterId', sortable: false },
+  { title: 'Created by', key: 'createdByName', sortable: true },
   { title: 'Created', key: 'createdAt', sortable: true },
   { title: '', key: 'actions', sortable: false, width: '150px' },
 ]
@@ -956,11 +960,6 @@ function getDegreeNames(mod: Module): string[] {
     const deg = degrees.value.find(d => d.id === id)
     return deg ? deg.name : id
   })
-}
-
-function getModuleName(moduleId: string): string {
-  const mod = modules.value.find(m => m.id === moduleId)
-  return mod ? (mod.code || mod.name) : moduleId
 }
 
 function getDegreeName(degreeId: string | undefined): string {
@@ -1004,7 +1003,7 @@ const filteredPrograms = computed(() => {
   )
 })
 
-// Programs of the displayed curriculum version â€” only these can be selected
+// Programs of the displayed curriculum version — only these can be selected
 // when adding/editing a degree within the displayed curriculum.
 const programsOfDisplayedVersion = computed(() =>
   displayedVersionId.value === ''
@@ -1025,6 +1024,15 @@ const degreesOfDisplayedVersion = computed(() =>
         )
       })
 )
+
+// Timeslot grid of the semester the displayed curriculum version is for;
+// null when no version/semester is selected or the semester has no grid.
+const displayedSemesterTimeslots = computed(() => {
+  const version = curriculumVersions.value.find(v => (v._id || v.id) === displayedVersionId.value)
+  const sem = semesterList.value.find(s => (s._id || s.id) === version?.semesterId)
+  if (!sem?.slotDurationMinutes) return null
+  return { duration: sem.slotDurationMinutes, startTimes: sem.slotStartTimes ?? [] }
+})
 
 const filteredDegrees = computed(() => {
   // Degrees belong to the displayed curriculum via their parent programs:
@@ -1095,17 +1103,18 @@ const filteredVersions = computed(() => {
   return curriculumVersions.value.filter(v =>
     (v.name ?? '').toLowerCase().includes(q) ||
     String(v.versionNumber).includes(q) ||
-    getProgramName(v.programId).toLowerCase().includes(q)
+    (getSemesterName(v.semesterId) || '').toLowerCase().includes(q) ||
+    (v.createdByName || '').toLowerCase().includes(q)
   )
 })
 
-// â”€â”€ Displayed curriculum version â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Displayed curriculum version ───────────────────────────────
 const hasDisplayedVersion = computed(() => displayedVersionId.value !== '')
 
 const displayedVersionItems = computed(() => [
   { title: 'No version selected', value: '' },
   ...curriculumVersions.value.map(v => ({
-    title: `${v.name || 'Version'} (v${v.versionNumber}) â€” ${getProgramName(v.programId)}`,
+    title: `${v.name || 'Version'} (v${v.versionNumber}) — ${getSemesterName(v.semesterId) || 'no semester'}`,
     value: v._id || v.id || '',
   })).filter(i => i.value),
 ])
@@ -1374,12 +1383,6 @@ async function handleVersionSave(version: CurriculumVersion) {
   }
 }
 
-function getProgramName(programId: string | undefined): string {
-  if (!programId) return 'â€”'
-  const prog = programs.value.find(p => p.id === programId)
-  return prog ? (prog.name || programId) : programId
-}
-
 function getActiveVersionIds(): string[] {
   return programs.value
     .map(p => p.activeCurriculumVersionId)
@@ -1391,14 +1394,22 @@ function isActiveVersion(version: CurriculumVersion): boolean {
   return !!id && getActiveVersionIds().includes(id)
 }
 
+// A curriculum version is activated by assigning it to one or more programs
+// ("Set as active"); activating sets it on every program currently displaying
+// this version's program name is no longer available.
 async function setAsActiveVersion(version: CurriculumVersion) {
   const versionId = version._id || version.id
-  if (!versionId || !version.programId) return
-  const prog = programs.value.find(p => p.id === version.programId)
-  if (!prog) return
+  if (!versionId) return
+  const candidates = programs.value.filter(p => !p.activeCurriculumVersionId)
+  if (candidates.length === 0) {
+    showSnackbar('No program without an active version. Change a program first.', 'error')
+    return
+  }
   try {
-    await updateProgram({ ...prog, activeCurriculumVersionId: versionId })
-    showSnackbar(`Set as active version of ${prog.name || 'program'}`)
+    for (const prog of candidates) {
+      await updateProgram({ ...prog, activeCurriculumVersionId: versionId })
+    }
+    showSnackbar(`Set as active version for ${candidates.length} program${candidates.length === 1 ? '' : 's'}`)
   } catch {
     showSnackbar('Operation failed', 'error')
   }

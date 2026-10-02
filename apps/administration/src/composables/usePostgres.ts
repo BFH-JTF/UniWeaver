@@ -36,7 +36,6 @@ export const EntityTables = {
   LECTURER: 'lecturers',
   LECTURER_AVAILABILITY: 'lecturer_availability',
   ROOM_AVAILABILITY: 'room_availability',
-  SCHEDULING_RULE: 'scheduling_rules',
   TAXONOMY: 'taxonomy_items',
   COMPETENCY: 'competencies',
   COMPETENCY_MATRIX: 'competency_matrices',

@@ -52,10 +52,15 @@
             </v-col>
             <v-col cols="12" sm="6">
               <v-text-field
-                v-model.number="mod.contactHours"
-                label="Contact Hours"
+                v-model.number="mod.timeslots"
+                :label="timeslotInputInfo ? `# of Timeslots (${timeslotInputInfo.duration} minutes)` : '# of Timeslots'"
+                :hint="timeslotInputInfo
+                  ? `One module instance spans ${mod.timeslots ?? '?'} × ${timeslotInputInfo.duration} min`
+                  : 'Semester without timeslot grid — define the grid in the semester settings'"
+                persistent-hint
                 type="number"
                 min="0"
+                step="1"
               />
             </v-col>
           </v-row>
@@ -67,29 +72,6 @@
             v-model="mod.url"
             label="URL"
           />
-
-          <v-divider class="my-4" />
-          <h3 class="text-subtitle-1 mb-2">Constraints</h3>
-          <div v-for="(c, idx) in mod.constraints" :key="idx" class="d-flex align-center ga-2 mb-2">
-            <v-select
-              v-model="c.type"
-              :items="constraintTypeOptions"
-              label="Type"
-              density="compact"
-              style="max-width: 180px"
-            />
-            <v-text-field
-              v-model="c.targetModuleId"
-              label="Target Module ID"
-              density="compact"
-            />
-            <v-btn icon variant="text" size="small" color="error" @click="removeConstraint(idx)">
-              <v-icon>mdi-close</v-icon>
-            </v-btn>
-          </div>
-          <v-btn variant="outlined" size="small" prepend-icon="mdi-plus" @click="addConstraint">
-            Add Constraint
-          </v-btn>
 
           <v-divider class="my-4" />
           <h3 class="text-subtitle-1 mb-2">Scheduling Restrictions</h3>
@@ -132,7 +114,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { useAuthStore } from '@/stores/auth'
-import type { Module, ModuleConstraint, Degree } from '@/types/curriculum'
+import type { Module, Degree } from '@/types/curriculum'
 import type { ClassEntity } from '@/types/curriculumClass'
 import RestrictionsDialog from '@/components/RestrictionsDialog.vue'
 import type { RestrictionsOwner } from '@/composables/useRestrictions'
@@ -142,6 +124,8 @@ const props = defineProps<{
   moduleData?: Module
   degrees: Degree[]
   classes: ClassEntity[]
+  /** Timeslot grid of the semester the displayed curriculum version is for. */
+  semesterTimeslots?: { duration?: number; startTimes?: string[] } | null
 }>()
 
 const emit = defineEmits<{
@@ -151,14 +135,15 @@ const emit = defineEmits<{
 
 const isEdit = computed(() => !!props.moduleData?.id)
 
+// Slot length of the semester the displayed curriculum version is for, used
+// to contextualize the "# of Timeslots" input.
+const timeslotInputInfo = computed(() => {
+  const duration = props.semesterTimeslots?.duration
+  return duration && duration > 0 ? { duration } : null
+})
+
 const formRef = ref()
 const mod = ref<Module>(emptyModule())
-
-const constraintTypeOptions: { title: string; value: ModuleConstraint['type'] }[] = [
-  { title: 'Requires', value: 'requires' },
-  { title: 'Corequisite', value: 'corequisite' },
-  { title: 'Forbids', value: 'forbids' },
-]
 
 const selectedDegreeIds = computed({
   get: () => mod.value.DegreeIDs ?? mod.value.degreeIDs ?? mod.value.degreeIds ?? [],
@@ -208,19 +193,7 @@ const classItems = computed(() => props.classes.map(c => ({
 })).filter(c => c.value))
 
 function emptyModule(): Module {
-  return { name: '', DegreeIDs: [], degreeIDs: [], degreeIds: [], constraints: [] }
-}
-
-function addConstraint() {
-  if (!mod.value.constraints) mod.value.constraints = []
-  mod.value.constraints.push({ type: 'requires', targetModuleId: '' })
-}
-
-function removeConstraint(idx: number) {
-  mod.value.constraints?.splice(idx, 1)
-  if (mod.value.constraints && mod.value.constraints.length === 0) {
-    mod.value.constraints = undefined
-  }
+  return { name: '', DegreeIDs: [], degreeIDs: [], degreeIds: [] }
 }
 
 watch(() => props.modelValue, (val) => {
@@ -232,7 +205,6 @@ watch(() => props.modelValue, (val) => {
     selectedClassIds.value = moduleId
       ? props.classes.filter(c => (c.moduleIds || []).includes(moduleId)).map(c => c.id || c._id).filter(Boolean) as string[]
       : []
-    if (!mod.value.constraints) mod.value.constraints = []
   }
 })
 
@@ -245,12 +217,6 @@ async function submit() {
   result.DegreeIDs = ids
   result.degreeIDs = ids
   result.degreeIds = ids
-  if (result.constraints && result.constraints.length === 0) {
-    delete result.constraints
-  }
-  if (result.constraints) {
-    result.constraints = result.constraints.filter((c: ModuleConstraint) => c.targetModuleId)
-  }
   emit('save', result)
   emit('update:modelValue', false)
 }

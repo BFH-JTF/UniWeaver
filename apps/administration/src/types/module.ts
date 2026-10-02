@@ -1,1 +1,1 @@
-export type { Module, ModuleConstraint, ModuleExport } from './curriculum'
+export type { Module, ModuleExport } from './curriculum'

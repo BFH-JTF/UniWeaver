@@ -30,6 +30,17 @@ export const SOLVER_API_TYPES = {
   allowed_phase: 'ALLOWED_PHASE',
   excluded_dates: 'UNAVAILABLE_DATES',
   fixed_day: 'FIXED_DAY',
+  allowed_timeslots: 'ALLOWED_TIMESLOTS',
+  frequency_teaching_days: 'FREQUENCY_TEACHING_DAYS',
+  frequency_per_week: 'FREQUENCY_PER_WEEK',
+  weekday_stability: 'WEEKDAY_STABILITY',
+  timeslot_stability: 'TIMESLOT_STABILITY',
+  lecturer_planning: 'LECTURER_PLANNING',
+  allowed_buildings: 'ALLOWED_BUILDINGS',
+  allowed_rooms: 'ALLOWED_ROOMS',
+  module_no_overlap: 'MODULE_NO_OVERLAP',
+  module_must_precede: 'MODULE_MUST_PRECEDE',
+  module_must_follow: 'MODULE_MUST_FOLLOW',
 } as const
 
 export type SolverApiRuleType = (typeof SOLVER_API_TYPES)[keyof typeof SOLVER_API_TYPES]
@@ -37,7 +48,7 @@ export type SolverApiRuleType = (typeof SOLVER_API_TYPES)[keyof typeof SOLVER_AP
 export interface SchedulingRuleDTO {
   id: string
   ruleType: string
-  category?: string
+  /** Priority level 1 (nice-to-have) … 5 (mandatory condition) */
   weight: number
   enabled: boolean
   params?: Record<string, unknown>
@@ -91,6 +102,28 @@ function mergeParams(ruleType: string, paramLists: Record<string, unknown>[]): R
       }
       return { phases: ['morning', 'afternoon', 'evening'].filter(ph => union.has(ph)) }
     }
+    case 'allowed_timeslots': {
+      // OR of "only these start times" -> union of allowed slot start times
+      const union = new Set<string>()
+      for (const p of paramLists) {
+        for (const t of (p['startTimes'] as unknown[] | undefined) ?? []) union.add(String(t))
+      }
+      return { startTimes: [...union].sort() }
+    }
+    case 'allowed_buildings': {
+      const union = new Set<string>()
+      for (const p of paramLists) {
+        for (const b of (p['buildings'] as unknown[] | undefined) ?? []) union.add(String(b))
+      }
+      return { buildings: [...union].sort() }
+    }
+    case 'allowed_rooms': {
+      const union = new Set<string>()
+      for (const p of paramLists) {
+        for (const r of (p['roomIds'] as unknown[] | undefined) ?? []) union.add(String(r))
+      }
+      return { roomIds: [...union].sort() }
+    }
     case 'excluded_dates': {
       // OR of "not on these dates" -> intersection of excluded sets
       let intersection: string[] | null = null
@@ -131,8 +164,8 @@ function collectPerBranch(branches: RestrictionTreeNode[][]): Map<string, Entity
 /**
  * Builds solver scheduling rules for one module+class pairing. The module
  * tree and class tree are ANDed; within a tree, parallel parents are ORed
- * (implemented as most-permissive param merge). Soft rules carry their
- * weight; hard rules get weight 0.
+ * (implemented as most-permissive param merge). Every rule carries its
+ * priority level (weight, 1–5; 5 = mandatory condition).
  */
 export function buildSchedulingRulesForPairing(input: RestrictionTreeInput): SchedulingRuleDTO[] {
   // Branches: for the module tree, each top-level degree is a branch consisting
@@ -180,12 +213,10 @@ export function buildSchedulingRulesForPairing(input: RestrictionTreeInput): Sch
       if (list.length === 0) return null
       const solverType = SOLVER_API_TYPES[type as keyof typeof SOLVER_API_TYPES]
       if (!solverType) return null
-      const soft = list.some(r => r.weight > 0)
       return {
         id: list.map(r => r.id).join('+'),
         ruleType: solverType,
-        category: soft ? 'soft' : 'hard',
-        weight: soft ? Math.max(...list.map(r => r.weight)) : 0,
+        weight: Math.max(...list.map(r => r.weight)),
         enabled: true,
         params: mergeParams(type, list.map(r => r.params ?? {})),
       }
