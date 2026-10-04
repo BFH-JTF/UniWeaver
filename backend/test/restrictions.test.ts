@@ -78,8 +78,17 @@ async function main() {
   try {
     for (const u of [globalAdmin, programAdmin, reader, outsider]) await seedUser(u)
 
-    // ── Fixtures: department → program → degree → module ────────────────
+    // ── Fixtures: curriculum → department → program → degree → module ───
     console.log('Fixtures...')
+    const currRes = await fetch(`${base}/curriculums`, {
+      method: 'POST', headers: auth(adminCookie), body: JSON.stringify({ name: 'Rstr Curriculum' }),
+    })
+    assert(currRes.status === 201, 'admin creates curriculum')
+    const curriculum = await currRes.json() as any
+    const versionsRes = await fetch(`${base}/curriculum_versions`, { headers: auth(adminCookie) })
+    const versions = (await versionsRes.json()) as any[]
+    const version = versions.find(v => v.curriculumId === curriculum.id)
+
     const deptRes = await fetch(`${base}/departments`, {
       method: 'POST', headers: auth(adminCookie), body: JSON.stringify({ name: 'Rstr Dept' }),
     })
@@ -87,7 +96,7 @@ async function main() {
     const department = await deptRes.json() as any
 
     const progRes = await fetch(`${base}/programs`, {
-      method: 'POST', headers: auth(adminCookie), body: JSON.stringify({ name: 'Rstr Prog', departmentIds: [department.id] }),
+      method: 'POST', headers: auth(adminCookie), body: JSON.stringify({ name: 'Rstr Prog', departmentIds: [department.id], curriculumId: curriculum.id }),
     })
     assert(progRes.status === 201, 'admin creates program in department')
     const program = await progRes.json() as any
@@ -99,7 +108,7 @@ async function main() {
     const degree = await degRes.json() as any
 
     const modRes = await fetch(`${base}/modules`, {
-      method: 'POST', headers: auth(adminCookie), body: JSON.stringify({ name: 'Rstr Mod', degreeIds: [degree.id] }),
+      method: 'POST', headers: auth(adminCookie), body: JSON.stringify({ name: 'Rstr Mod', degreeIds: [degree.id], curriculumVersionId: version.id }),
     })
     assert(modRes.status === 201, 'admin creates module in degree')
     const mod = await modRes.json() as any
@@ -291,6 +300,7 @@ async function main() {
     await pool.query(`DELETE FROM degrees WHERE id = $1`, [degree.id])
     await pool.query(`DELETE FROM programs WHERE id = $1`, [program.id])
     await pool.query(`DELETE FROM departments WHERE id = $1`, [department.id])
+    await pool.query(`DELETE FROM curriculums WHERE id = $1`, [curriculum.id])
     await pool.query(`DELETE FROM local_users WHERE id IN ('rstr_global_admin','rstr_program_admin','rstr_reader','rstr_outsider')`)
 
     console.log(`\nResults: ${passed} passed, ${failed} failed`)

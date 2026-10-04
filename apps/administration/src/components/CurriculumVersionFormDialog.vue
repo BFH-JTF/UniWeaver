@@ -77,7 +77,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import type { CurriculumVersion } from '@/stores/curriculum'
+import type { CurriculumVersion } from '@/types/curriculum'
 import { emptyCurriculumVersion } from '@/composables/useCurriculumVersions'
 
 const props = defineProps<{

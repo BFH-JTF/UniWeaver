@@ -520,10 +520,13 @@ const props = withDefaults(
     modelValue: boolean
     initialType?: ImportType
     allowedTypes?: ImportType[]
+    /** Curriculum containment for programs/modules imports. */
+    curriculumContext?: { curriculumId?: string; curriculumVersionId?: string } | null
   }>(),
   {
     initialType: 'rooms',
     allowedTypes: undefined,
+    curriculumContext: null,
   }
 )
 
@@ -808,7 +811,7 @@ async function executeImport() {
     // 2. Convert to typed domain entities
     const entities = currentConfig.value.transform(mappedRows)
     // 3. Save to database / local store
-    const count = await saveImportedData(selectedType.value, entities)
+    const count = await saveImportedData(selectedType.value, entities, props.curriculumContext ?? undefined)
 
     emit('imported', {
       type: selectedType.value,

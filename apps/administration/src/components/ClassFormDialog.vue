@@ -58,6 +58,20 @@
           />
 
           <v-autocomplete
+            v-model="form.curriculumVersionId"
+            :items="versionItems"
+            item-title="title"
+            item-value="value"
+            label="Curriculum Version *"
+            variant="outlined"
+            density="compact"
+            :rules="[v => !!v || 'Curriculum version is required']"
+            hint="Classes are always tied to a curriculum version"
+            persistent-hint
+            class="mb-3"
+          />
+
+          <v-autocomplete
             v-model="form.programIds"
             :items="programs"
             item-title="name"
@@ -136,6 +150,8 @@ const props = defineProps<{
   programs: Program[]
   degrees: Degree[]
   semesters: Semester[]
+  /** Curriculum versions classes can be tied to (required). */
+  curriculumVersions?: Array<{ title: string; value: string }>
 }>()
 
 const emit = defineEmits<{
@@ -158,12 +174,14 @@ const degreeItems = computed(() =>
     .filter(d => d.value)
 )
 
+const versionItems = computed(() => props.curriculumVersions ?? [])
+
 watch(() => props.modelValue, (isOpen) => {
   if (isOpen) {
     if (props.classData) {
       form.value = JSON.parse(JSON.stringify(props.classData))
     } else {
-      form.value = JSON.parse(JSON.stringify(emptyClass()))
+      form.value = JSON.parse(JSON.stringify({ ...emptyClass(), curriculumVersionId: props.curriculumVersions?.[0]?.value ?? '' }))
     }
   }
 })
@@ -175,7 +193,12 @@ function close() {
 async function submit() {
   const { valid } = await formRef.value?.validate() ?? { valid: false }
   if (!valid) return
-  emit('save', JSON.parse(JSON.stringify(form.value)))
+  const result = JSON.parse(JSON.stringify(form.value))
+  if (!result.curriculumVersionId) {
+    formRef.value?.validate()
+    return
+  }
+  emit('save', result)
   close()
 }
 </script>

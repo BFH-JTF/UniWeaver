@@ -685,6 +685,7 @@ export const IMPORT_CONFIGS: Record<ImportType, ImportTypeConfig> = {
           mod.degreeIDs = degreeIds
           mod.degreeIds = degreeIds
         }
+        if (obj.curriculumVersionId) mod.curriculumVersionId = String(obj.curriculumVersionId)
         if (obj.contact) mod.contact = String(obj.contact)
         const urlVal = obj.url || obj.URL
         if (urlVal) {

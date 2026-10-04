@@ -25,6 +25,7 @@ export interface PostgresConfig {
 }
 
 export const EntityTables = {
+  CURRICULUM: 'curriculums',
   CURRICULUM_VERSION: 'curriculum_versions',
   MODULE: 'modules',
   SEMESTER: 'semesters',

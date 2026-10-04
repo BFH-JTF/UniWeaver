@@ -9,6 +9,16 @@
             label="Name *"
             :rules="[v => !!v || 'Name is required']"
           />
+          <v-select
+            v-model="selectedCurriculumId"
+            :items="curriculumItems"
+            item-title="title"
+            item-value="value"
+            label="Curriculum *"
+            :rules="[v => !!v || 'Curriculum is required']"
+            hint="Programs cannot exist without a curriculum"
+            persistent-hint
+          />
           <v-textarea
             v-model="program.description"
             label="Description"
@@ -52,6 +62,8 @@ const props = defineProps<{
   modelValue: boolean
   programData?: Program
   departments: Department[]
+  /** Curriculums the program can be attached to (required). */
+  curriculums?: Array<{ title: string; value: string }>
 }>()
 
 const emit = defineEmits<{
@@ -63,6 +75,15 @@ const isEdit = computed(() => !!props.programData?.id)
 
 const formRef = ref()
 const program = ref<Program>(emptyProgram())
+
+const selectedCurriculumId = computed({
+  get: () => program.value.curriculumId ?? '',
+  set: (val: string) => {
+    program.value.curriculumId = val
+  },
+})
+
+const curriculumItems = computed(() => props.curriculums ?? [])
 
 const selectedDepartmentIds = computed({
   get: () => program.value.departmentIDs ?? program.value.departmentIds ?? [],
@@ -80,14 +101,14 @@ const departmentItems = computed(() =>
 )
 
 function emptyProgram(): Program {
-  return { name: '', departmentIDs: [], departmentIds: [] }
+  return { name: '', curriculumId: '', departmentIDs: [], departmentIds: [] }
 }
 
 watch(() => props.modelValue, (val) => {
   if (val) {
     program.value = props.programData
       ? JSON.parse(JSON.stringify(props.programData))
-      : emptyProgram()
+      : { ...emptyProgram(), curriculumId: props.curriculums?.[0]?.value ?? '' }
   }
 })
 
@@ -95,6 +116,10 @@ async function submit() {
   const { valid } = await formRef.value?.validate() ?? { valid: false }
   if (!valid) return
   const result = JSON.parse(JSON.stringify(program.value))
+  if (!result.curriculumId) {
+    formRef.value?.validate()
+    return
+  }
   const ids = result.departmentIDs ?? result.departmentIds ?? []
   result.departmentIDs = ids
   result.departmentIds = ids

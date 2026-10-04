@@ -86,14 +86,27 @@ async function main() {
     assert(anon.status === 401, 'list programs without session returns 401')
 
     // ── Program creation (global admin only) ────────────────────────────
+    console.log('Curriculums + containment...')
+    const currRes = await fetch(`${base}/curriculums`, {
+      method: 'POST', headers: auth(adminCookie), body: JSON.stringify({ name: 'ACL Curriculum' }),
+    })
+    assert(currRes.status === 201, 'global admin creates curriculum (with V1)')
+    const curriculum = await currRes.json() as any
+    assert(!!curriculum.id, 'curriculum has id')
+
+    const progByUserNoCurr = await fetch(`${base}/programs`, {
+      method: 'POST', headers: auth(adminCookie), body: JSON.stringify({ name: 'Nope' }),
+    })
+    assert(progByUserNoCurr.status === 400, 'program without curriculum is rejected')
+
     console.log('Programs...')
     const progByUser = await fetch(`${base}/programs`, {
-      method: 'POST', headers: auth(creatorCookie), body: JSON.stringify({ name: 'Nope' }),
+      method: 'POST', headers: auth(creatorCookie), body: JSON.stringify({ name: 'Nope', curriculumId: curriculum.id }),
     })
     assert(progByUser.status === 403, 'non-admin cannot create program')
 
     const progRes = await fetch(`${base}/programs`, {
-      method: 'POST', headers: auth(adminCookie), body: JSON.stringify({ name: 'BSc Inf', description: 'x' }),
+      method: 'POST', headers: auth(adminCookie), body: JSON.stringify({ name: 'BSc Inf', description: 'x', curriculumId: curriculum.id }),
     })
     assert(progRes.status === 201, 'global admin creates program')
     const program = await progRes.json() as any
@@ -170,15 +183,23 @@ async function main() {
 
     // ── Module creation tied to administered degree ─────────────────────
     console.log('Module creation rules...')
+    const versionsAcl = await fetch(`${base}/curriculum_versions`, { headers: auth(adminCookie) })
+    const aclVersions = await versionsAcl.json() as any[]
+    const aclVersion = aclVersions.find(v => v.curriculumId === curriculum.id)
     const modRes = await fetch(`${base}/modules`, {
       method: 'POST', headers: auth(creatorCookie), body: JSON.stringify({
-        name: 'Algo', code: 'INF-01', degreeIds: [degree.id], creditPoints: 6,
+        name: 'Algo', code: 'INF-01', degreeIds: [degree.id], creditPoints: 6, curriculumVersionId: aclVersion.id,
       }),
     })
     assert(modRes.status === 201, 'degree admin creates tied module')
     const mod = await modRes.json() as any
     assert(mod.degreeIds.includes(degree.id), 'module persisted with degreeIds')
     assert(mod.creditPoints === 6, 'module creditPoints persisted')
+
+    const modNoVersion = await fetch(`${base}/modules`, {
+      method: 'POST', headers: auth(adminCookie), body: JSON.stringify({ name: 'NoVer', degreeIds: [degree.id] }),
+    })
+    assert(modNoVersion.status === 400, 'module without curriculum version is rejected')
 
     // ── Last-admin protection (degree: creator is its only admin) ───────
     console.log('Last-admin protection...')
@@ -214,7 +235,18 @@ async function main() {
     await pool.query(`DELETE FROM modules WHERE degree_ids::text LIKE '%' || (SELECT id FROM degrees WHERE name = 'Minor Inf') || '%'`)
     await pool.query(`DELETE FROM degrees WHERE name = 'Minor Inf'`)
     await pool.query(`DELETE FROM programs WHERE name = 'BSc Inf'`)
+    await pool.query(`DELETE FROM curriculums WHERE name = 'ACL Curriculum'`)
     await pool.query(`DELETE FROM local_users WHERE id IN ('user_creator','user_writer','user_reader','user_outsider','user_global_admin')`)
+
+    // Remove leftovers from crashed earlier runs so tests are repeatable.
+    await pool.query(`DELETE FROM entity_access WHERE entity_id IN (SELECT id FROM programs WHERE name = 'BSc Inf')`)
+    await pool.query(`DELETE FROM entity_restrictions WHERE entity_id IN (SELECT id FROM programs WHERE name = 'BSc Inf')`)
+    await pool.query(`DELETE FROM modules WHERE curriculum_version_id IN (SELECT id FROM curriculum_versions WHERE curriculum_id IN (SELECT id FROM curriculums WHERE name = 'ACL Curriculum'))`)
+    await pool.query(`DELETE FROM class_entities WHERE curriculum_version_id IN (SELECT id FROM curriculum_versions WHERE curriculum_id IN (SELECT id FROM curriculums WHERE name = 'ACL Curriculum'))`)
+    await pool.query(`DELETE FROM degrees WHERE program_ids::text LIKE '%BSc Inf%' OR name = 'Minor Inf'`)
+    await pool.query(`DELETE FROM programs WHERE name = 'BSc Inf'`)
+    await pool.query(`DELETE FROM curriculum_versions WHERE curriculum_id IN (SELECT id FROM curriculums WHERE name = 'ACL Curriculum')`)
+    await pool.query(`DELETE FROM curriculums WHERE name = 'ACL Curriculum'`)
 
     // ── Unknown table ───────────────────────────────────────────────────
     const unknown = await fetch(`${base}/not_a_table`, { headers: auth(adminCookie) })

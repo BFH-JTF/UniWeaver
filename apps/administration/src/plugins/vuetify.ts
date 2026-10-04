@@ -27,7 +27,12 @@ export default createVuetify({
           surface: '#F5F7FA',
           'surface-bright': '#FFFFFF',
           'surface-variant': '#E8EEF7',
+          // Vuetify's stock light theme pairs surface-variant (#424242) with a
+          // light on-surface-variant (#EEEEEE). We lighten surface-variant, so
+          // the companion text color must go dark as well — otherwise tooltips,
+          // chips and slider labels render light-on-light (invisible).
           'on-surface': '#102230',
+          'on-surface-variant': '#102230',
         },
         variables: {
           'border-radius-root': '12px',
@@ -47,6 +52,7 @@ export default createVuetify({
           'surface-bright': '#16273D',
           'surface-variant': '#1B3049',
           'on-surface': '#E8EEF7',
+          'on-surface-variant': '#E8EEF7',
         },
         variables: {
           'border-radius-root': '12px',

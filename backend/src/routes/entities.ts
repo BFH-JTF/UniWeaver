@@ -8,8 +8,10 @@ import {
   createEntity,
   updateEntity,
   removeEntity,
+  copyCurriculumVersion,
   EntityHttpError,
 } from '../db/entityService'
+import { genEntityId } from '../db/entities'
 import {
   listEntityAccess,
   getEntityAccessMap,
@@ -98,6 +100,105 @@ function withEntityContext(handler: EntityHandler): EntityHandler {
     }
   }
 }
+
+// ── Curriculum endpoints ──────────────────────────────────────────────────
+// Registered before the generic /:table routes below so Express matches these
+// dedicated handlers instead of routing them to the generic POST /:table CRUD.
+
+entitiesRouter.post('/curriculums', withEntityContext(async (req, res) => {
+  const user = getUser(req)
+  if (!user.is_admin) {
+    res.status(403).json({ error: 'Administrator access required' })
+    return
+  }
+  const pool = getPool()
+  const name = String(req.body?.name ?? '').trim()
+  if (!name) {
+    res.status(400).json({ error: 'Name is required' })
+    return
+  }
+  const description = String(req.body?.description ?? '')
+
+  const curriculumId = genEntityId()
+  const versionId = genEntityId()
+
+  const client = await pool.connect()
+  try {
+    await client.query('BEGIN')
+    // Insert the version before the curriculum: curriculum_versions.curriculum_id
+    // and curriculums.active_version_id reference each other, so the version row
+    // must exist first (with a NULL curriculum_id) before both FKs can be satisfied.
+    await client.query(
+      `INSERT INTO curriculum_versions (id, name, description, version_number, semester_id, curriculum_id, created_by, created_at, updated_at)
+       VALUES ($1, $2, $3, 1, $4, NULL, $5, NOW(), NOW())`,
+      [versionId, name + ' V1', '', null, user.id],
+    )
+    await client.query(
+      `INSERT INTO curriculums (id, name, description, active_version_id, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, NOW(), NOW())`,
+      [curriculumId, name, description, versionId],
+    )
+    await client.query(
+      `UPDATE curriculum_versions SET curriculum_id = $1 WHERE id = $2`,
+      [curriculumId, versionId],
+    )
+    await client.query(
+      `INSERT INTO entity_access (table_name, entity_id, user_id, role, created_at)
+       VALUES ('curriculums', $1, $2, 'admin', NOW())`,
+      [curriculumId, user.id],
+    )
+    await client.query(
+      `INSERT INTO entity_access (table_name, entity_id, user_id, role, created_at)
+       VALUES ('curriculum_versions', $1, $2, 'admin', NOW())`,
+      [versionId, user.id],
+    )
+    await client.query('COMMIT')
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {})
+    throw err
+  } finally {
+    client.release()
+  }
+
+  const curriculum = await fetchEntity(pool, 'curriculums', curriculumId)
+  if (!curriculum) {
+    res.status(500).json({ error: 'Curriculum vanished after creation' })
+    return
+  }
+  res.status(201).json(decorate(curriculum, 'admin'))
+}))
+
+entitiesRouter.post('/curriculums/:id/versions', withEntityContext(async (req, res) => {
+  const user = getUser(req)
+  if (!user.is_admin) {
+    res.status(403).json({ error: 'Administrator access required' })
+    return
+  }
+  const pool = getPool()
+  const curriculumId = String(req.params.id)
+
+  const curriculum = await fetchEntity(pool, 'curriculums', curriculumId)
+  if (!curriculum) {
+    res.status(404).json({ error: 'Curriculum not found' })
+    return
+  }
+
+  const versionsRes = await pool.query(
+    `SELECT version_number FROM curriculum_versions WHERE curriculum_id = $1 ORDER BY version_number DESC LIMIT 1`,
+    [curriculumId],
+  )
+  const highestNumber = versionsRes.rows.length > 0 ? parseInt(String(versionsRes.rows[0].version_number), 10) : 0
+  const newVersionNumber = highestNumber + 1
+
+  const sourceVersionId = String(curriculum.activeVersionId ?? '')
+  if (!sourceVersionId) {
+    res.status(400).json({ error: 'Curriculum has no active version to copy from' })
+    return
+  }
+
+  const newVersion = await copyCurriculumVersion(pool, sourceVersionId, curriculumId, newVersionNumber)
+  res.status(201).json(decorate(newVersion, 'admin'))
+}))
 
 // ── Entity CRUD ──────────────────────────────────────────────────────────
 
