@@ -22,6 +22,20 @@
                 <v-icon start size="16">{{ auth.isAdmin ? 'mdi-shield-crown' : 'mdi-account' }}</v-icon>
                 {{ auth.isAdmin ? 'Administrator' : 'User' }}
               </v-chip>
+              <v-btn
+                icon
+                variant="text"
+                color="white"
+                :disabled="updatingLecturerFlag"
+                @click="toggleLecturerOptOut"
+              >
+                <v-icon>{{ isNotLecturer ? 'mdi-account-off-outline' : 'mdi-account-check-outline' }}</v-icon>
+                <v-tooltip activator="parent" location="bottom">
+                  {{ isNotLecturer
+                    ? 'You are not listed as a lecturer - click to appear in lecturer lists again'
+                    : 'You are listed as a lecturer - click to remove yourself from lecturer lists' }}
+                </v-tooltip>
+              </v-btn>
               <v-btn icon variant="text" color="white" @click="handleLogout">
                 <v-icon>mdi-logout</v-icon>
                 <v-tooltip activator="parent">Logout</v-tooltip>
@@ -33,6 +47,10 @@
         <v-alert v-if="error" type="error" closable class="mb-4" @click:close="error = ''">
           {{ error }}
         </v-alert>
+
+        <v-snackbar v-model="flagSnackbar" :color="flagSnackbarColor" :timeout="4000">
+          {{ flagSnackbarText }}
+        </v-snackbar>
 
         <v-card v-if="auth.bootstrapRequired" class="card-lift mb-6">
           <v-card-title class="d-flex align-center">
@@ -117,8 +135,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useAuthStore } from '@/stores/auth'
+import { api } from '@uniweaver/shared'
 import { DEFAULT_TOOL_LINKS } from '@uniweaver/shared'
 import { toolUrl } from '@/config'
 import type { ToolRoute } from '@uniweaver/shared'
@@ -129,6 +148,34 @@ const error = ref('')
 const bootstrapSecret = ref('')
 const showSecret = ref(false)
 const isBootstrapping = ref(false)
+
+const updatingLecturerFlag = ref(false)
+const flagSnackbar = ref(false)
+const flagSnackbarText = ref('')
+const flagSnackbarColor = ref('success')
+
+const isNotLecturer = computed(() => !!auth.localUser?.is_not_lecturer)
+
+async function toggleLecturerOptOut(): Promise<void> {
+  if (updatingLecturerFlag.value) return
+  updatingLecturerFlag.value = true
+  error.value = ''
+  try {
+    const updated = await api.updateMyProfile({ is_not_lecturer: !isNotLecturer.value })
+    auth.localUser = updated
+    flagSnackbarText.value = isNotLecturer.value
+      ? 'You are no longer listed as a lecturer.'
+      : 'You are now listed as a lecturer again.'
+    flagSnackbarColor.value = 'success'
+    flagSnackbar.value = true
+  } catch (err: any) {
+    flagSnackbarText.value = err.message || 'Failed to update your lecturer status'
+    flagSnackbarColor.value = 'error'
+    flagSnackbar.value = true
+  } finally {
+    updatingLecturerFlag.value = false
+  }
+}
 
 const tools = DEFAULT_TOOL_LINKS
 

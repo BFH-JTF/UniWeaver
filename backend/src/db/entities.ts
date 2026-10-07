@@ -15,7 +15,7 @@ export interface TableSpec {
   kind: EntityKind
   /** camel key in the payload that carries the parent entity ids (audited tables only) */
   parentKey?: string
-  parentTable?: 'programs' | 'degrees' | 'curriculums'
+  parentTable?: 'departments' | 'programs' | 'degrees' | 'curriculums'
   parentLabel?: string
   columns: ColumnSpec[]
   nameRequired?: boolean
@@ -56,6 +56,21 @@ export const TABLE_SPECS: Record<string, TableSpec> = {
     kind: 'audited',
     nameRequired: true,
     columns: [col('name', 'name'), col('description', 'description'), col('contact', 'contact'), URL_COL],
+  },
+  lecturers: {
+    dbTable: 'lecturers',
+    kind: 'audited',
+    nameRequired: true,
+    parentKey: 'departmentId',
+    parentTable: 'departments',
+    parentLabel: 'department',
+    columns: [
+      col('name', 'name'),
+      col('user_id', 'userId'),
+      col('department_id', 'departmentId'),
+      col('contact', 'contact'),
+      URL_COL,
+    ],
   },
   programs: {
     dbTable: 'programs',

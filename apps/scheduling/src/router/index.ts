@@ -16,6 +16,21 @@ const router = createRouter({
       component: () => import('@/views/HomeView.vue'),
     },
     {
+      path: '/mapping',
+      name: 'mapping',
+      component: () => import('@/views/MappingView.vue'),
+    },
+    {
+      path: '/rooms',
+      name: 'rooms',
+      component: () => import('@/views/RoomsView.vue'),
+    },
+    {
+      path: '/availability',
+      name: 'availability',
+      component: () => import('@/views/AvailabilityView.vue'),
+    },
+    {
       path: '/:pathMatch(.*)*',
       redirect: { name: 'home' },
     },

@@ -27,11 +27,12 @@ export function useClasses() {
     }
   }
 
-  async function addClass(cls: ClassEntity) {
+  async function addClass(cls: ClassEntity): Promise<ClassEntity> {
     error.value = null
     try {
-      await createEntity<ClassEntity>(EntityTables.CLASS, cls)
+      const saved = await createEntity<ClassEntity>(EntityTables.CLASS, cls)
       classes.value = await fetchEntities<ClassEntity>(EntityTables.CLASS)
+      return saved
     } catch (e: any) {
       error.value = e.message
       throw e

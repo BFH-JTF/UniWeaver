@@ -35,7 +35,7 @@
       <v-list nav>
         <v-list-item to="/" prepend-icon="mdi-home" title="Home" />
         <v-list-item to="/curriculum" prepend-icon="mdi-book-education" title="Curriculum" />
-        <v-list-item v-if="auth.isAdmin" to="/users" prepend-icon="mdi-account-group" title="User Management" />
+        <v-list-item v-if="auth.canManageUsers" to="/users" prepend-icon="mdi-account-group" title="User Management" />
       </v-list>
 
       <template #append>

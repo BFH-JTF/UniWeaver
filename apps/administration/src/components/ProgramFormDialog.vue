@@ -9,15 +9,12 @@
             label="Name *"
             :rules="[v => !!v || 'Name is required']"
           />
-          <v-select
-            v-model="selectedCurriculumId"
-            :items="curriculumItems"
-            item-title="title"
-            item-value="value"
-            label="Curriculum *"
-            :rules="[v => !!v || 'Curriculum is required']"
-            hint="Programs cannot exist without a curriculum"
-            persistent-hint
+          <v-alert
+            type="info"
+            variant="tonal"
+            density="compact"
+            class="mb-4"
+            :text="`This program will be created in curriculum “${fixedCurriculumTitle}” — programs cannot exist without a curriculum.`"
           />
           <v-textarea
             v-model="program.description"
@@ -62,8 +59,9 @@ const props = defineProps<{
   modelValue: boolean
   programData?: Program
   departments: Department[]
-  /** Curriculums the program can be attached to (required). */
-  curriculums?: Array<{ title: string; value: string }>
+  /** The curriculum this program is created in / belongs to (context, not editable). */
+  curriculumId?: string
+  curriculumTitle?: string
 }>()
 
 const emit = defineEmits<{
@@ -76,14 +74,7 @@ const isEdit = computed(() => !!props.programData?.id)
 const formRef = ref()
 const program = ref<Program>(emptyProgram())
 
-const selectedCurriculumId = computed({
-  get: () => program.value.curriculumId ?? '',
-  set: (val: string) => {
-    program.value.curriculumId = val
-  },
-})
-
-const curriculumItems = computed(() => props.curriculums ?? [])
+const fixedCurriculumTitle = computed(() => props.curriculumTitle || 'the displayed curriculum')
 
 const selectedDepartmentIds = computed({
   get: () => program.value.departmentIDs ?? program.value.departmentIds ?? [],
@@ -108,7 +99,7 @@ watch(() => props.modelValue, (val) => {
   if (val) {
     program.value = props.programData
       ? JSON.parse(JSON.stringify(props.programData))
-      : { ...emptyProgram(), curriculumId: props.curriculums?.[0]?.value ?? '' }
+      : { ...emptyProgram(), curriculumId: props.curriculumId ?? '' }
   }
 })
 
@@ -116,6 +107,10 @@ async function submit() {
   const { valid } = await formRef.value?.validate() ?? { valid: false }
   if (!valid) return
   const result = JSON.parse(JSON.stringify(program.value))
+  // The displayed curriculum is the authoritative context on create; on edit
+  // the program keeps its existing curriculum (moving between curriculums is
+  // not supported from here).
+  if (!result.curriculumId) result.curriculumId = props.curriculumId ?? ''
   if (!result.curriculumId) {
     formRef.value?.validate()
     return

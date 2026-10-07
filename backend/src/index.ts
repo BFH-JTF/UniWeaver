@@ -7,6 +7,7 @@ import { createProxyMiddleware } from 'http-proxy-middleware'
 import { appRoot, initDb, isDbConnected, closeDb } from './db'
 import { authRouter } from './routes/auth'
 import { usersRouter } from './routes/users'
+import { schedulingRouter } from './routes/scheduling'
 import { entitiesRouter } from './routes/entities'
 import { restrictionsRouter } from './routes/restrictions'
 
@@ -30,6 +31,10 @@ app.get('/api/health', (_req: Request, res: Response) => {
     timestamp: new Date().toISOString(),
   })
 })
+
+// Scheduling tool endpoints (module/lecturer mapping). Mounted before the
+// generic entity router so /api/scheduling/... is matched here first.
+app.use('/api/scheduling', schedulingRouter)
 
 // Restrictions CRUD + effective (inherited) restriction resolution for
 // curriculum entities. Mounted before the generic entity router so

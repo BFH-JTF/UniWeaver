@@ -382,6 +382,7 @@ const form = ref<{ ruleType: string; params: Record<string, unknown>; enabled: b
 )
 
 const TABLE_LABELS: Record<string, string> = {
+  curriculums: 'curriculum',
   departments: 'department',
   programs: 'program',
   degrees: 'degree',

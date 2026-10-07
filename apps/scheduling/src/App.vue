@@ -34,6 +34,9 @@
 
       <v-list nav>
         <v-list-item to="/" prepend-icon="mdi-home" title="Home" />
+        <v-list-item to="/mapping" prepend-icon="mdi-format-list-bulleted-type" title="Module / Lecturer Mapping" />
+        <v-list-item to="/rooms" prepend-icon="mdi-door-open" title="Rooms" />
+        <v-list-item to="/availability" prepend-icon="mdi-calendar-clock-outline" title="Lecturer Availability" />
       </v-list>
 
       <template #append>

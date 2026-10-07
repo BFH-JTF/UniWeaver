@@ -29,15 +29,12 @@
             chips
             clearable
           />
-          <v-select
-            v-model="selectedCurriculumVersionId"
-            :items="versionItems"
-            item-title="title"
-            item-value="value"
-            label="Curriculum Version *"
-            :rules="[v => !!v || 'Curriculum version is required']"
-            hint="Modules are always part of a curriculum version"
-            persistent-hint
+          <v-alert
+            type="info"
+            variant="tonal"
+            density="compact"
+            class="mb-4"
+            text="Modules are always part of the currently displayed curriculum version."
           />
           <v-select
             v-model="selectedClassIds"
@@ -134,8 +131,8 @@ const props = defineProps<{
   moduleData?: Module
   degrees: Degree[]
   classes: ClassEntity[]
-  /** Curriculum versions modules can be attached to (required). */
-  curriculumVersions?: Array<{ title: string; value: string }>
+  /** Only classes tied to this curriculum version are offered for assignment. */
+  curriculumVersionId?: string
   /** Timeslot grid of the semester the displayed curriculum version is for. */
   semesterTimeslots?: { duration?: number; startTimes?: string[] } | null
 }>()
@@ -156,15 +153,6 @@ const timeslotInputInfo = computed(() => {
 
 const formRef = ref()
 const mod = ref<Module>(emptyModule())
-
-const selectedCurriculumVersionId = computed({
-  get: () => mod.value.curriculumVersionId ?? '',
-  set: (val: string) => {
-    mod.value.curriculumVersionId = val
-  },
-})
-
-const versionItems = computed(() => props.curriculumVersions ?? [])
 
 const selectedDegreeIds = computed({
   get: () => mod.value.DegreeIDs ?? mod.value.degreeIDs ?? mod.value.degreeIds ?? [],
@@ -208,10 +196,13 @@ const degreeItems = computed(() => {
     .filter(d => d.value)
 })
 
-const classItems = computed(() => props.classes.map(c => ({
-  title: c.name || c.code || c.id || 'Unnamed',
-  value: c.id || c._id,
-})).filter(c => c.value))
+const classItems = computed(() => props.classes
+  .filter(c => (props.curriculumVersionId ? c.curriculumVersionId === props.curriculumVersionId : true))
+  .map(c => ({
+    title: c.name || c.code || c.id || 'Unnamed',
+    value: c.id || c._id,
+  }))
+  .filter(c => c.value))
 
 function emptyModule(): Module {
   return { name: '', curriculumVersionId: '', DegreeIDs: [], degreeIDs: [], degreeIds: [] }
@@ -221,10 +212,14 @@ watch(() => props.modelValue, (val) => {
   if (val) {
     mod.value = props.moduleData
       ? JSON.parse(JSON.stringify(props.moduleData))
-      : { ...emptyModule(), curriculumVersionId: props.curriculumVersions?.[0]?.value ?? '' }
+      : { ...emptyModule(), curriculumVersionId: props.curriculumVersionId ?? '' }
     const moduleId = props.moduleData?.id || props.moduleData?._id
     selectedClassIds.value = moduleId
-      ? props.classes.filter(c => (c.moduleIds || []).includes(moduleId)).map(c => c.id || c._id).filter(Boolean) as string[]
+      ? props.classes
+          .filter(c => (props.curriculumVersionId ? c.curriculumVersionId === props.curriculumVersionId : true))
+          .filter(c => (c.moduleIds || []).includes(moduleId))
+          .map(c => c.id || c._id)
+          .filter(Boolean) as string[]
       : []
   }
 })
@@ -233,6 +228,10 @@ async function submit() {
   const { valid } = await formRef.value?.validate() ?? { valid: false }
   if (!valid) return
   const result = JSON.parse(JSON.stringify(mod.value))
+  // The displayed version is the authoritative context on create; on edit the
+  // module keeps its existing version (moving between versions is not
+  // supported from here).
+  if (!result.curriculumVersionId) result.curriculumVersionId = props.curriculumVersionId ?? ''
   if (!result.curriculumVersionId) {
     formRef.value?.validate()
     return

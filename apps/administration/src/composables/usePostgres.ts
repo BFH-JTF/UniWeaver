@@ -202,14 +202,14 @@ export function usePostgres() {
         saveLocalEntities(tableName, local)
         return savedRecord as T
       }
-      if (res.status === 401 || res.status === 403 || res.status === 400) {
-        const body = await res.json().catch(() => ({}))
-        dbError.value = (body as any).error || `API error ${res.status}`
-        throw new Error(dbError.value || 'Request failed')
-      }
+      // The API rejected the write explicitly — surface it instead of
+      // pretending the save succeeded in local storage.
+      const body = await res.json().catch(() => ({}))
+      dbError.value = (body as any).error || `API error ${res.status}`
+      throw new Error(dbError.value || 'Request failed')
     } catch (err: any) {
       if (err instanceof Error && dbError.value) throw err
-      // Fallback
+      // Network failure (backend unreachable) → offline local fallback
     }
 
     const local = getLocalEntities<T>(tableName)
@@ -218,6 +218,11 @@ export function usePostgres() {
     return record as T
   }
 
+  /** Client-side decoration keys that must never be sent to the API: the
+   *  backend either maintains them itself (created_by) or stores unknown keys
+   *  losslessly in the extra JSONB column, polluting saved rows. */
+  const CLIENT_ONLY_KEYS = new Set(['_id', '_isAdmin', '_canEdit', '_role', 'createdByName'])
+
   async function updateEntity<T extends { _id?: string; id?: string }>(
     tableName: EntityTableName | string,
     id: string,
@@ -225,6 +230,8 @@ export function usePostgres() {
   ): Promise<void> {
     dbError.value = null
     const endpoint = `${apiUrl.value.replace(/\/+$/, '')}/${tableName}/${id}`
+    const payload: Record<string, unknown> = { ...entity }
+    for (const key of CLIENT_ONLY_KEYS) delete payload[key]
 
     try {
       const res = await fetch(endpoint, {
@@ -235,22 +242,21 @@ export function usePostgres() {
         },
         credentials: 'include',
         body: JSON.stringify({
-          ...entity,
+          ...payload,
           updated_at: new Date().toISOString(),
         }),
       })
       if (!res.ok) {
-        if (res.status === 401 || res.status === 403) {
-          const body = await res.json().catch(() => ({}))
-          const message = (body as any).error || `Access denied (${res.status})`
-          dbError.value = message
-          throw new Error(message)
-        }
-        console.warn('API update failed, updating local state')
+        // The API rejected the write explicitly — surface it instead of
+        // pretending the edit succeeded in local storage.
+        const body = await res.json().catch(() => ({}))
+        const message = (body as any).error || `API error ${res.status}`
+        dbError.value = message
+        throw new Error(message)
       }
     } catch (err: any) {
       if (err instanceof Error && dbError.value && dbError.value === err.message) throw err
-      // Fallback to local
+      // Network failure (backend unreachable) → offline local fallback
     }
 
     const local = getLocalEntities<any>(tableName)
@@ -274,15 +280,17 @@ export function usePostgres() {
         },
         credentials: 'include',
       })
-      if (!res.ok && (res.status === 401 || res.status === 403)) {
+      if (!res.ok) {
+        // The API rejected the delete explicitly — surface it instead of
+        // pretending the removal succeeded in local storage.
         const body = await res.json().catch(() => ({}))
-        const message = (body as any).error || `Access denied (${res.status})`
+        const message = (body as any).error || `API error ${res.status}`
         dbError.value = message
         throw new Error(message)
       }
     } catch (err: any) {
       if (err instanceof Error && dbError.value && dbError.value === err.message) throw err
-      // Fallback to local
+      // Network failure (backend unreachable) → offline local fallback
     }
 
     const local = getLocalEntities<any>(tableName)

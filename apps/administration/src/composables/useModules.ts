@@ -30,12 +30,13 @@ export function useModules() {
     }
   }
 
-  async function addModule(mod: Module) {
+  async function addModule(mod: Module): Promise<Module> {
     error.value = null
     try {
       const normalized = normalizeModule(mod)
-      await createEntity<Module>(EntityTables.MODULE, normalized)
+      const saved = await createEntity<Module>(EntityTables.MODULE, normalized)
       modules.value = await fetchEntities<Module>(EntityTables.MODULE)
+      return saved
     } catch (e: any) {
       error.value = e.message
       throw e

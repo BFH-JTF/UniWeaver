@@ -499,6 +499,9 @@
             <template #item.creditPoints="{ item }">
               {{ item.creditPoints ?? '—' }}
             </template>
+            <template #item.classCount="{ item }">
+              <span>{{ getClassCount(item) }}</span>
+            </template>
             <template #item.timeslots="{ item }">
               <span v-if="item.timeslots != null && displayedSemesterTimeslots" class="text-medium-emphasis">
                 {{ item.timeslots }} × {{ displayedSemesterTimeslots.duration }} min
@@ -644,7 +647,8 @@
       v-model="progDialogOpen"
       :program-data="editProgram"
       :departments="departments"
-      :curriculums="curriculumSelectItems"
+      :curriculum-id="displayedCurriculumId"
+      :curriculum-title="displayedCurriculum?.name"
       @save="handleProgramSave"
     />
 
@@ -660,7 +664,7 @@
       :module-data="editModule"
       :degrees="degreesOfDisplayedVersion"
       :classes="classes"
-      :curriculum-versions="displayedVersionItems"
+      :curriculum-version-id="displayedVersionId"
       :semester-timeslots="displayedSemesterTimeslots"
       @save="handleModuleSave"
     />
@@ -670,8 +674,9 @@
       :class-data="editClass"
       :programs="programsOfDisplayedVersion"
       :degrees="degreesOfDisplayedVersion"
+      :modules="modulesOfDisplayedVersion"
       :semesters="semesterList"
-      :curriculum-versions="displayedVersionItems"
+      :curriculum-version-id="displayedVersionId"
       @save="handleClassSave"
     />
 
@@ -958,6 +963,7 @@ const modHeaders = [
   { title: 'Code', key: 'code', sortable: true },
   { title: 'Name', key: 'name', sortable: true },
   { title: 'Degrees', key: 'DegreeIDs', sortable: false },
+  { title: 'Classes', key: 'classCount', sortable: true },
   { title: 'ECTS', key: 'creditPoints', sortable: true },
   { title: 'Timeslots', key: 'timeslots', sortable: true },
   { title: '', key: 'actions', sortable: false, width: '150px' },
@@ -1108,6 +1114,10 @@ const degreesOfDisplayedVersion = computed(() =>
   )
 )
 
+const modulesOfDisplayedVersion = computed(() =>
+  modules.value.filter(m => displayedVersionId.value && m.curriculumVersionId === displayedVersionId.value)
+)
+
 const displayedSemesterTimeslots = computed(() => {
   const sem = semesterList.value.find(s => (s._id || s.id) === displayedVersion.value?.semesterId)
   if (!sem?.slotDurationMinutes) return null
@@ -1198,6 +1208,16 @@ function getModuleCount(curriculum: Curriculum): number {
   const versionIds = new Set(versions.map(v => v._id || v.id || ''))
   return modules.value.filter(m => versionIds.has(m.curriculumVersionId || '')).length
 }
+
+/** Number of classes (of the displayed curriculum version) linked to a module. */
+function getClassCount(mod: Module): number {
+  return modulesOfDisplayedVersionClasses.value.filter(c => (c.moduleIds || []).includes(mod.id || '')).length
+}
+
+/** Classes of the displayed curriculum version (the ones the module count is over). */
+const modulesOfDisplayedVersionClasses = computed(() =>
+  classes.value.filter(c => displayedVersionId.value && c.curriculumVersionId === displayedVersionId.value)
+)
 
 function formatDate(dateStr: string): string {
   if (!dateStr) return '-'
@@ -1407,10 +1427,11 @@ async function handleModuleSave(mod: Module) {
     } else {
       // Modules are created within the currently displayed curriculum version
       mod.curriculumVersionId = displayedVersionId.value
-      await addModule(mod)
+      const created = await addModule(mod)
+      mod.id = created.id || created._id
       showSnackbar('Module added')
     }
-    const moduleId = mod.id || modules.value.find(m => m.code === mod.code && m.name === mod.name)?.id
+    const moduleId = mod.id
     if (moduleId) {
       for (const cls of classes.value) {
         const id = cls.id || cls._id
@@ -1457,7 +1478,8 @@ async function handleClassSave(cls: ClassEntity) {
     } else {
       // Classes are created within the currently displayed curriculum version
       cls.curriculumVersionId = displayedVersionId.value
-      await addClass(cls)
+      const created = await addClass(cls)
+      cls.id = created.id || created._id
       showSnackbar('Class added')
     }
   } catch {

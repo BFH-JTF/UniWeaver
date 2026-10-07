@@ -57,19 +57,36 @@
             class="mb-3"
           />
 
-          <v-autocomplete
-            v-model="form.curriculumVersionId"
-            :items="versionItems"
-            item-title="title"
-            item-value="value"
-            label="Curriculum Version *"
-            variant="outlined"
+          <v-alert
+            type="info"
+            variant="tonal"
             density="compact"
-            :rules="[v => !!v || 'Curriculum version is required']"
-            hint="Classes are always tied to a curriculum version"
-            persistent-hint
             class="mb-3"
+            text="Classes are always part of the currently displayed curriculum version."
           />
+
+          <template v-if="form.degreeId">
+            <v-autocomplete
+              v-model="form.moduleIds"
+              :items="moduleItems"
+              item-title="title"
+              item-value="value"
+              label="Modules of this degree"
+              hint="Which modules of the selected degree this class attends"
+              persistent-hint
+              variant="outlined"
+              density="compact"
+              multiple
+              chips
+              closable-chips
+              class="mb-3"
+            />
+          </template>
+          <template v-else>
+            <div class="text-caption text-medium-emphasis mb-3">
+              Select a degree above to choose which modules this class attends.
+            </div>
+          </template>
 
           <v-autocomplete
             v-model="form.programIds"
@@ -140,7 +157,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import type { ClassEntity } from '@/types/curriculumClass'
-import type { Degree, Program } from '@/types/curriculum'
+import type { Degree, Module, Program } from '@/types/curriculum'
 import type { Semester } from '@/stores/curriculum'
 import { emptyClass } from '@/composables/useClasses'
 
@@ -149,9 +166,11 @@ const props = defineProps<{
   classData?: ClassEntity
   programs: Program[]
   degrees: Degree[]
+  /** Modules of the displayed curriculum version (for linking to this class). */
+  modules?: Module[]
   semesters: Semester[]
-  /** Curriculum versions classes can be tied to (required). */
-  curriculumVersions?: Array<{ title: string; value: string }>
+  /** The curriculum version this class is created in / belongs to (context, not editable). */
+  curriculumVersionId?: string
 }>()
 
 const emit = defineEmits<{
@@ -174,16 +193,31 @@ const degreeItems = computed(() =>
     .filter(d => d.value)
 )
 
-const versionItems = computed(() => props.curriculumVersions ?? [])
+/** Modules of the displayed version that belong to the class's chosen degree. */
+const moduleItems = computed(() =>
+  (props.modules || [])
+    .filter(m => (m.degreeIds ?? (m as any).degreeIDs ?? (m as any).DegreeIDs ?? []).includes(form.value.degreeId ?? ''))
+    .map(m => ({ title: m.code ? `${m.code} — ${m.name || m.id}` : (m.name || m.id || ''), value: m.id || (m as any)._id }))
+    .filter(i => i.value)
+)
 
 watch(() => props.modelValue, (isOpen) => {
   if (isOpen) {
     if (props.classData) {
       form.value = JSON.parse(JSON.stringify(props.classData))
+      if (!form.value.curriculumVersionId) {
+        form.value.curriculumVersionId = props.curriculumVersionId ?? ''
+      }
     } else {
-      form.value = JSON.parse(JSON.stringify({ ...emptyClass(), curriculumVersionId: props.curriculumVersions?.[0]?.value ?? '' }))
+      form.value = JSON.parse(JSON.stringify({ ...emptyClass(), curriculumVersionId: props.curriculumVersionId ?? '' }))
     }
   }
+})
+
+// Changing the degree resets the module selection: modules of another degree
+// would be silently invalid.
+watch(() => form.value.degreeId, () => {
+  form.value.moduleIds = []
 })
 
 function close() {
@@ -194,6 +228,10 @@ async function submit() {
   const { valid } = await formRef.value?.validate() ?? { valid: false }
   if (!valid) return
   const result = JSON.parse(JSON.stringify(form.value))
+  // The displayed version is the authoritative context on create; on edit the
+  // class keeps its existing version (moving between versions is not
+  // supported from here).
+  if (!result.curriculumVersionId) result.curriculumVersionId = props.curriculumVersionId ?? ''
   if (!result.curriculumVersionId) {
     formRef.value?.validate()
     return

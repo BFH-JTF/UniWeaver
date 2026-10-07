@@ -3,6 +3,9 @@ import type {
   BootstrapStatus,
   HealthStatus,
   LocalUserProfile,
+  MappingData,
+  MappingPairPatch,
+  MappingPairsResult,
 } from './index'
 
 export class ApiRequestError extends Error {
@@ -74,5 +77,20 @@ export const api = {
     request<LocalUserProfile>(`/users/${encodeURIComponent(id)}`, {
       method: 'PATCH',
       body: JSON.stringify(patch),
+    }),
+
+  /** Self-service: update the caller's own profile (e.g. lecturer opt-out). */
+  updateMyProfile: (patch: Partial<LocalUserProfile>) =>
+    request<LocalUserProfile>('/users/me', {
+      method: 'PATCH',
+      body: JSON.stringify(patch),
+    }),
+
+  getMapping: () => request<MappingData>('/scheduling/mapping'),
+
+  setMappingPairs: (pairs: MappingPairPatch[]) =>
+    request<MappingPairsResult>('/scheduling/mapping/pairs', {
+      method: 'POST',
+      body: JSON.stringify({ pairs }),
     }),
 }

@@ -78,24 +78,76 @@
               </div>
             </td>
             <td>
-              <v-chip
-                :color="user.is_admin ? 'primary' : 'default'"
-                size="small"
-                variant="flat"
-                class="mr-1 font-weight-bold"
-              >
-                <v-icon start size="14">{{ user.is_admin ? 'mdi-shield-crown' : 'mdi-account' }}</v-icon>
-                {{ user.is_admin ? 'Administrator' : 'Standard User' }}
-              </v-chip>
-              <v-chip
-                v-if="user.is_active === false"
-                color="error"
-                size="x-small"
-                variant="tonal"
-                class="font-weight-bold"
-              >
-                Inactive
-              </v-chip>
+              <div class="d-flex flex-wrap align-center ga-1">
+                <v-chip
+                  v-if="user.is_admin"
+                  color="primary"
+                  size="small"
+                  variant="flat"
+                  class="font-weight-bold"
+                >
+                  <v-icon start size="14">mdi-shield-crown</v-icon>
+                  Administrator
+                </v-chip>
+                <v-chip
+                  v-else-if="user.is_user_admin"
+                  color="secondary"
+                  size="small"
+                  variant="flat"
+                  class="font-weight-bold"
+                >
+                  <v-icon start size="14">mdi-shield-half-full</v-icon>
+                  User Admin
+                </v-chip>
+                <v-chip
+                  v-else
+                  color="default"
+                  size="small"
+                  variant="flat"
+                  class="font-weight-bold"
+                >
+                  <v-icon start size="14">mdi-account</v-icon>
+                  Standard User
+                </v-chip>
+                <v-chip
+                  v-if="user.is_scheduler && !user.is_admin"
+                  color="success"
+                  size="x-small"
+                  variant="tonal"
+                  class="font-weight-bold"
+                >
+                  <v-icon start size="14">mdi-calendar-clock</v-icon>
+                  Scheduler
+                </v-chip>
+                <v-chip
+                  v-if="user.is_user_admin && !user.is_admin"
+                  color="info"
+                  size="x-small"
+                  variant="tonal"
+                  class="font-weight-bold"
+                >
+                  <v-icon start size="14">mdi-account-multiple-outline</v-icon>
+                  User Admin
+                </v-chip>
+                <v-chip
+                  v-if="user.is_not_lecturer"
+                  color="warning"
+                  size="x-small"
+                  variant="tonal"
+                  class="font-weight-bold"
+                >
+                  No Lecturer
+                </v-chip>
+                <v-chip
+                  v-if="user.is_active === false"
+                  color="error"
+                  size="x-small"
+                  variant="tonal"
+                  class="font-weight-bold"
+                >
+                  Inactive
+                </v-chip>
+              </div>
             </td>
             <td class="text-caption text-medium-emphasis">
               {{ formatDate(user.created_at) }}
@@ -112,23 +164,38 @@
                   <v-icon start size="16">mdi-account-edit</v-icon>
                   Edit
                 </v-btn>
-                <template v-if="isLastAdmin(user)">
-                  <v-chip color="warning" size="x-small" variant="tonal" class="font-weight-bold">
-                    Last Admin
-                  </v-chip>
-                </template>
-                <template v-else>
+                <template v-if="canManageFlags(user)">
+                  <template v-if="isLastAdmin(user)">
+                    <v-chip color="warning" size="x-small" variant="tonal" class="font-weight-bold">
+                      Last Admin
+                    </v-chip>
+                  </template>
+                  <template v-else>
+                    <v-btn
+                      :color="user.is_admin ? 'warning' : 'default'"
+                      variant="outlined"
+                      size="small"
+                      :disabled="!auth.isAdmin"
+                      @click="toggleAdminRole(user)"
+                      :loading="updatingId === user.id"
+                    >
+                      <v-icon start size="16">
+                        {{ user.is_admin ? 'mdi-account-arrow-down' : 'mdi-shield-plus' }}
+                      </v-icon>
+                      {{ user.is_admin ? 'Revoke Admin' : 'Grant Admin' }}
+                    </v-btn>
+                  </template>
                   <v-btn
-                    :color="user.is_admin ? 'warning' : 'default'"
+                    :color="user.is_scheduler ? 'warning' : 'success'"
                     variant="outlined"
                     size="small"
-                    @click="toggleAdminRole(user)"
+                    @click="toggleSchedulerRole(user)"
                     :loading="updatingId === user.id"
                   >
                     <v-icon start size="16">
-                      {{ user.is_admin ? 'mdi-account-arrow-down' : 'mdi-shield-plus' }}
+                      {{ user.is_scheduler ? 'mdi-calendar-remove' : 'mdi-calendar-plus' }}
                     </v-icon>
-                    {{ user.is_admin ? 'Revoke Admin' : 'Grant Admin' }}
+                    {{ user.is_scheduler ? 'Revoke Scheduler' : 'Grant Scheduler' }}
                   </v-btn>
                 </template>
               </div>
@@ -236,12 +303,41 @@
             />
 
             <v-checkbox
+              v-model="editIsScheduler"
+              label="Scheduler (may use the Scheduling tool)"
+              color="success"
+              density="compact"
+              hide-details
+              class="mb-2"
+            />
+
+            <v-checkbox
+              v-model="editIsNotLecturer"
+              label="Not a lecturer (hidden from lecturer lists)"
+              color="warning"
+              density="compact"
+              hide-details
+              class="mb-2"
+              :disabled="editingUser ? editingUser.id === auth.localUser?.id : false"
+            />
+
+            <v-checkbox
+              v-model="editIsUserAdmin"
+              label="User Admin (may manage user accounts)"
+              color="secondary"
+              density="compact"
+              hide-details
+              class="mb-2"
+              :disabled="!auth.isAdmin"
+            />
+
+            <v-checkbox
               v-model="editIsAdmin"
               label="Administrator Privileges"
               color="primary"
               density="compact"
               hide-details
-              :disabled="editingUser ? isLastAdmin(editingUser) : false"
+              :disabled="!auth.isAdmin || (editingUser ? isLastAdmin(editingUser) : false)"
             />
           </v-form>
         </v-card-text>
@@ -290,6 +386,9 @@ const editDisplayName = ref('')
 const editEmail = ref('')
 const editTimezone = ref('')
 const editIsAdmin = ref(false)
+const editIsUserAdmin = ref(false)
+const editIsScheduler = ref(false)
+const editIsNotLecturer = ref(false)
 const editIsActive = ref(true)
 const savingUser = ref(false)
 const dialogError = ref('')
@@ -309,6 +408,12 @@ function emailRule(val: string): boolean | string {
   }
   const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
   return emailPattern.test(val.trim()) || 'Please enter a valid email address'
+}
+
+function canManageFlags(user: LocalUserProfile): boolean {
+  // Global-admin accounts are read-only for delegated user admins.
+  if (user.is_admin && !auth.isAdmin) return false
+  return true
 }
 
 function isLastAdmin(user: LocalUserProfile): boolean {
@@ -339,6 +444,9 @@ function openEditDialog(user: LocalUserProfile) {
   editEmail.value = user.email || ''
   editTimezone.value = user.timezone || ''
   editIsAdmin.value = !!user.is_admin
+  editIsUserAdmin.value = !!user.is_user_admin
+  editIsScheduler.value = !!user.is_scheduler
+  editIsNotLecturer.value = !!user.is_not_lecturer
   editIsActive.value = user.is_active !== false
   dialogError.value = ''
   editDialogOpen.value = true
@@ -353,20 +461,29 @@ function closeEditDialog() {
   editEmail.value = ''
   editTimezone.value = ''
   editIsAdmin.value = false
+  editIsUserAdmin.value = false
+  editIsScheduler.value = false
+  editIsNotLecturer.value = false
   editIsActive.value = true
   dialogError.value = ''
 }
 
 function buildPatch(): Partial<LocalUserProfile> {
-  return {
+  const patch: Partial<LocalUserProfile> = {
     name: editName.value.trim(),
     local_name: editLocalName.value.trim(),
     display_name: editDisplayName.value.trim(),
     email: editEmail.value.trim(),
     timezone: editTimezone.value.trim(),
     is_active: editIsActive.value,
-    is_admin: editIsAdmin.value,
+    is_scheduler: editIsScheduler.value,
+    is_not_lecturer: editIsNotLecturer.value,
   }
+  if (auth.isAdmin) {
+    patch.is_admin = editIsAdmin.value
+    patch.is_user_admin = editIsUserAdmin.value
+  }
+  return patch
 }
 
 async function saveUser() {
@@ -434,10 +551,32 @@ async function toggleAdminRole(user: LocalUserProfile) {
   }
 }
 
+async function toggleSchedulerRole(user: LocalUserProfile) {
+  updatingId.value = user.id
+  error.value = ''
+  successMsg.value = ''
+
+  try {
+    const updated = await api.updateUser(user.id, { is_scheduler: !user.is_scheduler })
+    const index = users.value.findIndex(u => u.id === user.id)
+    if (index !== -1) {
+      users.value[index] = updated
+    }
+    if (auth.localUser && auth.localUser.id === user.id) {
+      auth.localUser = updated
+    }
+    successMsg.value = `User ${user.name || user.id} updated successfully.`
+  } catch (err: any) {
+    error.value = err.message || 'Failed to update user role'
+  } finally {
+    updatingId.value = null
+  }
+}
+
 onMounted(async () => {
   await ensureAuth()
-  if (!auth.isAdmin) {
-    error.value = 'Administrator access required'
+  if (!auth.canManageUsers) {
+    error.value = 'User administration access required'
     return
   }
   fetchUsers()
