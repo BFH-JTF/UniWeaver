@@ -11,7 +11,7 @@ erDiagram
 
     %% ── Curriculum structure ─────────────────────────────────
     CURRICULUM ||--o{ CURRICULUM_VERSION : "has versions"
-    CURRICULUM ||--o| CURRICULUM_VERSION : "active version"
+    CURRICULUM |o--o| CURRICULUM_VERSION : "active version"
     PROGRAM }o--o| CURRICULUM : "assigned to"
 
     DEPARTMENT }|--o{ PROGRAM : "offers"
@@ -58,8 +58,8 @@ erDiagram
     SEMESTER ||--o{ SCHEDULING_RULE : "has"
     SEMESTER ||--o{ WEEK : "contains"
 
-    WEEK ||o--o| ROOM_AVAILABILITY : "scopes"
-    WEEK ||o--o| SCHEDULE_ENTRY : "contains"
+    WEEK |o--o{ ROOM_AVAILABILITY : "scopes"
+    WEEK |o--o{ SCHEDULE_ENTRY : "contains"
 
     %% ── Scheduling: M:N via FK arrays on SCHEDULE_ENTRY ──────
     ROOM }o--o{ SCHEDULE_ENTRY : "hosts"
