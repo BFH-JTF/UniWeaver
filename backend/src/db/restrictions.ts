@@ -56,10 +56,14 @@ interface ParentEdgeRow {
  *  - parent's  side:  programs.departmentIds,   degrees.programIds,
  *                     modules.degreeIds          (array column on parent)
  *  - child's   side:  class_entities.degreeId    (scalar FK on child)
+ * plus the scalar curriculum containment edge programs.curriculum_id, so
+ * curriculum-level restrictions reach everything a curriculum contains.
  */
 const PARENT_EDGES_SQL = {
   programs_departments: `SELECT 'programs' AS child_table, p.id AS child_id, 'departments' AS parent_table, d AS parent_id
     FROM programs p, jsonb_array_elements_text(p.department_ids::jsonb) AS d`,
+  programs_curriculums: `SELECT 'programs' AS child_table, p.id AS child_id, 'curriculums' AS parent_table, p.curriculum_id AS parent_id
+    FROM programs p WHERE p.curriculum_id IS NOT NULL`,
   degrees_programs: `SELECT 'degrees' AS child_table, g.id AS child_id, 'programs' AS parent_table, pr AS parent_id
     FROM degrees g, jsonb_array_elements_text(g.program_ids::jsonb) AS pr`,
   modules_degrees: `SELECT 'modules' AS child_table, m.id AS child_id, 'degrees' AS parent_table, dg AS parent_id

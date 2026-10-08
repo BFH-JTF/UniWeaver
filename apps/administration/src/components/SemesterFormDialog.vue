@@ -5,7 +5,10 @@
         <template #prepend>
           <v-icon icon="mdi-school-outline" size="large" class="me-2" />
         </template>
-        <v-card-title class="text-h6 font-weight-medium">{{ isEdit ? 'Edit Semester' : 'Add Semester' }}</v-card-title>
+        <v-card-title class="text-h6 font-weight-medium">
+          {{ isEdit ? 'Edit Semester' : 'Add Semester' }}
+          <CopyIdButton v-if="isEdit" :id="semesterData?._id || semesterData?.id" color="white" />
+        </v-card-title>
         <v-card-subtitle class="text-white text-opacity-80">
           Define a semester period for scheduling
         </v-card-subtitle>
@@ -116,6 +119,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
+import CopyIdButton from '@/components/CopyIdButton.vue'
 import type { Semester } from '@/stores/curriculum'
 import { emptySemester } from '@/composables/useSemesters'
 

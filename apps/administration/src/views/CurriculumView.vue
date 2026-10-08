@@ -158,45 +158,155 @@
         </v-data-table>
       </v-window-item>
 
-      <!-- Curriculum Tab (version selector + curriculum-dependent sub-tabs) -->
       <v-window-item value="curriculum">
-        <v-row dense class="mb-2">
-          <v-col cols="12" sm="6" md="4">
-            <v-select
-              v-model="displayedVersionId"
-              :items="displayedVersionItems"
-              label="Displayed curriculum version"
-              prepend-inner-icon="mdi-source-branch"
-              variant="outlined"
-              density="compact"
+        <v-row class="align-center mb-4">
+          <v-col cols="12" sm="6" class="d-flex ga-2">
+            <v-btn v-if="auth.isAdmin" color="primary" prepend-icon="mdi-plus" @click="openAddCurriculum">New Curriculum</v-btn>
+          </v-col>
+          <v-col cols="12" sm="6">
+            <v-text-field
+              v-model="currSearch"
+              prepend-inner-icon="mdi-magnify"
+              label="Search curriculums"
+              single-line
               hide-details
+              clearable
+              density="compact"
             />
           </v-col>
         </v-row>
 
-        <v-tabs v-model="curriculumTab" bg-color="transparent" color="primary">
-          <v-tab value="versions">
-            <v-icon start>mdi-source-branch</v-icon>
-            Versions
-          </v-tab>
-          <template v-if="hasDisplayedVersion">
+        <v-data-table
+          :headers="currHeaders"
+          :items="filteredCurriculums"
+          :sort-by="currSortBy"
+          @update:sort-by="currSortBy = $event"
+          hover
+          items-per-page="15"
+          show-expand
+        >
+          <template #item.name="{ item }">
+            <span class="font-weight-medium">{{ item.name }}</span>
+            <v-chip v-if="item._isAdmin" size="x-small" variant="tonal" color="primary" class="ml-1">Admin</v-chip>
+            <v-chip v-else-if="item._canEdit" size="x-small" variant="tonal" color="secondary" class="ml-1">Write</v-chip>
+          </template>
+          <template #item.versionCount="{ item }">
+            {{ getVersionsOfCurriculum(item).length }}
+          </template>
+          <template #item.activeVersion="{ item }">
+            <span v-if="getActiveVersion(item)">V{{ getActiveVersion(item)!.versionNumber }}</span>
+            <span v-else class="text-medium-emphasis">—</span>
+          </template>
+          <template #item.programCount="{ item }">
+            {{ getProgramCount(item) }}
+          </template>
+          <template #item.moduleCount="{ item }">
+            {{ getModuleCount(item) }}
+          </template>
+          <template #item.actions="{ item }">
+            <template v-if="auth.isAdmin">
+              <v-btn icon variant="text" size="small" @click="addVersionToCurriculum(item)">
+                <v-icon>mdi-source-branch</v-icon>
+                <v-tooltip activator="parent">Add Version</v-tooltip>
+              </v-btn>
+              <v-btn icon variant="text" size="small" @click="openEditCurriculum(item)">
+                <v-icon>mdi-pencil</v-icon>
+                <v-tooltip activator="parent">Edit</v-tooltip>
+              </v-btn>
+              <v-btn icon variant="text" size="small" @click="confirmDeleteCurriculum(item)">
+                <v-icon>mdi-delete</v-icon>
+                <v-tooltip activator="parent">Delete</v-tooltip>
+              </v-btn>
+            </template>
+            <v-btn icon variant="text" size="small" @click="openRestrictions(item, 'curriculums')">
+              <v-icon>mdi-shield-lock-outline</v-icon>
+              <v-tooltip activator="parent">Restrictions</v-tooltip>
+            </v-btn>
+            <v-btn icon variant="text" size="small" @click="openAccess(item, 'curriculums')">
+              <v-icon>mdi-account-multiple-outline</v-icon>
+              <v-tooltip activator="parent">Access</v-tooltip>
+            </v-btn>
+          </template>
+          <template #no-data>
+            <div class="text-center pa-4">
+              <v-icon size="64" color="grey-lighten-1">mdi-book-education</v-icon>
+              <p class="mt-2 text-medium-emphasis">No curriculums found.</p>
+              <p class="text-caption text-medium-emphasis">Create a new curriculum to get started.</p>
+            </div>
+          </template>
+          <template #expanded-row="{ item }">
+            <tr>
+              <td :colspan="currHeaders.length" class="pa-0">
+                <CurriculumVersionTable
+                  :versions="getVersionsOfCurriculum(item)"
+                  :active-version-id="item.activeVersionId"
+                  :can-edit="auth.isAdmin"
+                  :semesters="semesterList"
+                  @add-version="addVersionToCurriculum(item)"
+                  @manage="manageVersion"
+                  @set-active="setActiveVersion(item, $event)"
+                  @edit="openEditVersion"
+                  @delete="confirmDeleteVersion"
+                />
+              </td>
+            </tr>
+          </template>
+        </v-data-table>
+
+        <v-alert
+          v-if="curriculumSelectItems.length === 0"
+          type="info"
+          variant="tonal"
+          density="compact"
+          class="mt-4"
+          text="Create a new curriculum above to manage its programs, degrees, modules and classes."
+        />
+
+        <div ref="contentSectionRef">
+          <v-row v-if="curriculumSelectItems.length > 0" class="align-center mt-2 mb-2">
+            <v-col cols="12" sm="6">
+              <v-select
+                v-model="displayedCurriculumId"
+                :items="curriculumSelectItems"
+                label="Displayed curriculum"
+                variant="outlined"
+                density="compact"
+                hide-details
+                prepend-inner-icon="mdi-source-branch"
+              />
+            </v-col>
+            <v-col cols="12" sm="6">
+              <v-select
+                v-model="displayedVersionId"
+                :items="displayedVersionItems"
+                label="Displayed curriculum version"
+                variant="outlined"
+                density="compact"
+                hide-details
+                prepend-inner-icon="mdi-tag-outline"
+              />
+            </v-col>
+          </v-row>
+
+          <v-tabs v-if="displayedCurriculumId" v-model="curriculumTab" bg-color="transparent" color="primary" class="mt-4">
             <v-tab value="programs">Programs</v-tab>
             <v-tab value="degrees">Degrees</v-tab>
             <v-tab value="modules">Modules</v-tab>
             <v-tab value="classes">Classes</v-tab>
-          </template>
-        </v-tabs>
+          </v-tabs>
+        </div>
 
-        <div v-if="curriculumTab === 'versions'" class="mt-4">
+        <div v-if="displayedCurriculumId && curriculumTab === 'programs'" class="mt-4">
           <v-row class="align-center mb-4">
             <v-col cols="12" sm="6" class="d-flex ga-2">
-              <v-btn v-if="auth.isAdmin" color="primary" prepend-icon="mdi-plus" @click="openAddVersion">Add Version</v-btn>
+              <v-btn v-if="auth.isAdmin" color="primary" prepend-icon="mdi-plus" @click="openAddProgram">Add Program</v-btn>
+              <v-btn v-if="auth.isAdmin" variant="outlined" prepend-icon="mdi-file-import" @click="openCsvImport('programs')">Import CSV</v-btn>
             </v-col>
             <v-col cols="12" sm="6">
               <v-text-field
-                v-model="versionSearch"
+                v-model="progSearch"
                 prepend-inner-icon="mdi-magnify"
-                label="Search versions"
+                label="Search programs"
                 single-line
                 hide-details
                 clearable
@@ -206,402 +316,324 @@
           </v-row>
 
           <v-data-table
-            :headers="verHeaders"
-            :items="filteredVersions"
-            :sort-by="verSortBy"
-            @update:sort-by="verSortBy = $event"
+            :headers="progHeaders"
+            :items="filteredPrograms"
+            :sort-by="progSortBy"
+            @update:sort-by="progSortBy = $event"
             hover
             items-per-page="15"
           >
+            <template #item.departmentIDs="{ item }">
+              <template v-if="getDepartmentNames(item).length">
+                <v-chip v-for="name in getDepartmentNames(item)" :key="name" size="x-small" variant="tonal" color="primary" class="mr-1">
+                  {{ name }}
+                </v-chip>
+              </template>
+              <span v-else class="text-medium-emphasis">-</span>
+            </template>
+            <template #item.description="{ item }">
+              {{ item.description || '-' }}
+            </template>
+            <template #item.contact="{ item }">
+              {{ item.contact || '-' }}
+            </template>
+            <template #item.url="{ item }">
+              <a v-if="item.url || item.URL" :href="item.url || item.URL" target="_blank" rel="noopener" class="text-decoration-none">
+                {{ item.url || item.URL }}
+              </a>
+              <span v-else class="text-medium-emphasis">-</span>
+            </template>
             <template #item.name="{ item }">
-              <span class="font-weight-medium">{{ item.name || `v${item.versionNumber}` }}</span>
-              <v-chip v-if="isActiveVersion(item)" size="x-small" color="success" variant="tonal" class="ml-1">Active</v-chip>
-              <v-chip v-if="(item._id || item.id) === displayedVersionId" size="x-small" color="info" variant="tonal" class="ml-1">Displayed</v-chip>
-            </template>
-            <template #item.versionNumber="{ item }">
-              {{ item.versionNumber }}
-            </template>
-            <template #item.semesterId="{ item }">
-              {{ getSemesterName(item.semesterId) || '—' }}
-            </template>
-            <template #item.createdByName="{ item }">
-              {{ item.createdByName || '—' }}
-            </template>
-            <template #item.createdAt="{ item }">
-              {{ item.createdAt ? formatDate(item.createdAt) : '—' }}
+              <span>{{ item.name }}</span>
+              <v-chip v-if="item._isAdmin" size="x-small" variant="tonal" color="primary" class="ml-1">Admin</v-chip>
+              <v-chip v-else-if="item._canEdit" size="x-small" variant="tonal" color="secondary" class="ml-1">Write</v-chip>
             </template>
             <template #item.actions="{ item }">
-              <template v-if="auth.isAdmin">
-                <v-btn
-                  icon
-                  variant="text"
-                  size="small"
-                  :disabled="getActiveVersionIds().includes(item._id || item.id || '')"
-                  @click="setAsActiveVersion(item)"
-                >
-                  <v-icon>mdi-star-outline</v-icon>
-                  <v-tooltip activator="parent" location="top">
-                    {{ getActiveVersionIds().includes(item._id || item.id || '') ? 'This is the active version' : 'Set as active version of its program' }}
-                  </v-tooltip>
-                </v-btn>
-                <v-btn icon variant="text" size="small" @click="openEditVersion(item)">
+              <template v-if="item._canEdit">
+                <v-btn icon variant="text" size="small" @click="openEditProgram(item)">
                   <v-icon>mdi-pencil</v-icon>
                   <v-tooltip activator="parent">Edit</v-tooltip>
                 </v-btn>
-                <v-btn icon variant="text" size="small" @click="confirmDeleteVersion(item)">
+                <v-btn v-if="item._isAdmin" icon variant="text" size="small" @click="confirmDeleteProgram(item)">
                   <v-icon>mdi-delete</v-icon>
                   <v-tooltip activator="parent">Delete</v-tooltip>
                 </v-btn>
               </template>
-              <span v-else class="text-medium-emphasis text-caption">Read-only</span>
+              <v-btn icon variant="text" size="small" @click="openRestrictions(item, 'programs')">
+                <v-icon>mdi-shield-lock-outline</v-icon>
+                <v-tooltip activator="parent">Restrictions</v-tooltip>
+              </v-btn>
+              <v-btn icon variant="text" size="small" @click="openAccess(item, 'programs')">
+                <v-icon>mdi-account-multiple-outline</v-icon>
+                <v-tooltip activator="parent">Access</v-tooltip>
+              </v-btn>
             </template>
             <template #no-data>
               <div class="text-center pa-4">
-                <v-icon size="64" color="grey-lighten-1">mdi-source-branch</v-icon>
-                <p class="mt-2 text-medium-emphasis">No curriculum versions found.</p>
-                <p class="text-caption text-medium-emphasis">Add a version to snapshot a program's curriculum.</p>
+                <v-icon size="64" color="grey-lighten-1">mdi-school-outline</v-icon>
+                <p class="mt-2 text-medium-emphasis">No programs found.</p>
               </div>
             </template>
           </v-data-table>
         </div>
 
-        <template v-if="hasDisplayedVersion">
-          <div v-if="curriculumTab === 'programs'">
-            <v-row class="align-center mb-4">
-              <v-col cols="12" sm="6" class="d-flex ga-2">
-                <v-btn v-if="auth.isAdmin" color="primary" prepend-icon="mdi-plus" @click="openAddProgram">Add Program</v-btn>
-                <v-btn v-if="auth.isAdmin" variant="outlined" prepend-icon="mdi-file-import" @click="openCsvImport('programs')">Import CSV</v-btn>
-              </v-col>
-              <v-col cols="12" sm="6">
-                <v-text-field
-                  v-model="progSearch"
-                  prepend-inner-icon="mdi-magnify"
-                  label="Search programs"
-                  single-line
-                  hide-details
-                  clearable
-                  density="compact"
-                />
-              </v-col>
-            </v-row>
+        <div v-if="displayedCurriculumId && curriculumTab === 'degrees'" class="mt-4">
+          <v-row class="align-center mb-4">
+            <v-col cols="12" sm="6" class="d-flex ga-2">
+              <v-btn v-if="canCreateDegrees" color="primary" prepend-icon="mdi-plus" @click="openAddDegree">Add Degree</v-btn>
+              <v-btn v-if="auth.isAdmin" variant="outlined" prepend-icon="mdi-file-import" @click="openCsvImport('degrees')">Import CSV</v-btn>
+            </v-col>
+            <v-col cols="12" sm="6">
+              <v-text-field
+                v-model="degSearch"
+                prepend-inner-icon="mdi-magnify"
+                label="Search degrees"
+                single-line
+                hide-details
+                clearable
+                density="compact"
+              />
+            </v-col>
+          </v-row>
 
-            <v-data-table
-              :headers="progHeaders"
-              :items="filteredPrograms"
-              :sort-by="progSortBy"
-              @update:sort-by="progSortBy = $event"
-              hover
-              items-per-page="15"
-            >
-              <template #item.departmentIDs="{ item }">
-                <template v-if="getDepartmentNames(item).length">
-                  <v-chip v-for="name in getDepartmentNames(item)" :key="name" size="x-small" variant="tonal" color="primary" class="mr-1">
-                    {{ name }}
-                  </v-chip>
-                </template>
-                <span v-else class="text-medium-emphasis">-</span>
+          <v-data-table
+            :headers="degHeaders"
+            :items="filteredDegrees"
+            :sort-by="degSortBy"
+            @update:sort-by="degSortBy = $event"
+            hover
+            items-per-page="15"
+          >
+            <template #item.ProgramIDs="{ item }">
+              <template v-if="getProgramNames(item).length">
+                <v-chip v-for="name in getProgramNames(item)" :key="name" size="x-small" variant="tonal" color="secondary" class="mr-1">
+                  {{ name }}
+                </v-chip>
               </template>
-              <template #item.description="{ item }">
-                {{ item.description || '-' }}
-              </template>
-              <template #item.contact="{ item }">
-                {{ item.contact || '-' }}
-              </template>
-              <template #item.url="{ item }">
-                <a v-if="item.url || item.URL" :href="item.url || item.URL" target="_blank" rel="noopener" class="text-decoration-none">
-                  {{ item.url || item.URL }}
-                </a>
-                <span v-else class="text-medium-emphasis">-</span>
-              </template>
-              <template #item.name="{ item }">
-                <span>{{ item.name }}</span>
-                <v-chip v-if="item._isAdmin" size="x-small" variant="tonal" color="primary" class="ml-1">Admin</v-chip>
-                <v-chip v-else-if="item._canEdit" size="x-small" variant="tonal" color="secondary" class="ml-1">Write</v-chip>
-              </template>
-              <template #item.actions="{ item }">
-                <template v-if="item._canEdit">
-                  <v-btn icon variant="text" size="small" @click="openEditProgram(item)">
-                    <v-icon>mdi-pencil</v-icon>
-                    <v-tooltip activator="parent">Edit</v-tooltip>
-                  </v-btn>
-                  <v-btn v-if="item._isAdmin" icon variant="text" size="small" @click="confirmDeleteProgram(item)">
-                    <v-icon>mdi-delete</v-icon>
-                    <v-tooltip activator="parent">Delete</v-tooltip>
-                  </v-btn>
-                </template>
-                <v-btn icon variant="text" size="small" @click="openRestrictions(item, 'programs')">
-                  <v-icon>mdi-shield-lock-outline</v-icon>
-                  <v-tooltip activator="parent">Restrictions</v-tooltip>
+              <span v-else class="text-medium-emphasis">-</span>
+            </template>
+            <template #item.description="{ item }">
+              {{ item.description || '-' }}
+            </template>
+            <template #item.contact="{ item }">
+              {{ item.contact || '-' }}
+            </template>
+            <template #item.url="{ item }">
+              <a v-if="item.url || item.URL" :href="item.url || item.URL" target="_blank" rel="noopener" class="text-decoration-none">
+                {{ item.url || item.URL }}
+              </a>
+              <span v-else class="text-medium-emphasis">-</span>
+            </template>
+            <template #item.name="{ item }">
+              <span>{{ item.name }}</span>
+              <v-chip v-if="item._isAdmin" size="x-small" variant="tonal" color="primary" class="ml-1">Admin</v-chip>
+              <v-chip v-else-if="item._canEdit" size="x-small" variant="tonal" color="secondary" class="ml-1">Write</v-chip>
+            </template>
+            <template #item.actions="{ item }">
+              <template v-if="item._canEdit">
+                <v-btn icon variant="text" size="small" @click="openEditDegree(item)">
+                  <v-icon>mdi-pencil</v-icon>
+                  <v-tooltip activator="parent">Edit</v-tooltip>
                 </v-btn>
-                <v-btn icon variant="text" size="small" @click="openAccess(item, 'programs')">
-                  <v-icon>mdi-account-multiple-outline</v-icon>
-                  <v-tooltip activator="parent">Access</v-tooltip>
+                <v-btn v-if="item._isAdmin" icon variant="text" size="small" @click="confirmDeleteDegree(item)">
+                  <v-icon>mdi-delete</v-icon>
+                  <v-tooltip activator="parent">Delete</v-tooltip>
                 </v-btn>
               </template>
-              <template #no-data>
-                <div class="text-center pa-4">
-                  <v-icon size="64" color="grey-lighten-1">mdi-school-outline</v-icon>
-                  <p class="mt-2 text-medium-emphasis">No programs found.</p>
-                </div>
-              </template>
-            </v-data-table>
-          </div>
+              <v-btn icon variant="text" size="small" @click="openRestrictions(item, 'degrees')">
+                <v-icon>mdi-shield-lock-outline</v-icon>
+                <v-tooltip activator="parent">Restrictions</v-tooltip>
+              </v-btn>
+              <v-btn icon variant="text" size="small" @click="openAccess(item, 'degrees')">
+                <v-icon>mdi-account-multiple-outline</v-icon>
+                <v-tooltip activator="parent">Access</v-tooltip>
+              </v-btn>
+            </template>
+            <template #no-data>
+              <div class="text-center pa-4">
+                <v-icon size="64" color="grey-lighten-1">mdi-certificate-outline</v-icon>
+                <p class="mt-2 text-medium-emphasis">No degrees found.</p>
+              </div>
+            </template>
+          </v-data-table>
+        </div>
 
-          <div v-if="curriculumTab === 'degrees'">
-            <v-row class="align-center mb-4">
-              <v-col cols="12" sm="6" class="d-flex ga-2">
-                <v-btn v-if="canCreateDegrees" color="primary" prepend-icon="mdi-plus" @click="openAddDegree">Add Degree</v-btn>
-                <v-btn v-if="auth.isAdmin" variant="outlined" prepend-icon="mdi-file-import" @click="openCsvImport('degrees')">Import CSV</v-btn>
-              </v-col>
-              <v-col cols="12" sm="6">
-                <v-text-field
-                  v-model="degSearch"
-                  prepend-inner-icon="mdi-magnify"
-                  label="Search degrees"
-                  single-line
-                  hide-details
-                  clearable
-                  density="compact"
-                />
-              </v-col>
-            </v-row>
+        <div v-if="displayedCurriculumId && curriculumTab === 'modules'" class="mt-4">
+          <v-row class="align-center mb-4">
+            <v-col cols="12" sm="6" class="d-flex ga-2">
+              <v-btn v-if="canCreateModules" color="primary" prepend-icon="mdi-plus" @click="openAddModule">Add Module</v-btn>
+              <v-btn v-if="auth.isAdmin" variant="outlined" prepend-icon="mdi-file-import" @click="openCsvImport('modules')">Import CSV</v-btn>
+            </v-col>
+            <v-col cols="12" sm="6">
+              <v-text-field
+                v-model="modSearch"
+                prepend-inner-icon="mdi-magnify"
+                label="Search modules"
+                single-line
+                hide-details
+                clearable
+                density="compact"
+              />
+            </v-col>
+          </v-row>
 
-            <v-data-table
-              :headers="degHeaders"
-              :items="filteredDegrees"
-              :sort-by="degSortBy"
-              @update:sort-by="degSortBy = $event"
-              hover
-              items-per-page="15"
-            >
-              <template #item.ProgramIDs="{ item }">
-                <template v-if="getProgramNames(item).length">
-                  <v-chip v-for="name in getProgramNames(item)" :key="name" size="x-small" variant="tonal" color="secondary" class="mr-1">
-                    {{ name }}
-                  </v-chip>
-                </template>
-                <span v-else class="text-medium-emphasis">-</span>
+          <v-data-table
+            :headers="modHeaders"
+            :items="filteredModules"
+            :sort-by="modSortBy"
+            @update:sort-by="modSortBy = $event"
+            hover
+            items-per-page="15"
+          >
+            <template #item.code="{ item }">
+              {{ item.code || '-' }}
+            </template>
+            <template #item.DegreeIDs="{ item }">
+              <template v-if="getDegreeNames(item).length">
+                <v-chip v-for="name in getDegreeNames(item)" :key="name" size="x-small" variant="tonal" color="teal" class="mr-1">
+                  {{ name }}
+                </v-chip>
               </template>
-              <template #item.description="{ item }">
-                {{ item.description || '-' }}
-              </template>
-              <template #item.contact="{ item }">
-                {{ item.contact || '-' }}
-              </template>
-              <template #item.url="{ item }">
-                <a v-if="item.url || item.URL" :href="item.url || item.URL" target="_blank" rel="noopener" class="text-decoration-none">
-                  {{ item.url || item.URL }}
-                </a>
-                <span v-else class="text-medium-emphasis">-</span>
-              </template>
-              <template #item.name="{ item }">
-                <span>{{ item.name }}</span>
-                <v-chip v-if="item._isAdmin" size="x-small" variant="tonal" color="primary" class="ml-1">Admin</v-chip>
-                <v-chip v-else-if="item._canEdit" size="x-small" variant="tonal" color="secondary" class="ml-1">Write</v-chip>
-              </template>
-              <template #item.actions="{ item }">
-                <template v-if="item._canEdit">
-                  <v-btn icon variant="text" size="small" @click="openEditDegree(item)">
-                    <v-icon>mdi-pencil</v-icon>
-                    <v-tooltip activator="parent">Edit</v-tooltip>
-                  </v-btn>
-                  <v-btn v-if="item._isAdmin" icon variant="text" size="small" @click="confirmDeleteDegree(item)">
-                    <v-icon>mdi-delete</v-icon>
-                    <v-tooltip activator="parent">Delete</v-tooltip>
-                  </v-btn>
-                </template>
-                <v-btn icon variant="text" size="small" @click="openRestrictions(item, 'degrees')">
-                  <v-icon>mdi-shield-lock-outline</v-icon>
-                  <v-tooltip activator="parent">Restrictions</v-tooltip>
+              <span v-else class="text-medium-emphasis">-</span>
+            </template>
+            <template #item.creditPoints="{ item }">
+              {{ item.creditPoints ?? '—' }}
+            </template>
+            <template #item.classCount="{ item }">
+              <span>{{ getClassCount(item) }}</span>
+            </template>
+            <template #item.timeslots="{ item }">
+              <span v-if="item.timeslots != null && displayedSemesterTimeslots" class="text-medium-emphasis">
+                {{ item.timeslots }} × {{ displayedSemesterTimeslots.duration }} min
+              </span>
+              <span v-else-if="item.timeslots != null">{{ item.timeslots }}</span>
+              <span v-else class="text-medium-emphasis">—</span>
+            </template>
+            <template #item.name="{ item }">
+              <span>{{ item.name }}</span>
+              <v-chip v-if="item._isAdmin" size="x-small" variant="tonal" color="primary" class="ml-1">Admin</v-chip>
+              <v-chip v-else-if="item._canEdit" size="x-small" variant="tonal" color="secondary" class="ml-1">Write</v-chip>
+            </template>
+            <template #item.actions="{ item }">
+              <template v-if="item._canEdit">
+                <v-btn icon variant="text" size="small" @click="openEditModule(item)">
+                  <v-icon>mdi-pencil</v-icon>
+                  <v-tooltip activator="parent">Edit</v-tooltip>
                 </v-btn>
-                <v-btn icon variant="text" size="small" @click="openAccess(item, 'degrees')">
-                  <v-icon>mdi-account-multiple-outline</v-icon>
-                  <v-tooltip activator="parent">Access</v-tooltip>
+                <v-btn v-if="item._isAdmin" icon variant="text" size="small" @click="confirmDeleteModule(item)">
+                  <v-icon>mdi-delete</v-icon>
+                  <v-tooltip activator="parent">Delete</v-tooltip>
                 </v-btn>
               </template>
-              <template #no-data>
-                <div class="text-center pa-4">
-                  <v-icon size="64" color="grey-lighten-1">mdi-certificate-outline</v-icon>
-                  <p class="mt-2 text-medium-emphasis">No degrees found.</p>
-                </div>
-              </template>
-            </v-data-table>
-          </div>
+              <v-btn icon variant="text" size="small" @click="openRestrictions(item, 'modules')">
+                <v-icon>mdi-shield-lock-outline</v-icon>
+                <v-tooltip activator="parent">Restrictions</v-tooltip>
+              </v-btn>
+              <v-btn icon variant="text" size="small" @click="openAccess(item, 'modules')">
+                <v-icon>mdi-account-multiple-outline</v-icon>
+                <v-tooltip activator="parent">Access</v-tooltip>
+              </v-btn>
+            </template>
+            <template #no-data>
+              <div class="text-center pa-4">
+                <v-icon size="64" color="grey-lighten-1">mdi-book-open-page-variant</v-icon>
+                <p class="mt-2 text-medium-emphasis">No modules found.</p>
+              </div>
+            </template>
+          </v-data-table>
+        </div>
 
-          <div v-if="curriculumTab === 'modules'">
-            <v-row class="align-center mb-4">
-              <v-col cols="12" sm="6" class="d-flex ga-2">
-                <v-btn v-if="canCreateModules" color="primary" prepend-icon="mdi-plus" @click="openAddModule">Add Module</v-btn>
-                <v-btn v-if="auth.isAdmin" variant="outlined" prepend-icon="mdi-file-import" @click="openCsvImport('modules')">Import CSV</v-btn>
-              </v-col>
-              <v-col cols="12" sm="6">
-                <v-text-field
-                  v-model="modSearch"
-                  prepend-inner-icon="mdi-magnify"
-                  label="Search modules"
-                  single-line
-                  hide-details
-                  clearable
-                  density="compact"
-                />
-              </v-col>
-            </v-row>
+        <div v-if="displayedCurriculumId && curriculumTab === 'classes'" class="mt-4">
+          <v-row class="align-center mb-4">
+            <v-col cols="12" sm="6" class="d-flex ga-2">
+              <v-btn v-if="auth.isAdmin" color="primary" prepend-icon="mdi-plus" @click="openAddClass">Add Class</v-btn>
+            </v-col>
+            <v-col cols="12" sm="6">
+              <v-text-field
+                v-model="clsSearch"
+                prepend-inner-icon="mdi-magnify"
+                label="Search classes"
+                single-line
+                hide-details
+                clearable
+                density="compact"
+              />
+            </v-col>
+          </v-row>
 
-            <v-data-table
-              :headers="modHeaders"
-              :items="filteredModules"
-              :sort-by="modSortBy"
-              @update:sort-by="modSortBy = $event"
-              hover
-              items-per-page="15"
-            >
-              <template #item.code="{ item }">
-                {{ item.code || '-' }}
+          <v-data-table
+            :headers="clsHeaders"
+            :items="filteredClasses"
+            :sort-by="clsSortBy"
+            @update:sort-by="clsSortBy = $event"
+            hover
+            items-per-page="15"
+          >
+            <template #item.code="{ item }">
+              {{ item.code || '-' }}
+            </template>
+            <template #item.degreeId="{ item }">
+              {{ getDegreeName(item.degreeId) }}
+            </template>
+            <template #item.size="{ item }">
+              {{ item.size ?? '-' }}
+            </template>
+            <template #item.programIds="{ item }">
+              <template v-if="getClassProgramNames(item).length">
+                <v-chip v-for="name in getClassProgramNames(item)" :key="name" size="x-small" variant="tonal" color="secondary" class="mr-1">
+                  {{ name }}
+                </v-chip>
               </template>
-              <template #item.DegreeIDs="{ item }">
-                <template v-if="getDegreeNames(item).length">
-                  <v-chip v-for="name in getDegreeNames(item)" :key="name" size="x-small" variant="tonal" color="teal" class="mr-1">
-                    {{ name }}
-                  </v-chip>
-                </template>
-                <span v-else class="text-medium-emphasis">-</span>
-              </template>
-              <template #item.creditPoints="{ item }">
-                {{ item.creditPoints ?? '—' }}
-              </template>
-              <template #item.timeslots="{ item }">
-                <span v-if="item.timeslots != null && displayedSemesterTimeslots" class="text-medium-emphasis">
-                  {{ item.timeslots }} × {{ displayedSemesterTimeslots.duration }} min
-                </span>
-                <span v-else-if="item.timeslots != null">{{ item.timeslots }}</span>
-                <span v-else class="text-medium-emphasis">—</span>
-              </template>
-              <template #item.name="{ item }">
-                <span>{{ item.name }}</span>
-                <v-chip v-if="item._isAdmin" size="x-small" variant="tonal" color="primary" class="ml-1">Admin</v-chip>
-                <v-chip v-else-if="item._canEdit" size="x-small" variant="tonal" color="secondary" class="ml-1">Write</v-chip>
-              </template>
-              <template #item.actions="{ item }">
-                <template v-if="item._canEdit">
-                  <v-btn icon variant="text" size="small" @click="openEditModule(item)">
-                    <v-icon>mdi-pencil</v-icon>
-                    <v-tooltip activator="parent">Edit</v-tooltip>
-                  </v-btn>
-                  <v-btn v-if="item._isAdmin" icon variant="text" size="small" @click="confirmDeleteModule(item)">
-                    <v-icon>mdi-delete</v-icon>
-                    <v-tooltip activator="parent">Delete</v-tooltip>
-                  </v-btn>
-                </template>
-                <v-btn icon variant="text" size="small" @click="openRestrictions(item, 'modules')">
-                  <v-icon>mdi-shield-lock-outline</v-icon>
-                  <v-tooltip activator="parent">Restrictions</v-tooltip>
+              <span v-else class="text-medium-emphasis">-</span>
+            </template>
+            <template #item.semesterId="{ item }">
+              {{ getSemesterName(item.semesterId) || '-' }}
+            </template>
+            <template #item.description="{ item }">
+              {{ item.description || '-' }}
+            </template>
+            <template #item.contact="{ item }">
+              {{ item.contact || '-' }}
+            </template>
+            <template #item.url="{ item }">
+              <a v-if="item.url || item.URL" :href="item.url || item.URL" target="_blank" rel="noopener" class="text-decoration-none">
+                {{ item.url || item.URL }}
+              </a>
+              <span v-else class="text-medium-emphasis">-</span>
+            </template>
+            <template #item.name="{ item }">
+              <span>{{ item.name }}</span>
+              <v-chip v-if="item._isAdmin" size="x-small" variant="tonal" color="primary" class="ml-1">Admin</v-chip>
+              <v-chip v-else-if="item._canEdit" size="x-small" variant="tonal" color="secondary" class="ml-1">Write</v-chip>
+            </template>
+            <template #item.actions="{ item }">
+              <template v-if="item._canEdit">
+                <v-btn icon variant="text" size="small" @click="openEditClass(item)">
+                  <v-icon>mdi-pencil</v-icon>
+                  <v-tooltip activator="parent">Edit</v-tooltip>
                 </v-btn>
-                <v-btn icon variant="text" size="small" @click="openAccess(item, 'modules')">
-                  <v-icon>mdi-account-multiple-outline</v-icon>
-                  <v-tooltip activator="parent">Access</v-tooltip>
-                </v-btn>
-              </template>
-              <template #no-data>
-                <div class="text-center pa-4">
-                  <v-icon size="64" color="grey-lighten-1">mdi-book-open-page-variant</v-icon>
-                  <p class="mt-2 text-medium-emphasis">No modules found.</p>
-                </div>
-              </template>
-            </v-data-table>
-          </div>
-
-          <div v-if="curriculumTab === 'classes'">
-            <v-row class="align-center mb-4">
-              <v-col cols="12" sm="6" class="d-flex ga-2">
-                <v-btn v-if="auth.isAdmin" color="primary" prepend-icon="mdi-plus" @click="openAddClass">Add Class</v-btn>
-              </v-col>
-              <v-col cols="12" sm="6">
-                <v-text-field
-                  v-model="clsSearch"
-                  prepend-inner-icon="mdi-magnify"
-                  label="Search classes"
-                  single-line
-                  hide-details
-                  clearable
-                  density="compact"
-                />
-              </v-col>
-            </v-row>
-
-            <v-data-table
-              :headers="clsHeaders"
-              :items="filteredClasses"
-              :sort-by="clsSortBy"
-              @update:sort-by="clsSortBy = $event"
-              hover
-              items-per-page="15"
-            >
-              <template #item.code="{ item }">
-                {{ item.code || '-' }}
-              </template>
-              <template #item.degreeId="{ item }">
-                {{ getDegreeName(item.degreeId) }}
-              </template>
-              <template #item.size="{ item }">
-                {{ item.size ?? '-' }}
-              </template>
-              <template #item.programIds="{ item }">
-                <template v-if="getClassProgramNames(item).length">
-                  <v-chip v-for="name in getClassProgramNames(item)" :key="name" size="x-small" variant="tonal" color="secondary" class="mr-1">
-                    {{ name }}
-                  </v-chip>
-                </template>
-                <span v-else class="text-medium-emphasis">-</span>
-              </template>
-              <template #item.semesterId="{ item }">
-                {{ getSemesterName(item.semesterId) || '-' }}
-              </template>
-              <template #item.description="{ item }">
-                {{ item.description || '-' }}
-              </template>
-              <template #item.contact="{ item }">
-                {{ item.contact || '-' }}
-              </template>
-              <template #item.url="{ item }">
-                <a v-if="item.url || item.URL" :href="item.url || item.URL" target="_blank" rel="noopener" class="text-decoration-none">
-                  {{ item.url || item.URL }}
-                </a>
-                <span v-else class="text-medium-emphasis">-</span>
-              </template>
-              <template #item.name="{ item }">
-                <span>{{ item.name }}</span>
-                <v-chip v-if="item._isAdmin" size="x-small" variant="tonal" color="primary" class="ml-1">Admin</v-chip>
-                <v-chip v-else-if="item._canEdit" size="x-small" variant="tonal" color="secondary" class="ml-1">Write</v-chip>
-              </template>
-              <template #item.actions="{ item }">
-                <template v-if="item._canEdit">
-                  <v-btn icon variant="text" size="small" @click="openEditClass(item)">
-                    <v-icon>mdi-pencil</v-icon>
-                    <v-tooltip activator="parent">Edit</v-tooltip>
-                  </v-btn>
-                  <v-btn v-if="item._isAdmin" icon variant="text" size="small" @click="confirmDeleteClass(item)">
-                    <v-icon>mdi-delete</v-icon>
-                    <v-tooltip activator="parent">Delete</v-tooltip>
-                  </v-btn>
-                </template>
-                <v-btn icon variant="text" size="small" @click="openRestrictions(item, 'classes')">
-                  <v-icon>mdi-shield-lock-outline</v-icon>
-                  <v-tooltip activator="parent">Restrictions</v-tooltip>
-                </v-btn>
-                <v-btn icon variant="text" size="small" @click="openAccess(item, 'classes')">
-                  <v-icon>mdi-account-multiple-outline</v-icon>
-                  <v-tooltip activator="parent">Access</v-tooltip>
+                <v-btn v-if="item._isAdmin" icon variant="text" size="small" @click="confirmDeleteClass(item)">
+                  <v-icon>mdi-delete</v-icon>
+                  <v-tooltip activator="parent">Delete</v-tooltip>
                 </v-btn>
               </template>
-              <template #no-data>
-                <div class="text-center pa-4">
-                  <v-icon size="64" color="grey-lighten-1">mdi-account-group</v-icon>
-                  <p class="mt-2 text-medium-emphasis">No classes found.</p>
-                </div>
-              </template>
-            </v-data-table>
-          </div>
-        </template>
+              <v-btn icon variant="text" size="small" @click="openRestrictions(item, 'classes')">
+                <v-icon>mdi-shield-lock-outline</v-icon>
+                <v-tooltip activator="parent">Restrictions</v-tooltip>
+              </v-btn>
+              <v-btn icon variant="text" size="small" @click="openAccess(item, 'classes')">
+                <v-icon>mdi-account-multiple-outline</v-icon>
+                <v-tooltip activator="parent">Access</v-tooltip>
+              </v-btn>
+            </template>
+            <template #no-data>
+              <div class="text-center pa-4">
+                <v-icon size="64" color="grey-lighten-1">mdi-account-group</v-icon>
+                <p class="mt-2 text-medium-emphasis">No classes found.</p>
+              </div>
+            </template>
+          </v-data-table>
+        </div>
       </v-window-item>
     </v-window>
 
@@ -615,6 +647,8 @@
       v-model="progDialogOpen"
       :program-data="editProgram"
       :departments="departments"
+      :curriculum-id="displayedCurriculumId"
+      :curriculum-title="displayedCurriculum?.name"
       @save="handleProgramSave"
     />
 
@@ -630,6 +664,7 @@
       :module-data="editModule"
       :degrees="degreesOfDisplayedVersion"
       :classes="classes"
+      :curriculum-version-id="displayedVersionId"
       :semester-timeslots="displayedSemesterTimeslots"
       @save="handleModuleSave"
     />
@@ -639,7 +674,9 @@
       :class-data="editClass"
       :programs="programsOfDisplayedVersion"
       :degrees="degreesOfDisplayedVersion"
+      :modules="modulesOfDisplayedVersion"
       :semesters="semesterList"
+      :curriculum-version-id="displayedVersionId"
       @save="handleClassSave"
     />
 
@@ -647,6 +684,12 @@
       v-model="semDialogOpen"
       :semester-data="editSemester"
       @save="handleSemesterSave"
+    />
+
+    <CurriculumFormDialog
+      v-model="currDialogOpen"
+      :curriculum-data="editCurriculum"
+      @save="handleCurriculumSave"
     />
 
     <CurriculumVersionFormDialog
@@ -672,6 +715,7 @@
     <CsvImportDialog
       v-model="csvImportDialogOpen"
       :initial-type="csvImportType"
+      :curriculum-context="{ curriculumId: displayedCurriculumId, curriculumVersionId: displayedVersionId }"
       @imported="handleCsvImported"
     />
 
@@ -696,7 +740,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, watch, nextTick, onMounted } from 'vue'
 import { useDepartments } from '@/composables/useDepartments'
 import { usePrograms } from '@/composables/usePrograms'
 import { useDegrees } from '@/composables/useDegrees'
@@ -710,22 +754,21 @@ import DegreeFormDialog from '@/components/DegreeFormDialog.vue'
 import ModuleFormDialog from '@/components/ModuleFormDialog.vue'
 import ClassFormDialog from '@/components/ClassFormDialog.vue'
 import SemesterFormDialog from '@/components/SemesterFormDialog.vue'
+import CurriculumFormDialog from '@/components/CurriculumFormDialog.vue'
 import CurriculumVersionFormDialog from '@/components/CurriculumVersionFormDialog.vue'
+import CurriculumVersionTable from '@/components/CurriculumVersionTable.vue'
 import AccessDialog from '@/components/AccessDialog.vue'
 import RestrictionsDialog from '@/components/RestrictionsDialog.vue'
 import type { RestrictionsOwner } from '@/composables/useRestrictions'
-import { useCurriculumVersions } from '@/composables/useCurriculumVersions'
+import { useCurriculums, useCurriculumVersions } from '@/composables/useCurriculumVersions'
 import CsvImportDialog from '@/components/CsvImportDialog.vue'
-import type { Department, Program, Degree, Module } from '@/types/curriculum'
+import type { Curriculum, Department, Program, Degree, Module } from '@/types/curriculum'
 import type { ClassEntity } from '@/types/curriculumClass'
 import type { Semester, CurriculumVersion } from '@/stores/curriculum'
 import type { ImportType } from '@/types/csvImport'
 
 const auth = useAuthStore()
 
-// Degree/module creation requires administrating the referenced parent(s);
-// the button is therefore available to global admins and to users who
-// administer at least one program (degree) / degree (module).
 const canCreateDegrees = computed(() => auth.isAdmin || programs.value.some(p => p._isAdmin))
 const canCreateModules = computed(() => auth.isAdmin || degrees.value.some(d => d._isAdmin))
 
@@ -778,15 +821,24 @@ const {
 } = useSemesters()
 
 const {
+  curriculums,
+  fetchCurriculums,
+  createCurriculumWithV1,
+  addVersionToCurriculum: addVersionToCurriculumApi,
+  setActiveVersion: setActiveVersionApi,
+  updateCurriculum,
+  removeCurriculum,
+} = useCurriculums()
+
+const {
   curriculumVersions,
   fetchCurriculumVersions,
-  addCurriculumVersion,
   updateCurriculumVersion,
   removeCurriculumVersion,
 } = useCurriculumVersions()
 
 const activeTab = ref<'curriculum' | 'departments' | 'semesters'>('curriculum')
-const curriculumTab = ref<'versions' | 'programs' | 'degrees' | 'modules' | 'classes'>('versions')
+const curriculumTab = ref<'programs' | 'degrees' | 'modules' | 'classes'>('programs')
 
 const deptSearch = ref('')
 const deptDialogOpen = ref(false)
@@ -818,18 +870,26 @@ const semDialogOpen = ref(false)
 const editSemester = ref<Semester | null>(null)
 const semSortBy = ref<{ key: string; order: 'asc' | 'desc' }[]>([{ key: 'startDate', order: 'desc' }])
 
-const versionSearch = ref('')
+const currSearch = ref('')
+const currDialogOpen = ref(false)
+const editCurriculum = ref<Curriculum | null>(null)
+const currSortBy = ref<{ key: string; order: 'asc' | 'desc' }[]>([])
+
+// The curriculum whose program/degree/module/class lists are shown below the
+// curriculum table. Programs always belong to this curriculum; modules and
+// classes additionally belong to the displayed curriculum version.
+const displayedCurriculumId = ref('')
+const displayedVersionId = ref('')
+const contentSectionRef = ref<HTMLElement | null>(null)
+
 const verDialogOpen = ref(false)
 const editVersion = ref<CurriculumVersion | null>(null)
-const verSortBy = ref<{ key: string; order: 'asc' | 'desc' }[]>([{ key: 'versionNumber', order: 'desc' }])
-
-const displayedVersionId = ref<string>('')
 
 const csvImportDialogOpen = ref(false)
 const csvImportType = ref<ImportType>('departments')
 
 const accessDialogOpen = ref(false)
-const accessEntity = ref<'departments' | 'programs' | 'degrees' | 'modules' | 'classes'>('programs')
+const accessEntity = ref<'departments' | 'programs' | 'degrees' | 'modules' | 'classes' | 'curriculums'>('programs')
 const accessEntityId = ref('')
 const accessEntityName = ref('')
 
@@ -838,7 +898,7 @@ const restrictionsOwner = ref<RestrictionsOwner | null>(null)
 
 function openRestrictions(
   item: { id?: string; _id?: string; name?: string; _canEdit?: boolean },
-  entity: 'departments' | 'programs' | 'degrees' | 'modules' | 'classes',
+  entity: 'departments' | 'programs' | 'degrees' | 'modules' | 'classes' | 'curriculums',
 ) {
   const id = item.id || item._id || ''
   if (!id) return
@@ -856,17 +916,17 @@ function openAccess(item: { id?: string; _id?: string; name?: string }, entity: 
 }
 
 async function handleAccessChanged() {
-  // Re-fetch the affected collection so role chips stay current.
   if (accessEntity.value === 'departments') await fetchDepartments()
   else if (accessEntity.value === 'programs') await fetchPrograms()
   else if (accessEntity.value === 'degrees') await fetchDegrees()
   else if (accessEntity.value === 'modules') await fetchModules()
+  else if (accessEntity.value === 'curriculums') await fetchCurriculums()
   else await fetchClasses()
 }
 
 const deleteDialogOpen = ref(false)
 const deleteTargetName = ref('')
-let deleteKind: 'department' | 'program' | 'degree' | 'module' | 'class' | 'semester' | 'version' = 'department'
+let deleteKind: 'curriculum' | 'department' | 'program' | 'degree' | 'module' | 'class' | 'semester' | 'version' = 'department'
 let deleteId = ''
 
 const snackbar = ref(false)
@@ -903,6 +963,7 @@ const modHeaders = [
   { title: 'Code', key: 'code', sortable: true },
   { title: 'Name', key: 'name', sortable: true },
   { title: 'Degrees', key: 'DegreeIDs', sortable: false },
+  { title: 'Classes', key: 'classCount', sortable: true },
   { title: 'ECTS', key: 'creditPoints', sortable: true },
   { title: 'Timeslots', key: 'timeslots', sortable: true },
   { title: '', key: 'actions', sortable: false, width: '150px' },
@@ -929,12 +990,12 @@ const semHeaders = [
   { title: '', key: 'actions', sortable: false, width: '150px' },
 ]
 
-const verHeaders = [
+const currHeaders = [
   { title: 'Name', key: 'name', sortable: true },
-  { title: 'Version', key: 'versionNumber', sortable: true },
-  { title: 'Semester', key: 'semesterId', sortable: false },
-  { title: 'Created by', key: 'createdByName', sortable: true },
-  { title: 'Created', key: 'createdAt', sortable: true },
+  { title: 'Versions', key: 'versionCount', sortable: true },
+  { title: 'Active', key: 'activeVersion', sortable: false },
+  { title: 'Programs', key: 'programCount', sortable: true },
+  { title: 'Modules', key: 'moduleCount', sortable: true },
   { title: '', key: 'actions', sortable: false, width: '150px' },
 ]
 
@@ -992,10 +1053,14 @@ const filteredDepartments = computed(() => {
   )
 })
 
+// Entities belong to the displayed curriculum (programs), its programs
+// (degrees) or its displayed version (modules, classes). The search filters
+// below apply on top of this scope.
 const filteredPrograms = computed(() => {
-  if (!progSearch.value) return programs.value
+  const scoped = programs.value.filter(p => displayedCurriculumId.value && p.curriculumId === displayedCurriculumId.value)
+  if (!progSearch.value) return scoped
   const q = progSearch.value.toLowerCase()
-  return programs.value.filter(p =>
+  return scoped.filter(p =>
     p.name.toLowerCase().includes(q) ||
     (p.description ?? '').toLowerCase().includes(q) ||
     (p.contact ?? '').toLowerCase().includes(q) ||
@@ -1003,54 +1068,72 @@ const filteredPrograms = computed(() => {
   )
 })
 
-// Programs of the displayed curriculum version — only these can be selected
-// when adding/editing a degree within the displayed curriculum.
+const displayedCurriculum = computed(() =>
+  curriculums.value.find(c => (c._id || c.id) === displayedCurriculumId.value)
+)
+
+const displayedCurriculumVersions = computed(() => {
+  const curr = displayedCurriculum.value
+  return curr ? getVersionsOfCurriculum(curr) : []
+})
+
+const displayedVersion = computed(() =>
+  curriculumVersions.value.find(v => (v._id || v.id) === displayedVersionId.value)
+)
+
+const curriculumSelectItems = computed(() =>
+  curriculums.value.map(c => ({
+    title: c.name,
+    value: c._id || c.id || '',
+  })).filter(i => i.value)
+)
+
+const displayedVersionItems = computed(() =>
+  displayedCurriculumVersions.value.map(v => ({
+    title: `V${v.versionNumber} — ${v.name || 'Version'}`,
+    value: v._id || v.id || '',
+  })).filter(i => i.value)
+)
+
+// Keep the displayed version valid whenever curriculum or version data changes.
+watch([displayedCurriculumId, curriculumVersions, displayedCurriculumVersions], () => {
+  const ids = new Set(displayedCurriculumVersions.value.map(v => v._id || v.id || ''))
+  if (!displayedVersionId.value || !ids.has(displayedVersionId.value)) {
+    displayedVersionId.value = displayedCurriculum.value?.activeVersionId || ''
+  }
+}, { immediate: true })
+
 const programsOfDisplayedVersion = computed(() =>
-  displayedVersionId.value === ''
-    ? programs.value
-    : programs.value.filter(p => p.activeCurriculumVersionId === displayedVersionId.value)
+  programs.value.filter(p => displayedCurriculumId.value && p.curriculumId === displayedCurriculumId.value)
 )
 
-// Degrees of the displayed curriculum version, derived via their parent
-// programs (degrees carry no curriculum version themselves).
 const degreesOfDisplayedVersion = computed(() =>
-  displayedVersionId.value === ''
-    ? degrees.value
-    : degrees.value.filter(d => {
-        const degreeId = d.id
-        if (!degreeId) return false
-        return programsOfDisplayedVersion.value.some(p =>
-          (p.id ? (d.programIds ?? d.programIDs ?? d.ProgramIDs ?? []).includes(p.id) : false)
-        )
-      })
+  degrees.value.filter(d =>
+    (d.ProgramIDs ?? d.programIDs ?? d.programIds ?? [])
+      .some(pid => programsOfDisplayedVersion.value.some(p => p.id === pid))
+  )
 )
 
-// Timeslot grid of the semester the displayed curriculum version is for;
-// null when no version/semester is selected or the semester has no grid.
+const modulesOfDisplayedVersion = computed(() =>
+  modules.value.filter(m => displayedVersionId.value && m.curriculumVersionId === displayedVersionId.value)
+)
+
 const displayedSemesterTimeslots = computed(() => {
-  const version = curriculumVersions.value.find(v => (v._id || v.id) === displayedVersionId.value)
-  const sem = semesterList.value.find(s => (s._id || s.id) === version?.semesterId)
+  const sem = semesterList.value.find(s => (s._id || s.id) === displayedVersion.value?.semesterId)
   if (!sem?.slotDurationMinutes) return null
   return { duration: sem.slotDurationMinutes, startTimes: sem.slotStartTimes ?? [] }
 })
 
+// A degree belongs to the displayed curriculum when at least one of its
+// programs does.
 const filteredDegrees = computed(() => {
-  // Degrees belong to the displayed curriculum via their parent programs:
-  // a degree is shown if at least one of its programs has the displayed
-  // version as its active curriculum version.
-  const programIdsOfVersion = new Set(
-    programs.value
-      .filter(p => p.activeCurriculumVersionId === displayedVersionId.value)
-      .map(p => p.id)
+  const scoped = degrees.value.filter(d =>
+    (d.ProgramIDs ?? d.programIDs ?? d.programIds ?? [])
+      .some(pid => filteredPrograms.value.some(p => p.id === pid))
   )
-  const base = displayedVersionId.value === ''
-    ? degrees.value
-    : degrees.value.filter(d =>
-        (d.programIds ?? d.programIDs ?? d.ProgramIDs ?? []).some(pid => programIdsOfVersion.has(pid))
-      )
-  if (!degSearch.value) return base
+  if (!degSearch.value) return scoped
   const q = degSearch.value.toLowerCase()
-  return base.filter(d =>
+  return scoped.filter(d =>
     d.name.toLowerCase().includes(q) ||
     (d.description ?? '').toLowerCase().includes(q) ||
     (d.contact ?? '').toLowerCase().includes(q) ||
@@ -1059,12 +1142,10 @@ const filteredDegrees = computed(() => {
 })
 
 const filteredModules = computed(() => {
-  const base = modules.value.filter(m =>
-    displayedVersionId.value === '' || m.curriculumVersionId === displayedVersionId.value
-  )
-  if (!modSearch.value) return base
+  const scoped = modules.value.filter(m => displayedVersionId.value && m.curriculumVersionId === displayedVersionId.value)
+  if (!modSearch.value) return scoped
   const q = modSearch.value.toLowerCase()
-  return base.filter(m =>
+  return scoped.filter(m =>
     m.name.toLowerCase().includes(q) ||
     (m.code ?? '').toLowerCase().includes(q) ||
     (m.description ?? '').toLowerCase().includes(q) ||
@@ -1074,12 +1155,10 @@ const filteredModules = computed(() => {
 })
 
 const filteredClasses = computed(() => {
-  const base = classes.value.filter(c =>
-    displayedVersionId.value === '' || c.curriculumVersionId === displayedVersionId.value
-  )
-  if (!clsSearch.value) return base
+  const scoped = classes.value.filter(c => displayedVersionId.value && c.curriculumVersionId === displayedVersionId.value)
+  if (!clsSearch.value) return scoped
   const q = clsSearch.value.toLowerCase()
-  return base.filter(c =>
+  return scoped.filter(c =>
     c.name.toLowerCase().includes(q) ||
     (c.code ?? '').toLowerCase().includes(q) ||
     (c.description ?? '').toLowerCase().includes(q) ||
@@ -1097,46 +1176,48 @@ const filteredSemesters = computed(() => {
   )
 })
 
-const filteredVersions = computed(() => {
-  if (!versionSearch.value) return curriculumVersions.value
-  const q = versionSearch.value.toLowerCase()
-  return curriculumVersions.value.filter(v =>
-    (v.name ?? '').toLowerCase().includes(q) ||
-    String(v.versionNumber).includes(q) ||
-    (getSemesterName(v.semesterId) || '').toLowerCase().includes(q) ||
-    (v.createdByName || '').toLowerCase().includes(q)
+const filteredCurriculums = computed(() => {
+  if (!currSearch.value) return curriculums.value
+  const q = currSearch.value.toLowerCase()
+  return curriculums.value.filter(c =>
+    c.name.toLowerCase().includes(q) ||
+    (c.description ?? '').toLowerCase().includes(q)
   )
 })
 
-// ── Displayed curriculum version ───────────────────────────────
-const hasDisplayedVersion = computed(() => displayedVersionId.value !== '')
+function getVersionsOfCurriculum(curriculum: Curriculum): CurriculumVersion[] {
+  const id = curriculum._id || curriculum.id || ''
+  return curriculumVersions.value
+    .filter(v => v.curriculumId === id)
+    .sort((a, b) => a.versionNumber - b.versionNumber)
+}
 
-const displayedVersionItems = computed(() => [
-  { title: 'No version selected', value: '' },
-  ...curriculumVersions.value.map(v => ({
-    title: `${v.name || 'Version'} (v${v.versionNumber}) — ${getSemesterName(v.semesterId) || 'no semester'}`,
-    value: v._id || v.id || '',
-  })).filter(i => i.value),
-])
+function getActiveVersion(curriculum: Curriculum): CurriculumVersion | undefined {
+  const activeId = curriculum.activeVersionId
+  if (!activeId) return undefined
+  return curriculumVersions.value.find(v => (v._id || v.id) === activeId)
+}
 
-// Default: active version of the first program that declares one, else 'All'
-watch(() => curriculumVersions.value.length, () => {
-  if (!displayedVersionId.value) {
-    const withActive = programs.value.find(p => !!p.activeCurriculumVersionId)
-    if (withActive?.activeCurriculumVersionId) {
-      const exists = curriculumVersions.value.some(v => (v._id || v.id) === withActive.activeCurriculumVersionId)
-      if (exists) displayedVersionId.value = withActive.activeCurriculumVersionId
-    }
-  }
-})
+function getProgramCount(curriculum: Curriculum): number {
+  const id = curriculum._id || curriculum.id || ''
+  return programs.value.filter(p => p.curriculumId === id).length
+}
 
-// Curriculum-dependent sub-tabs require a displayed version; if the selection
-// is cleared (or the displayed version is deleted), fall back to Versions.
-watch(hasDisplayedVersion, (has) => {
-  if (!has) {
-    curriculumTab.value = 'versions'
-  }
-})
+function getModuleCount(curriculum: Curriculum): number {
+  const versions = getVersionsOfCurriculum(curriculum)
+  const versionIds = new Set(versions.map(v => v._id || v.id || ''))
+  return modules.value.filter(m => versionIds.has(m.curriculumVersionId || '')).length
+}
+
+/** Number of classes (of the displayed curriculum version) linked to a module. */
+function getClassCount(mod: Module): number {
+  return modulesOfDisplayedVersionClasses.value.filter(c => (c.moduleIds || []).includes(mod.id || '')).length
+}
+
+/** Classes of the displayed curriculum version (the ones the module count is over). */
+const modulesOfDisplayedVersionClasses = computed(() =>
+  classes.value.filter(c => displayedVersionId.value && c.curriculumVersionId === displayedVersionId.value)
+)
 
 function formatDate(dateStr: string): string {
   if (!dateStr) return '-'
@@ -1145,6 +1226,78 @@ function formatDate(dateStr: string): string {
   } catch {
     return dateStr
   }
+}
+
+function openAddCurriculum() {
+  editCurriculum.value = null
+  currDialogOpen.value = true
+}
+
+function openEditCurriculum(curr: Curriculum) {
+  editCurriculum.value = curr
+  currDialogOpen.value = true
+}
+
+async function handleCurriculumSave(curr: Curriculum) {
+  try {
+    if (curr.id || curr._id) {
+      await updateCurriculum(curr)
+      showSnackbar('Curriculum updated')
+    } else {
+      const created = await createCurriculumWithV1(curr.name, curr.description || '')
+      showSnackbar('Curriculum created')
+      const createdId = created?.id || created?._id
+      if (createdId) displayedCurriculumId.value = createdId
+      // Refresh so the new V1 shows up in the versions list right away.
+      await fetchCurriculumVersions()
+    }
+  } catch {
+    showSnackbar('Operation failed', 'error')
+  }
+}
+
+function confirmDeleteCurriculum(curr: Curriculum) {
+  deleteKind = 'curriculum'
+  deleteId = curr._id || curr.id || ''
+  deleteTargetName.value = curr.name
+  deleteDialogOpen.value = true
+}
+
+async function addVersionToCurriculum(curr: Curriculum) {
+  const id = curr._id || curr.id || ''
+  if (!id) return
+  try {
+    await addVersionToCurriculumApi(id)
+    showSnackbar('New version created')
+    // Refresh so the copied version shows up in the versions list right away.
+    await fetchCurriculumVersions()
+  } catch {
+    showSnackbar('Operation failed', 'error')
+  }
+}
+
+async function setActiveVersion(curr: Curriculum, version: CurriculumVersion) {
+  const currId = curr._id || curr.id || ''
+  const versionId = version._id || version.id || ''
+  if (!currId || !versionId) return
+  try {
+    await setActiveVersionApi(currId, versionId)
+    showSnackbar(`V${version.versionNumber} is now active`)
+  } catch {
+    showSnackbar('Operation failed', 'error')
+  }
+}
+
+/** Entry point from the version rows: show this version's content tabs. */
+function manageVersion(version: CurriculumVersion) {
+  const versionId = version._id || version.id || ''
+  if (!versionId) return
+  if (version.curriculumId) displayedCurriculumId.value = version.curriculumId
+  displayedVersionId.value = versionId
+  curriculumTab.value = 'programs'
+  nextTick(() => {
+    contentSectionRef.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  })
 }
 
 function openAddDepartment() {
@@ -1179,6 +1332,10 @@ function confirmDeleteDepartment(dept: Department) {
 }
 
 function openAddProgram() {
+  if (!displayedCurriculumId.value) {
+    showSnackbar('Select a curriculum first: programs cannot exist without one', 'error')
+    return
+  }
   editProgram.value = undefined
   progDialogOpen.value = true
 }
@@ -1194,8 +1351,8 @@ async function handleProgramSave(prog: Program) {
       await updateProgram(prog)
       showSnackbar('Program updated')
     } else {
-      // Programs are created within the currently displayed curriculum version
-      prog.activeCurriculumVersionId = displayedVersionId.value
+      // Programs always belong to the currently displayed curriculum.
+      prog.curriculumId = displayedCurriculumId.value
       await addProgram(prog)
       showSnackbar('Program added')
     }
@@ -1212,6 +1369,10 @@ function confirmDeleteProgram(prog: Program) {
 }
 
 function openAddDegree() {
+  if (!displayedCurriculumId.value) {
+    showSnackbar('Select a curriculum first: degrees are created within one of its programs', 'error')
+    return
+  }
   editDegree.value = undefined
   degDialogOpen.value = true
 }
@@ -1243,6 +1404,10 @@ function confirmDeleteDegree(deg: Degree) {
 }
 
 function openAddModule() {
+  if (!displayedVersionId.value) {
+    showSnackbar('Select a curriculum version first: modules cannot exist without one', 'error')
+    return
+  }
   editModule.value = undefined
   modDialogOpen.value = true
 }
@@ -1262,10 +1427,11 @@ async function handleModuleSave(mod: Module) {
     } else {
       // Modules are created within the currently displayed curriculum version
       mod.curriculumVersionId = displayedVersionId.value
-      await addModule(mod)
+      const created = await addModule(mod)
+      mod.id = created.id || created._id
       showSnackbar('Module added')
     }
-    const moduleId = mod.id || modules.value.find(m => m.code === mod.code && m.name === mod.name)?.id
+    const moduleId = mod.id
     if (moduleId) {
       for (const cls of classes.value) {
         const id = cls.id || cls._id
@@ -1291,6 +1457,10 @@ function confirmDeleteModule(mod: Module) {
 }
 
 function openAddClass() {
+  if (!displayedVersionId.value) {
+    showSnackbar('Select a curriculum version first: classes cannot exist without one', 'error')
+    return
+  }
   editClass.value = undefined
   clsDialogOpen.value = true
 }
@@ -1308,7 +1478,8 @@ async function handleClassSave(cls: ClassEntity) {
     } else {
       // Classes are created within the currently displayed curriculum version
       cls.curriculumVersionId = displayedVersionId.value
-      await addClass(cls)
+      const created = await addClass(cls)
+      cls.id = created.id || created._id
       showSnackbar('Class added')
     }
   } catch {
@@ -1354,11 +1525,6 @@ function confirmDeleteSemester(sem: Semester) {
   deleteDialogOpen.value = true
 }
 
-function openAddVersion() {
-  editVersion.value = null
-  verDialogOpen.value = true
-}
-
 function openEditVersion(version: CurriculumVersion) {
   editVersion.value = JSON.parse(JSON.stringify(version))
   verDialogOpen.value = true
@@ -1366,78 +1532,27 @@ function openEditVersion(version: CurriculumVersion) {
 
 async function handleVersionSave(version: CurriculumVersion) {
   try {
-    if (version._id || version.id) {
-      await updateCurriculumVersion(version)
-      showSnackbar('Curriculum version updated')
-    } else {
-      // Version number is system-assigned: next free number across all versions
-      const taken = new Set(curriculumVersions.value.map(v => v.versionNumber))
-      let next = 1
-      while (taken.has(next)) next++
-      version.versionNumber = next
-      await addCurriculumVersion(version)
-      showSnackbar(`Curriculum version v${next} added`)
-    }
-  } catch {
-    showSnackbar('Operation failed', 'error')
-  }
-}
-
-function getActiveVersionIds(): string[] {
-  return programs.value
-    .map(p => p.activeCurriculumVersionId)
-    .filter((id): id is string => !!id)
-}
-
-function isActiveVersion(version: CurriculumVersion): boolean {
-  const id = version._id || version.id
-  return !!id && getActiveVersionIds().includes(id)
-}
-
-// A curriculum version is activated by assigning it to one or more programs
-// ("Set as active"); activating sets it on every program currently displaying
-// this version's program name is no longer available.
-async function setAsActiveVersion(version: CurriculumVersion) {
-  const versionId = version._id || version.id
-  if (!versionId) return
-  const candidates = programs.value.filter(p => !p.activeCurriculumVersionId)
-  if (candidates.length === 0) {
-    showSnackbar('No program without an active version. Change a program first.', 'error')
-    return
-  }
-  try {
-    for (const prog of candidates) {
-      await updateProgram({ ...prog, activeCurriculumVersionId: versionId })
-    }
-    showSnackbar(`Set as active version for ${candidates.length} program${candidates.length === 1 ? '' : 's'}`)
+    await updateCurriculumVersion(version)
+    showSnackbar('Curriculum version updated')
+    await fetchCurriculumVersions()
   } catch {
     showSnackbar('Operation failed', 'error')
   }
 }
 
 function confirmDeleteVersion(version: CurriculumVersion) {
-  const versionId = version._id || version.id || ''
-  const references: string[] = []
-  if (programs.value.some(p => p.activeCurriculumVersionId === versionId)) {
-    references.push('a program uses it as its active version')
-  }
-  const moduleCount = modules.value.filter(m => m.curriculumVersionId === versionId).length
-  if (moduleCount > 0) references.push(`${moduleCount} module${moduleCount === 1 ? '' : 's'}`)
-  const classCount = classes.value.filter(c => c.curriculumVersionId === versionId).length
-  if (classCount > 0) references.push(`${classCount} class${classCount === 1 ? '' : 'es'}`)
-  if (references.length > 0) {
-    showSnackbar(`Cannot delete: referenced by ${references.join(' and ')}. Remove those references first.`, 'error')
-    return
-  }
   deleteKind = 'version'
-  deleteId = versionId
+  deleteId = version._id || version.id || ''
   deleteTargetName.value = version.name || `Version ${version.versionNumber}`
   deleteDialogOpen.value = true
 }
 
 async function handleDelete() {
   try {
-    if (deleteKind === 'department') {
+    if (deleteKind === 'curriculum') {
+      await removeCurriculum(deleteId)
+      showSnackbar('Curriculum deleted')
+    } else if (deleteKind === 'department') {
       await removeDepartment(deleteId)
       showSnackbar('Department deleted')
     } else if (deleteKind === 'program') {
@@ -1454,7 +1569,6 @@ async function handleDelete() {
       showSnackbar('Semester deleted')
     } else if (deleteKind === 'version') {
       await removeCurriculumVersion(deleteId)
-      if (displayedVersionId.value === deleteId) displayedVersionId.value = ''
       showSnackbar('Curriculum version deleted')
     } else {
       await removeModule(deleteId)
@@ -1467,6 +1581,14 @@ async function handleDelete() {
 }
 
 function openCsvImport(type: ImportType) {
+  if (type === 'programs' && !displayedCurriculumId.value) {
+    showSnackbar('Select a curriculum first: programs cannot exist without one', 'error')
+    return
+  }
+  if (type === 'modules' && !displayedVersionId.value) {
+    showSnackbar('Select a curriculum version first: modules cannot exist without one', 'error')
+    return
+  }
   csvImportType.value = type
   csvImportDialogOpen.value = true
 }
@@ -1504,6 +1626,7 @@ onMounted(() => {
   fetchModules()
   fetchClasses()
   fetchSemesters()
+  fetchCurriculums()
   fetchCurriculumVersions()
 })
 </script>

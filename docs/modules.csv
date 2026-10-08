@@ -1,0 +1,25 @@
+id,name,description,DegreeIDs,contact,url,creditPoints
+MOD-INF-B1,Algorithmen und Datenstrukturen,Grundlagen der Programmierung und Datenstrukturen,DEG-INF-B,steiner@bfh.ch,https://www.bfh.ch/modul/ad,6
+MOD-INF-B2,Datenbanken,Relationale Datenbanken und SQL,DEG-INF-B,steiner@bfh.ch,https://www.bfh.ch/modul/db,6
+MOD-CYS-B1,Netzwerktechnik,TCP/IP Grundlagen und Netzwerkprotokolle,DEG-CYS-B,weber@bfh.ch,https://www.bfh.ch/modul/netz,6
+MOD-CYS-B2,Kryptographie,Symmetrische und asymmetrische Verschlüsselung,DEG-CYS-B,weber@bfh.ch,https://www.bfh.ch/modul/krypto,6
+MOD-BWL-B1,Betriebswirtschaftslehre,Grundlagen der Unternehmensführung,DEG-BWL-B,schneider@bfh.ch,https://www.bfh.ch/modul/bwl,6
+MOD-BWL-B2,Marketing,Marketingmix und Marktforschung,DEG-BWL-B,schneider@bfh.ch,https://www.bfh.ch/modul/mkt,6
+MOD-BIN-B1,Statistik und Operations Research,Quantitative Methoden für Business Engineering,DEG-BIN-B,frey@bfh.ch,https://www.bfh.ch/modul/stat,6
+MOD-BIN-B2,Enterprise Information Systems,Geschäftsprozesssysteme und ERP,DEG-BIN-B,frey@bfh.ch,https://www.bfh.ch/modul/eis,6
+MOD-SOA-B1,Sozialpolitik,Grundlagen des schweizerischen Sozialstaats,DEG-SOA-B,brunners@bfh.ch,https://www.bfh.ch/modul/sozpol,6
+MOD-SOA-B2,Projektmanagement,Projektplanung in sozialen Organisationen,DEG-SOA-B,brunners@bfh.ch,https://www.bfh.ch/modul/pm,6
+MOD-SKA-B1,Kulturvermittlung,Grundlagen der Kulturarbeit und Partizipation,DEG-SKA-B,brunners@bfh.ch,https://www.bfh.ch/modul/kultur,6
+MOD-SKA-B2,Gemeinwesenarbeit,Quartierarbeit und Community Organizing,DEG-SKA-B,brunners@bfh.ch,https://www.bfh.ch/modul/gwa,6
+MOD-INF-M1,Advanced Machine Learning,Deep learning and neural networks,DEG-INF-M,meier@bfh.ch,https://www.bfh.ch/modul/aml,6
+MOD-INF-M2,Cloud Computing,Virtualization and container orchestration,DEG-INF-M,meier@bfh.ch,https://www.bfh.ch/modul/cloud,6
+MOD-CYS-M1,Security Operations,Incident response and SOC management,DEG-CYS-M,weber@bfh.ch,https://www.bfh.ch/modul/soc,6
+MOD-CYS-M2,Penetration Testing,Ethical hacking methodologies,DEG-CYS-M|DEG-INF-M,weber@bfh.ch,https://www.bfh.ch/modul/pentest,6
+MOD-BWL-M1,Controlling,Kostenrechnung und Budgetierung,DEG-BWL-M,schneider@bfh.ch,https://www.bfh.ch/modul/controlling,6
+MOD-BWL-M2,Strategisches Management,Unternehmensstrategie und Transformation,DEG-BWL-M,schneider@bfh.ch,https://www.bfh.ch/modul/stratman,6
+MOD-BIN-M1,Enterprise Architecture,TOGAF und Business-IT-Alignment,DEG-BIN-M,frey@bfh.ch,https://www.bfh.ch/modul/ea,6
+MOD-BIN-M2,Model-Driven Development,Formale Methoden und modellgetriebene Entwicklung,DEG-BIN-M,frey@bfh.ch,https://www.bfh.ch/modul/mdd,6
+MOD-SOA-M1,Sozialraumorientierung,Konzepte und Methoden der Raumbezugsanalyse,DEG-SOA-M,brunners@bfh.ch,https://www.bfh.ch/modul/sro,6
+MOD-SOA-M2,Interprofessionelle Zusammenarbeit,Kooperation in Sozialraumkontexten,DEG-SOA-M,brunners@bfh.ch,https://www.bfh.ch/modul/izp,6
+MOD-SKA-M1,Kulturelle Bildung,Ästhetische Praxis und Bildungsprozesse,DEG-SKA-M,brunners@bfh.ch,https://www.bfh.ch/modul/kub,6
+MOD-SKA-M2,Diversität und Inklusion,Teilhabe und Diversitätsmanagement,DEG-SKA-M,brunners@bfh.ch,https://www.bfh.ch/modul/div,6

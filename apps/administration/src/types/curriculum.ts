@@ -16,6 +16,29 @@ export interface Department extends AclInfo {
 
 export type DepartmentExport = Department[]
 
+export interface Curriculum extends AclInfo {
+  id?: string
+  _id?: string
+  name: string
+  description?: string
+  activeVersionId?: string
+  createdAt?: string
+  updatedAt?: string
+}
+
+export interface CurriculumVersion extends AclInfo {
+  _id?: string
+  id?: string
+  curriculumId?: string
+  name: string
+  description?: string
+  versionNumber: number
+  semesterId?: string
+  createdBy?: string
+  createdByName?: string
+  createdAt?: string
+}
+
 export interface Program extends AclInfo {
   id?: string
   _id?: string
@@ -24,7 +47,7 @@ export interface Program extends AclInfo {
   departmentIds?: string[]
   /** @deprecated Use departmentIds instead */
   departmentIDs?: string[]
-  activeCurriculumVersionId?: string
+  curriculumId?: string
   contact?: string
   url?: string
   /** @deprecated Use url instead */

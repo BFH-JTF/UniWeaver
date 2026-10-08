@@ -1,7 +1,10 @@
 <template>
   <v-dialog :model-value="modelValue" @update:model-value="$emit('update:modelValue', $event)" max-width="700" persistent>
     <v-card>
-      <v-card-title>{{ isEdit ? 'Edit Module' : 'Add Module' }}</v-card-title>
+      <v-card-title class="d-flex align-center">
+        {{ isEdit ? 'Edit Module' : 'Add Module' }}
+        <CopyIdButton v-if="isEdit" :id="mod.id || mod._id" />
+      </v-card-title>
       <v-card-text>
         <v-form ref="formRef" @submit.prevent="submit">
           <v-text-field
@@ -28,6 +31,13 @@
             multiple
             chips
             clearable
+          />
+          <v-alert
+            type="info"
+            variant="tonal"
+            density="compact"
+            class="mb-4"
+            text="Modules are always part of the currently displayed curriculum version."
           />
           <v-select
             v-model="selectedClassIds"
@@ -113,6 +123,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
+import CopyIdButton from '@/components/CopyIdButton.vue'
 import { useAuthStore } from '@/stores/auth'
 import type { Module, Degree } from '@/types/curriculum'
 import type { ClassEntity } from '@/types/curriculumClass'
@@ -124,6 +135,8 @@ const props = defineProps<{
   moduleData?: Module
   degrees: Degree[]
   classes: ClassEntity[]
+  /** Only classes tied to this curriculum version are offered for assignment. */
+  curriculumVersionId?: string
   /** Timeslot grid of the semester the displayed curriculum version is for. */
   semesterTimeslots?: { duration?: number; startTimes?: string[] } | null
 }>()
@@ -187,23 +200,30 @@ const degreeItems = computed(() => {
     .filter(d => d.value)
 })
 
-const classItems = computed(() => props.classes.map(c => ({
-  title: c.name || c.code || c.id || 'Unnamed',
-  value: c.id || c._id,
-})).filter(c => c.value))
+const classItems = computed(() => props.classes
+  .filter(c => (props.curriculumVersionId ? c.curriculumVersionId === props.curriculumVersionId : true))
+  .map(c => ({
+    title: c.name || c.code || c.id || 'Unnamed',
+    value: c.id || c._id,
+  }))
+  .filter(c => c.value))
 
 function emptyModule(): Module {
-  return { name: '', DegreeIDs: [], degreeIDs: [], degreeIds: [] }
+  return { name: '', curriculumVersionId: '', DegreeIDs: [], degreeIDs: [], degreeIds: [] }
 }
 
 watch(() => props.modelValue, (val) => {
   if (val) {
     mod.value = props.moduleData
       ? JSON.parse(JSON.stringify(props.moduleData))
-      : emptyModule()
+      : { ...emptyModule(), curriculumVersionId: props.curriculumVersionId ?? '' }
     const moduleId = props.moduleData?.id || props.moduleData?._id
     selectedClassIds.value = moduleId
-      ? props.classes.filter(c => (c.moduleIds || []).includes(moduleId)).map(c => c.id || c._id).filter(Boolean) as string[]
+      ? props.classes
+          .filter(c => (props.curriculumVersionId ? c.curriculumVersionId === props.curriculumVersionId : true))
+          .filter(c => (c.moduleIds || []).includes(moduleId))
+          .map(c => c.id || c._id)
+          .filter(Boolean) as string[]
       : []
   }
 })
@@ -212,6 +232,14 @@ async function submit() {
   const { valid } = await formRef.value?.validate() ?? { valid: false }
   if (!valid) return
   const result = JSON.parse(JSON.stringify(mod.value))
+  // The displayed version is the authoritative context on create; on edit the
+  // module keeps its existing version (moving between versions is not
+  // supported from here).
+  if (!result.curriculumVersionId) result.curriculumVersionId = props.curriculumVersionId ?? ''
+  if (!result.curriculumVersionId) {
+    formRef.value?.validate()
+    return
+  }
   result.classIds = [...selectedClassIds.value]
   const ids = result.DegreeIDs ?? result.degreeIDs ?? result.degreeIds ?? []
   result.DegreeIDs = ids

@@ -5,7 +5,10 @@
         <template #prepend>
           <v-icon icon="mdi-calendar-clock" size="large" class="me-2" />
         </template>
-        <v-card-title class="text-h6 font-weight-medium">{{ isEdit ? 'Edit Availability' : 'Add Availability' }}</v-card-title>
+        <v-card-title class="text-h6 font-weight-medium">
+          {{ isEdit ? 'Edit Availability' : 'Add Availability' }}
+          <CopyIdButton v-if="isEdit" :id="availabilityData?._id || availabilityData?.id" color="white" />
+        </v-card-title>
         <v-card-subtitle class="text-white text-opacity-80">
           Define a weekly availability slot
         </v-card-subtitle>
@@ -69,6 +72,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
+import CopyIdButton from '@/components/CopyIdButton.vue'
 import type { LecturerAvailability } from '@/types/schedule'
 import { WEEKDAY_LABELS, WEEKDAY_OPTIONS } from '@/types/schedule'
 import type { Week } from '@/types/week'

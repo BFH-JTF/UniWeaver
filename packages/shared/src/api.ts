@@ -3,6 +3,14 @@ import type {
   BootstrapStatus,
   HealthStatus,
   LocalUserProfile,
+  MappingData,
+  MappingPairPatch,
+  MappingPairsResult,
+  RoomAvailabilitySlot,
+  SchedulingLecturer,
+  SchedulerLocation,
+  SchedulerRoom,
+  UnavailabilityEntry,
 } from './index'
 
 export class ApiRequestError extends Error {
@@ -74,5 +82,78 @@ export const api = {
     request<LocalUserProfile>(`/users/${encodeURIComponent(id)}`, {
       method: 'PATCH',
       body: JSON.stringify(patch),
+    }),
+
+  /** Self-service: update the caller's own profile (e.g. lecturer opt-out). */
+  updateMyProfile: (patch: Partial<LocalUserProfile>) =>
+    request<LocalUserProfile>('/users/me', {
+      method: 'PATCH',
+      body: JSON.stringify(patch),
+    }),
+
+  getMapping: () => request<MappingData>('/scheduling/mapping'),
+
+  setMappingPairs: (pairs: MappingPairPatch[]) =>
+    request<MappingPairsResult>('/scheduling/mapping/pairs', {
+      method: 'POST',
+      body: JSON.stringify({ pairs }),
+    }),
+
+  // Rooms (read: any user; write: scheduler/global admin)
+  listRooms: () => request<SchedulerRoom[]>('/scheduling/rooms'),
+
+  createRoom: (room: Partial<SchedulerRoom>) =>
+    request<{ id: string }>('/scheduling/rooms', {
+      method: 'POST',
+      body: JSON.stringify(room),
+    }),
+
+  updateRoom: (id: string, room: Partial<SchedulerRoom>) =>
+    request<{ ok: boolean }>(`/scheduling/rooms/${encodeURIComponent(id)}`, {
+      method: 'PUT',
+      body: JSON.stringify(room),
+    }),
+
+  deleteRoom: (id: string) =>
+    request<{ ok: boolean }>(`/scheduling/rooms/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+
+  listLocations: () => request<SchedulerLocation[]>('/scheduling/locations'),
+
+  createLocation: (location: Partial<SchedulerLocation>) =>
+    request<SchedulerLocation>('/scheduling/locations', {
+      method: 'POST',
+      body: JSON.stringify(location),
+    }),
+
+  updateLocation: (id: string, location: Partial<SchedulerLocation>) =>
+    request<SchedulerLocation>(`/scheduling/locations/${encodeURIComponent(id)}`, {
+      method: 'PUT',
+      body: JSON.stringify(location),
+    }),
+
+  deleteLocation: (id: string) =>
+    request<{ ok: boolean }>(`/scheduling/locations/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+
+  listRoomAvailability: (roomId: string) =>
+    request<RoomAvailabilitySlot[]>(`/scheduling/rooms/${encodeURIComponent(roomId)}/availability`),
+
+  /** Full replace of a room's availability slots. */
+  setRoomAvailability: (roomId: string, slots: Array<Omit<RoomAvailabilitySlot, 'id' | 'roomId'>>) =>
+    request<{ ok: boolean; count: number }>(`/scheduling/rooms/${encodeURIComponent(roomId)}/availability`, {
+      method: 'PUT',
+      body: JSON.stringify({ slots }),
+    }),
+
+  // Lecturers + unavailability (read: any user; write: self or scheduler)
+  listLecturers: () => request<SchedulingLecturer[]>('/scheduling/lecturers'),
+
+  listUnavailability: (lecturerIdOrMe: string) =>
+    request<UnavailabilityEntry[]>(`/scheduling/lecturers/${encodeURIComponent(lecturerIdOrMe)}/unavailability`),
+
+  /** Full replace of a lecturer's unavailability entries. */
+  setUnavailability: (lecturerIdOrMe: string, entries: UnavailabilityEntry[]) =>
+    request<{ ok: boolean; count: number }>(`/scheduling/lecturers/${encodeURIComponent(lecturerIdOrMe)}/unavailability`, {
+      method: 'PUT',
+      body: JSON.stringify({ entries }),
     }),
 }

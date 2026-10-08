@@ -15,7 +15,7 @@ export interface TableSpec {
   kind: EntityKind
   /** camel key in the payload that carries the parent entity ids (audited tables only) */
   parentKey?: string
-  parentTable?: 'programs' | 'degrees'
+  parentTable?: 'departments' | 'programs' | 'degrees' | 'curriculums'
   parentLabel?: string
   columns: ColumnSpec[]
   nameRequired?: boolean
@@ -57,6 +57,21 @@ export const TABLE_SPECS: Record<string, TableSpec> = {
     nameRequired: true,
     columns: [col('name', 'name'), col('description', 'description'), col('contact', 'contact'), URL_COL],
   },
+  lecturers: {
+    dbTable: 'lecturers',
+    kind: 'audited',
+    nameRequired: true,
+    parentKey: 'departmentId',
+    parentTable: 'departments',
+    parentLabel: 'department',
+    columns: [
+      col('name', 'name'),
+      col('user_id', 'userId'),
+      col('department_id', 'departmentId'),
+      col('contact', 'contact'),
+      URL_COL,
+    ],
+  },
   programs: {
     dbTable: 'programs',
     kind: 'audited',
@@ -65,7 +80,7 @@ export const TABLE_SPECS: Record<string, TableSpec> = {
       col('name', 'name'),
       col('description', 'description'),
       jsonCol('department_ids', 'departmentIds', ['departmentIDs']),
-      col('active_curriculum_version_id', 'activeCurriculumVersionId'),
+      col('curriculum_id', 'curriculumId'),
       col('contact', 'contact'),
       URL_COL,
     ],
@@ -135,16 +150,30 @@ export const TABLE_SPECS: Record<string, TableSpec> = {
       jsonCol('slot_start_times', 'slotStartTimes'),
     ],
   },
+  curriculums: {
+    dbTable: 'curriculums',
+    kind: 'audited',
+    nameRequired: true,
+    columns: [
+      col('name', 'name'),
+      col('description', 'description'),
+      col('active_version_id', 'activeVersionId'),
+    ],
+  },
   curriculum_versions: {
     dbTable: 'curriculum_versions',
     kind: 'shared',
     nameRequired: true,
+    parentKey: 'curriculumId',
+    parentTable: 'curriculums',
+    parentLabel: 'curriculum',
     requiredColumns: ['semesterId'],
     columns: [
       col('name', 'name'),
       col('description', 'description'),
       numCol('version_number', 'versionNumber'),
       col('semester_id', 'semesterId'),
+      col('curriculum_id', 'curriculumId'),
       col('created_by', 'createdBy'),
     ],
   },

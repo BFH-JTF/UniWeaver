@@ -9,6 +9,9 @@ export const useAuthStore = defineStore('auth', () => {
 
   const isAuthenticated = computed(() => !!localUser.value)
   const isAdmin = computed(() => !!localUser.value?.is_admin)
+  const isUserAdmin = computed(() => isAdmin.value || !!localUser.value?.is_user_admin)
+  const canManageUsers = isUserAdmin
+  const isScheduler = computed(() => isAdmin.value || !!localUser.value?.is_scheduler)
   const userName = computed(() => localUser.value?.display_name || localUser.value?.name || 'User')
 
   async function initAuth(): Promise<boolean> {
@@ -28,5 +31,5 @@ export const useAuthStore = defineStore('auth', () => {
     localUser.value = null
   }
 
-  return { localUser, initialized, isAuthenticated, isAdmin, userName, initAuth, clearUser }
+  return { localUser, initialized, isAuthenticated, isAdmin, isUserAdmin, canManageUsers, isScheduler, userName, initAuth, clearUser }
 })

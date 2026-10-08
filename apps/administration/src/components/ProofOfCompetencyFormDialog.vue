@@ -1,8 +1,9 @@
 <template>
   <v-dialog :model-value="modelValue" @update:model-value="$emit('update:modelValue', $event)" max-width="650" persistent>
     <v-card>
-      <v-card-title class="text-h6 font-weight-bold">
+      <v-card-title class="text-h6 font-weight-bold d-flex align-center">
         {{ isEdit ? 'Edit Proof of Competency' : 'Add Proof of Competency' }}
+        <CopyIdButton v-if="isEdit" :id="proof.id || proof._id" />
       </v-card-title>
       <v-card-text>
         <v-form ref="formRef" @submit.prevent="submit">
@@ -82,6 +83,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
+import CopyIdButton from '@/components/CopyIdButton.vue'
 import type { ProofOfCompetency, AnswerFormat } from '@/types/proofOfCompetency'
 
 const props = defineProps<{

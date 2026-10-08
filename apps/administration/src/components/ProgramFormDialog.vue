@@ -1,13 +1,23 @@
 <template>
   <v-dialog :model-value="modelValue" @update:model-value="$emit('update:modelValue', $event)" max-width="600" persistent>
     <v-card>
-      <v-card-title>{{ isEdit ? 'Edit Program' : 'Add Program' }}</v-card-title>
+      <v-card-title class="d-flex align-center">
+        {{ isEdit ? 'Edit Program' : 'Add Program' }}
+        <CopyIdButton v-if="isEdit" :id="program.id || program._id" />
+      </v-card-title>
       <v-card-text>
         <v-form ref="formRef" @submit.prevent="submit">
           <v-text-field
             v-model="program.name"
             label="Name *"
             :rules="[v => !!v || 'Name is required']"
+          />
+          <v-alert
+            type="info"
+            variant="tonal"
+            density="compact"
+            class="mb-4"
+            :text="`This program will be created in curriculum “${fixedCurriculumTitle}” — programs cannot exist without a curriculum.`"
           />
           <v-textarea
             v-model="program.description"
@@ -46,12 +56,16 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
+import CopyIdButton from '@/components/CopyIdButton.vue'
 import type { Program, Department } from '@/types/curriculum'
 
 const props = defineProps<{
   modelValue: boolean
   programData?: Program
   departments: Department[]
+  /** The curriculum this program is created in / belongs to (context, not editable). */
+  curriculumId?: string
+  curriculumTitle?: string
 }>()
 
 const emit = defineEmits<{
@@ -63,6 +77,8 @@ const isEdit = computed(() => !!props.programData?.id)
 
 const formRef = ref()
 const program = ref<Program>(emptyProgram())
+
+const fixedCurriculumTitle = computed(() => props.curriculumTitle || 'the displayed curriculum')
 
 const selectedDepartmentIds = computed({
   get: () => program.value.departmentIDs ?? program.value.departmentIds ?? [],
@@ -80,14 +96,14 @@ const departmentItems = computed(() =>
 )
 
 function emptyProgram(): Program {
-  return { name: '', departmentIDs: [], departmentIds: [] }
+  return { name: '', curriculumId: '', departmentIDs: [], departmentIds: [] }
 }
 
 watch(() => props.modelValue, (val) => {
   if (val) {
     program.value = props.programData
       ? JSON.parse(JSON.stringify(props.programData))
-      : emptyProgram()
+      : { ...emptyProgram(), curriculumId: props.curriculumId ?? '' }
   }
 })
 
@@ -95,6 +111,14 @@ async function submit() {
   const { valid } = await formRef.value?.validate() ?? { valid: false }
   if (!valid) return
   const result = JSON.parse(JSON.stringify(program.value))
+  // The displayed curriculum is the authoritative context on create; on edit
+  // the program keeps its existing curriculum (moving between curriculums is
+  // not supported from here).
+  if (!result.curriculumId) result.curriculumId = props.curriculumId ?? ''
+  if (!result.curriculumId) {
+    formRef.value?.validate()
+    return
+  }
   const ids = result.departmentIDs ?? result.departmentIds ?? []
   result.departmentIDs = ids
   result.departmentIds = ids

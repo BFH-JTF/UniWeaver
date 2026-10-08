@@ -28,7 +28,7 @@ async function authedFetch<T>(path: string, init: RequestInit & { auth?: Record<
 }
 
 export interface RestrictionsOwner {
-  /** one of: departments | programs | degrees | modules | classes */
+  /** one of: curriculums | departments | programs | degrees | modules | classes */
   table: string
   id: string
   name: string

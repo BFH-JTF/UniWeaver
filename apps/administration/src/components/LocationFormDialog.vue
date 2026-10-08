@@ -1,7 +1,10 @@
 <template>
   <v-dialog :model-value="modelValue" @update:model-value="$emit('update:modelValue', $event)" max-width="500" persistent>
     <v-card>
-      <v-card-title>{{ isEdit ? 'Edit Location' : 'Add Location' }}</v-card-title>
+      <v-card-title class="d-flex align-center">
+        {{ isEdit ? 'Edit Location' : 'Add Location' }}
+        <CopyIdButton v-if="isEdit" :id="location.id" />
+      </v-card-title>
       <v-card-text>
         <v-form ref="formRef" @submit.prevent="submit">
           <v-text-field v-model="location.name" label="Name *" :rules="[v => !!v || 'Name is required']" />
@@ -23,6 +26,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
+import CopyIdButton from '@/components/CopyIdButton.vue'
 import type { Location } from '@/types/location'
 
 const props = defineProps<{

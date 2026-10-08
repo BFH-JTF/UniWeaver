@@ -78,8 +78,17 @@ async function main() {
   try {
     for (const u of [globalAdmin, programAdmin, reader, outsider]) await seedUser(u)
 
-    // ── Fixtures: department → program → degree → module ────────────────
+    // ── Fixtures: curriculum → department → program → degree → module ───
     console.log('Fixtures...')
+    const currRes = await fetch(`${base}/curriculums`, {
+      method: 'POST', headers: auth(adminCookie), body: JSON.stringify({ name: 'Rstr Curriculum' }),
+    })
+    assert(currRes.status === 201, 'admin creates curriculum')
+    const curriculum = await currRes.json() as any
+    const versionsRes = await fetch(`${base}/curriculum_versions`, { headers: auth(adminCookie) })
+    const versions = (await versionsRes.json()) as any[]
+    const version = versions.find(v => v.curriculumId === curriculum.id)
+
     const deptRes = await fetch(`${base}/departments`, {
       method: 'POST', headers: auth(adminCookie), body: JSON.stringify({ name: 'Rstr Dept' }),
     })
@@ -87,7 +96,7 @@ async function main() {
     const department = await deptRes.json() as any
 
     const progRes = await fetch(`${base}/programs`, {
-      method: 'POST', headers: auth(adminCookie), body: JSON.stringify({ name: 'Rstr Prog', departmentIds: [department.id] }),
+      method: 'POST', headers: auth(adminCookie), body: JSON.stringify({ name: 'Rstr Prog', departmentIds: [department.id], curriculumId: curriculum.id }),
     })
     assert(progRes.status === 201, 'admin creates program in department')
     const program = await progRes.json() as any
@@ -99,7 +108,7 @@ async function main() {
     const degree = await degRes.json() as any
 
     const modRes = await fetch(`${base}/modules`, {
-      method: 'POST', headers: auth(adminCookie), body: JSON.stringify({ name: 'Rstr Mod', degreeIds: [degree.id] }),
+      method: 'POST', headers: auth(adminCookie), body: JSON.stringify({ name: 'Rstr Mod', degreeIds: [degree.id], curriculumVersionId: version.id }),
     })
     assert(modRes.status === 201, 'admin creates module in degree')
     const mod = await modRes.json() as any
@@ -108,6 +117,15 @@ async function main() {
     console.log('Auth guards...')
     const anon = await fetch(`${base}/departments/${department.id}/restrictions`)
     assert(anon.status === 401, 'restrictions without session return 401')
+
+    // Curriculum restrictions (top of the hierarchy)
+    const currRestrictionRes = await fetch(`${base}/curriculums/${curriculum.id}/restrictions`, {
+      method: 'POST', headers: auth(adminCookie), body: JSON.stringify({ ruleType: 'allowed_weekdays', params: { weekdays: ['monday'] } }),
+    })
+    assert(currRestrictionRes.status === 201, 'creates curriculum restriction')
+    const currListRes = await fetch(`${base}/curriculums/${curriculum.id}/restrictions`, { headers: auth(adminCookie) })
+    const currList = await currListRes.json() as any[]
+    assert(currListRes.status === 200 && currList.length === 1, 'lists curriculum restrictions')
 
     // ── Validation ──────────────────────────────────────────────────────
     console.log('Validation...')
@@ -221,9 +239,9 @@ async function main() {
     const effective = await effMod.json() as any[]
     const ownCount = effective.filter((r) => !r.inheritedFrom).length
     const inheritedCount = effective.filter((r) => !!r.inheritedFrom).length
-    assert(ownCount === 0 && inheritedCount >= 2, 'module effective list has no own but inherits from ancestors')
+    assert(ownCount === 0 && inheritedCount >= 3, 'module effective list has no own but inherits from ancestors')
     const inheritedTables = new Set(effective.filter((r) => !!r.inheritedFrom).map((r) => r.inheritedFrom.table))
-    assert(inheritedTables.has('departments') && inheritedTables.has('programs'), 'inherits from department and program levels')
+    assert(inheritedTables.has('curriculums') && inheritedTables.has('departments') && inheritedTables.has('programs'), 'inherits from curriculum, department and program levels')
 
     const effDeg = await fetch(`${base}/degrees/${degree.id}/restrictions/effective`, { headers: auth(adminCookie) })
     const effDegList = await effDeg.json() as any[]
@@ -285,12 +303,13 @@ async function main() {
 
     // ── Cleanup test data ───────────────────────────────────────────────
     const pool = getPool()
-    await pool.query(`DELETE FROM entity_restrictions WHERE entity_id IN ($1, $2, $3, $4)`, [department.id, program.id, degree.id, mod.id])
+    await pool.query(`DELETE FROM entity_restrictions WHERE entity_id IN ($1, $2, $3, $4, $5)`, [curriculum.id, department.id, program.id, degree.id, mod.id])
     await pool.query(`DELETE FROM entity_access WHERE table_name IN ('departments','programs') AND entity_id IN ($1, $2)`, [department.id, program.id])
     await pool.query(`DELETE FROM modules WHERE id = $1`, [mod.id])
     await pool.query(`DELETE FROM degrees WHERE id = $1`, [degree.id])
     await pool.query(`DELETE FROM programs WHERE id = $1`, [program.id])
     await pool.query(`DELETE FROM departments WHERE id = $1`, [department.id])
+    await pool.query(`DELETE FROM curriculums WHERE id = $1`, [curriculum.id])
     await pool.query(`DELETE FROM local_users WHERE id IN ('rstr_global_admin','rstr_program_admin','rstr_reader','rstr_outsider')`)
 
     console.log(`\nResults: ${passed} passed, ${failed} failed`)

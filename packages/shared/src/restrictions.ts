@@ -10,7 +10,7 @@
  */
 
 /** Curriculum entity tables that can carry (and inherit) restrictions. */
-export const RESTRICTABLE_TABLES = ['departments', 'programs', 'degrees', 'modules', 'classes'] as const
+export const RESTRICTABLE_TABLES = ['curriculums', 'departments', 'programs', 'degrees', 'modules', 'classes'] as const
 export type RestrictableTable = (typeof RESTRICTABLE_TABLES)[number]
 
 export type Weekday = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday'

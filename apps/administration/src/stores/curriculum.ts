@@ -3,7 +3,7 @@ import { ref } from 'vue'
 import { usePostgres, EntityTables } from '@/composables/usePostgres'
 import type { Room } from '@/types/room'
 import type { Location } from '@/types/location'
-import type { Department, Program, Degree, Module } from '@/types/curriculum'
+import type { Curriculum, Department, Program, Degree, Module } from '@/types/curriculum'
 import type { LecturerAvailability } from '@/types/schedule'
 import type { MatrixCompetency } from '@/types/matrixCompetency'
 import type { CompetencyMatrix } from '@/types/competencyMatrix'
@@ -17,6 +17,7 @@ export type { LecturerAvailability }
 export interface CurriculumVersion {
   _id?: string
   id?: string
+  curriculumId?: string
   name: string
   description?: string
   versionNumber: number
@@ -73,6 +74,7 @@ export interface TaxonomyItem {
 export const useCurriculumStore = defineStore('curriculum', () => {
   const { fetchEntities } = usePostgres()
 
+  const curriculums = ref<Curriculum[]>([])
   const curriculumVersions = ref<CurriculumVersion[]>([])
   const departments = ref<Department[]>([])
   const programs = ref<Program[]>([])
@@ -122,6 +124,18 @@ export const useCurriculumStore = defineStore('curriculum', () => {
     error.value = null
     try {
       degrees.value = await fetchEntities<Degree>(EntityTables.DEGREE)
+    } catch (e: any) {
+      error.value = e.message
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function fetchCurriculums() {
+    loading.value = true
+    error.value = null
+    try {
+      curriculums.value = await fetchEntities<Curriculum>(EntityTables.CURRICULUM)
     } catch (e: any) {
       error.value = e.message
     } finally {
@@ -298,6 +312,7 @@ export const useCurriculumStore = defineStore('curriculum', () => {
   }
 
   return {
+    curriculums,
     curriculumVersions,
     departments,
     programs,
@@ -317,6 +332,7 @@ export const useCurriculumStore = defineStore('curriculum', () => {
     scheduleEntries,
     loading,
     error,
+    fetchCurriculums,
     fetchCurriculumVersions,
     fetchDepartments,
     fetchPrograms,

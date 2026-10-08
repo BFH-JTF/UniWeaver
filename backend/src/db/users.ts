@@ -19,7 +19,9 @@ export interface UpdateUserData {
   is_active?: boolean
   timezone?: string
   is_admin?: boolean
-  roles?: string[]
+  is_user_admin?: boolean
+  is_scheduler?: boolean
+  is_not_lecturer?: boolean
 }
 
 export class LastAdminError extends Error {
@@ -32,6 +34,15 @@ export class UserExistsError extends Error {
   constructor() {
     super('Administrator already exists. Bootstrap is disabled.')
   }
+}
+
+/** Derive the informational roles mirror from the role flags. */
+export function deriveRoles(isAdmin: boolean, isUserAdmin: boolean, isScheduler: boolean): string[] {
+  const roles = ['user']
+  if (isUserAdmin) roles.push('user_admin')
+  if (isScheduler) roles.push('scheduler')
+  if (isAdmin) return ['admin']
+  return roles
 }
 
 export function mapRowToUser(row: any): LocalUserProfile {
@@ -47,6 +58,9 @@ export function mapRowToUser(row: any): LocalUserProfile {
     timezone: row.timezone || '',
     roles: Array.isArray(row.roles) ? row.roles : [],
     is_admin: !!row.is_admin,
+    is_user_admin: !!row.is_user_admin,
+    is_scheduler: !!row.is_scheduler,
+    is_not_lecturer: !!row.is_not_lecturer,
     created_at: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at || ''),
     updated_at: row.updated_at instanceof Date ? row.updated_at.toISOString() : String(row.updated_at || ''),
   }
@@ -95,6 +109,12 @@ export async function createOrUpdateUser(pool: Pool, data: CreateUserData): Prom
      DO UPDATE SET
        name = CASE WHEN local_users.name IS NOT NULL AND local_users.name <> '' THEN local_users.name ELSE $4 END,
        email = CASE WHEN local_users.email IS NOT NULL AND local_users.email <> '' THEN local_users.email ELSE $5 END,
+       -- Never clobber delegated role flags on login; keep the roles mirror in sync.
+       roles = CASE WHEN local_users.is_admin THEN '["admin"]'::jsonb
+                    ELSE to_jsonb(ARRAY['user'] ||
+                         (CASE WHEN local_users.is_user_admin THEN 'user_admin' ELSE NULL END) ||
+                         (CASE WHEN local_users.is_scheduler THEN 'scheduler' ELSE NULL END))
+                        FILTER (WHERE VALUE IS NOT NULL) END,
        updated_at = $8
      RETURNING *`,
     [id, data.oidc_issuer, data.oidc_subject, name, email, JSON.stringify(roles), isAdmin, now],
@@ -103,20 +123,23 @@ export async function createOrUpdateUser(pool: Pool, data: CreateUserData): Prom
 }
 
 export async function updateUser(pool: Pool, id: string, updates: UpdateUserData): Promise<LocalUserProfile | null> {
-  const currentRes = await pool.query('SELECT is_admin, roles FROM local_users WHERE id = $1', [id])
+  const currentRes = await pool.query(
+    'SELECT is_admin, is_user_admin, is_scheduler, is_not_lecturer FROM local_users WHERE id = $1',
+    [id],
+  )
   if (currentRes.rows.length === 0) return null
   const current = currentRes.rows[0]
-  const currentRoles: string[] = Array.isArray(current.roles) ? current.roles : []
   const currentIsAdmin: boolean = !!current.is_admin
+  const currentUserAdmin: boolean = !!current.is_user_admin
+  const currentScheduler: boolean = !!current.is_scheduler
+  const currentNotLecturer: boolean = !!current.is_not_lecturer
 
   const newIsAdmin = updates.is_admin !== undefined ? !!updates.is_admin : currentIsAdmin
-  const newRoles = updates.roles !== undefined && Array.isArray(updates.roles)
-    ? updates.roles.map(String)
-    : newIsAdmin
-      ? Array.from(new Set([...currentRoles, 'admin']))
-      : currentRoles.filter(r => r !== 'admin')
+  const newUserAdmin = updates.is_user_admin !== undefined ? !!updates.is_user_admin : currentUserAdmin
+  const newScheduler = updates.is_scheduler !== undefined ? !!updates.is_scheduler : currentScheduler
+  const newNotLecturer = updates.is_not_lecturer !== undefined ? !!updates.is_not_lecturer : currentNotLecturer
 
-  if (currentIsAdmin && (!newIsAdmin || !newRoles.includes('admin'))) {
+  if (currentIsAdmin && !newIsAdmin) {
     const adminCount = await getAdminCount(pool)
     if (adminCount <= 1) {
       throw new LastAdminError()
@@ -130,8 +153,11 @@ export async function updateUser(pool: Pool, id: string, updates: UpdateUserData
   if (updates.display_name !== undefined) fields.push({ name: 'display_name', value: String(updates.display_name).trim() })
   if (updates.is_active !== undefined) fields.push({ name: 'is_active', value: !!updates.is_active })
   if (updates.timezone !== undefined) fields.push({ name: 'timezone', value: String(updates.timezone).trim() })
-  fields.push({ name: 'is_admin', value: newIsAdmin })
-  fields.push({ name: 'roles', value: JSON.stringify(newRoles) })
+  if (updates.is_admin !== undefined) fields.push({ name: 'is_admin', value: newIsAdmin })
+  if (updates.is_user_admin !== undefined) fields.push({ name: 'is_user_admin', value: newUserAdmin })
+  if (updates.is_scheduler !== undefined) fields.push({ name: 'is_scheduler', value: newScheduler })
+  if (updates.is_not_lecturer !== undefined) fields.push({ name: 'is_not_lecturer', value: newNotLecturer })
+  fields.push({ name: 'roles', value: JSON.stringify(deriveRoles(newIsAdmin, newUserAdmin, newScheduler)) })
   fields.push({ name: 'updated_at', value: new Date().toISOString() })
 
   const setClauses = fields.map((f, i) => `${f.name} = $${i + 2}`).join(', ')

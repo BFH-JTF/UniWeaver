@@ -1,0 +1,7 @@
+id,name,description,departmentIDs,contact,url
+PRG-INF,Informatik,Bachelor- und Masterstudiengang Informatik,DEP-TI,inf@bfh.ch,https://www.bfh.ch/study/informatik
+PRG-CYS,Cyber Security,Bachelor- und Masterstudiengang Cyber Security,DEP-TI,cys@bfh.ch,https://www.bfh.ch/study/cybersecurity
+PRG-BWL,Business Administration,Bachelorstudiengang Betriebsökonomie und MBA,DEP-WI,bwl@bfh.ch,https://www.bfh.ch/study/business
+PRG-BIN,Business Engineering,Bachelor- und Masterstudiengang Business Engineering,DEP-WI,bin@bfh.ch,https://www.bfh.ch/study/businessengineering
+PRG-SOA,Soziale Arbeit,Bachelor- und Masterstudiengang Soziale Arbeit,DEP-SA,soa@bfh.ch,https://www.bfh.ch/study/sozialearbeit
+PRG-SKA,Soziokulturelle Animation,Bachelor- und Masterstudiengang Soziokulturelle Animation,DEP-SA,ska@bfh.ch,https://www.bfh.ch/study/ska

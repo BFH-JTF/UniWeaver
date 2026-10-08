@@ -5,7 +5,10 @@
         <template #prepend>
           <v-icon icon="mdi-calendar-week" size="large" class="me-2" />
         </template>
-        <v-card-title class="text-h6 font-weight-medium">{{ isEdit ? 'Edit Week' : 'Add Week' }}</v-card-title>
+        <v-card-title class="text-h6 font-weight-medium">
+          {{ isEdit ? 'Edit Week' : 'Add Week' }}
+          <CopyIdButton v-if="isEdit" :id="weekData?._id || weekData?.id" color="white" />
+        </v-card-title>
         <v-card-subtitle class="text-white text-opacity-80">
           Define a calendar week within a semester
         </v-card-subtitle>
@@ -95,6 +98,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
+import CopyIdButton from '@/components/CopyIdButton.vue'
 import type { Week } from '@/types/week'
 import type { Semester } from '@/stores/curriculum'
 import { emptyWeek } from '@/composables/useWeeks'
