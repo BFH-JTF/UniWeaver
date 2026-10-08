@@ -36,6 +36,20 @@ Notes:
 - The portal links to the tools by their dev ports (`apps/user_entry/src/config.ts`), so keep the port numbers above.
 - Stop the containers again with `npm run dev:infra:stop`.
 
+### Tests
+
+The backend tests need a reachable PostgreSQL (the dev database works). `npm test` from the
+repo root runs `api.test.ts` and `restrictions.test.ts`; `entityAcl.test.ts` is not wired into
+the test script and must be run manually:
+
+```bash
+cd backend
+npx tsx test/entityAcl.test.ts
+```
+
+All tests are hand-written scripts with their own `assert()` helper (no test framework); each
+starts its own backend instance on a fixed port (3456/3457).
+
 ### Environment
 
 Configuration lives in the repo-root `.env` (read by the backend through `dotenv` and by docker compose). Because the backend is started per workspace (`npm run dev -w backend`, cwd `backend/`), `backend/src/db/index.ts` loads that root `.env` by absolute path.
