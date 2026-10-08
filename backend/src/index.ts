@@ -8,6 +8,8 @@ import { appRoot, initDb, isDbConnected, closeDb } from './db'
 import { authRouter } from './routes/auth'
 import { usersRouter } from './routes/users'
 import { schedulingRouter } from './routes/scheduling'
+import { roomsRouter } from './routes/rooms'
+import { lecturersRouter } from './routes/lecturers'
 import { entitiesRouter } from './routes/entities'
 import { restrictionsRouter } from './routes/restrictions'
 
@@ -32,9 +34,11 @@ app.get('/api/health', (_req: Request, res: Response) => {
   })
 })
 
-// Scheduling tool endpoints (module/lecturer mapping). Mounted before the
-// generic entity router so /api/scheduling/... is matched here first.
+// Scheduling tool endpoints (module/lecturer mapping, rooms). Mounted before
+// the generic entity router so /api/scheduling/... is matched here first.
 app.use('/api/scheduling', schedulingRouter)
+app.use('/api/scheduling', roomsRouter)
+app.use('/api/scheduling', lecturersRouter)
 
 // Restrictions CRUD + effective (inherited) restriction resolution for
 // curriculum entities. Mounted before the generic entity router so

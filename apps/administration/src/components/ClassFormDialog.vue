@@ -5,7 +5,10 @@
         <template #prepend>
           <v-icon icon="mdi-account-group" size="large" class="me-2" />
         </template>
-        <v-card-title class="text-h6 font-weight-medium">{{ isEdit ? 'Edit Class' : 'Add Class' }}</v-card-title>
+        <v-card-title class="text-h6 font-weight-medium">
+          {{ isEdit ? 'Edit Class' : 'Add Class' }}
+          <CopyIdButton v-if="isEdit" :id="classData?.id || classData?._id" color="white" />
+        </v-card-title>
         <v-card-subtitle class="text-white text-opacity-80">
           Define a student group or cohort
         </v-card-subtitle>
@@ -156,6 +159,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
+import CopyIdButton from '@/components/CopyIdButton.vue'
 import type { ClassEntity } from '@/types/curriculumClass'
 import type { Degree, Module, Program } from '@/types/curriculum'
 import type { Semester } from '@/stores/curriculum'

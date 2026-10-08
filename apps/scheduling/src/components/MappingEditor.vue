@@ -164,18 +164,9 @@
 
           <div v-for="group in detailGrouped" :key="group.key" class="mb-4">
             <div class="d-flex align-center mb-1">
-              <v-icon size="16" color="primary" class="mr-2">{{ mode === 'lecturer' ? 'mdi-book-alphabet' : 'mdi-account-group' }}</v-icon>
+              <v-icon size="16" color="primary" class="mr-2">{{ mode === 'lecturer' ? 'mdi-book-alphabet' : 'mdi-account' }}</v-icon>
               <span class="text-subtitle-2 font-weight-bold">{{ group.label }}</span>
               <v-chip size="x-small" variant="tonal" class="ml-2">{{ group.items.length }}</v-chip>
-              <v-spacer />
-              <v-btn
-                size="x-small"
-                variant="text"
-                color="error"
-                @click="clearGroup(group)"
-              >
-                Remove group
-              </v-btn>
             </div>
             <div class="d-flex flex-wrap ga-2">
               <v-chip
@@ -421,16 +412,15 @@ function groupModules(moduleIds: string[]): DetailGroup[] {
 }
 
 function groupLecturers(lecturerIds: string[]): DetailGroup[] {
-  const groups = new Map<string, DetailGroup>()
-  for (const lecturerId of lecturerIds) {
-    const lecturer = lecturerById.value.get(lecturerId)
-    if (!lecturer) continue
-    const key = lecturer.departmentName || 'No department'
-    const group = groups.get(key) ?? { key, label: key, items: [] }
-    group.items.push({ id: lecturerId, label: lecturer.name })
-    groups.set(key, group)
-  }
-  return Array.from(groups.values()).sort((a, b) => a.label.localeCompare(b.label))
+  const lecturerItems = lecturerIds
+    .map(lecturerId => {
+      const lecturer = lecturerById.value.get(lecturerId)
+      return lecturer ? { id: lecturerId, label: lecturer.name } : null
+    })
+    .filter((item): item is { id: string; label: string } => item !== null)
+    .sort((a, b) => a.label.localeCompare(b.label))
+  if (lecturerItems.length === 0) return []
+  return [{ key: 'lecturers', label: 'Lecturers', items: lecturerItems }]
 }
 
 // ------------------------------------------------------------------ copy from
@@ -535,18 +525,6 @@ function removeMapping(moduleId: string): void {
   if (!selectedId.value) return
   const lecturerId = selectedId.value
   applyDiff('Remove module', [{ lecturerId, moduleId, value: 0 }])
-}
-
-function clearGroup(group: { items: Array<{ id: string }> }): void {
-  if (mode.value === 'lecturer') {
-    const lecturerId = selectedId.value
-    const diff = group.items.map(item => ({ lecturerId, moduleId: item.id, value: 0 as const }))
-    if (diff.length > 0) applyDiff('Remove group', diff)
-    return
-  }
-  const moduleId = selectedId.value
-  const diff = group.items.map(item => ({ lecturerId: item.id, moduleId, value: 0 as const }))
-  if (diff.length > 0) applyDiff('Remove group', diff)
 }
 
 function clearAllDetail(isUndo: boolean): void {

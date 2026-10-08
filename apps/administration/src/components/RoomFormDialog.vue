@@ -1,7 +1,10 @@
 <template>
   <v-dialog :model-value="modelValue" @update:model-value="$emit('update:modelValue', $event)" max-width="800" persistent>
     <v-card>
-      <v-card-title>{{ isEdit ? 'Edit Room' : 'Add Room' }}</v-card-title>
+      <v-card-title class="d-flex align-center">
+        {{ isEdit ? 'Edit Room' : 'Add Room' }}
+        <CopyIdButton v-if="isEdit" :id="room.id" />
+      </v-card-title>
       <v-card-text>
         <v-form ref="formRef" @submit.prevent="submit">
           <v-tabs v-model="tab">
@@ -118,6 +121,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
+import CopyIdButton from '@/components/CopyIdButton.vue'
 import type { Room, RoomType, LayoutType, ConnectionType, StreamingCameraType, StreamingCameraQuality } from '@/types/room'
 import type { Location } from '@/types/location'
 import LocationFormDialog from '@/components/LocationFormDialog.vue'

@@ -166,9 +166,9 @@
                 </v-btn>
                 <template v-if="canManageFlags(user)">
                   <template v-if="isLastAdmin(user)">
-                    <v-chip color="warning" size="x-small" variant="tonal" class="font-weight-bold">
-                      Last Admin
-                    </v-chip>
+                      <v-chip color="warning" size="x-small" variant="tonal" class="font-weight-bold">
+                        Last Global Administrator
+                      </v-chip>
                   </template>
                   <template v-else>
                     <v-btn
@@ -186,6 +186,7 @@
                     </v-btn>
                   </template>
                   <v-btn
+                    v-if="!user.is_admin"
                     :color="user.is_scheduler ? 'warning' : 'success'"
                     variant="outlined"
                     size="small"
@@ -210,6 +211,7 @@
         <v-card-title class="d-flex align-center py-3 px-4">
           <v-icon start color="primary">mdi-account-edit</v-icon>
           <span class="text-h6 font-weight-bold">Edit User Account</span>
+          <CopyIdButton :id="editingUser?.id" />
           <v-spacer />
           <v-btn icon="mdi-close" variant="text" size="small" @click="closeEditDialog" />
         </v-card-title>
@@ -307,8 +309,10 @@
               label="Scheduler (may use the Scheduling tool)"
               color="success"
               density="compact"
-              hide-details
+              :hint="editIsAdmin ? 'Included automatically with Administrator Privileges' : 'May work in the Scheduling tool (mapping, rooms, availability)'"
+              persistent-hint
               class="mb-2"
+              :disabled="editIsAdmin"
             />
 
             <v-checkbox
@@ -326,17 +330,19 @@
               label="User Admin (may manage user accounts)"
               color="secondary"
               density="compact"
-              hide-details
+              :hint="editIsAdmin ? 'Included automatically with Administrator Privileges' : 'May manage user accounts but cannot grant roles'"
+              persistent-hint
               class="mb-2"
-              :disabled="!auth.isAdmin"
+              :disabled="!auth.isAdmin || editIsAdmin"
             />
 
             <v-checkbox
               v-model="editIsAdmin"
-              label="Administrator Privileges"
+              label="Global Administrator Privileges"
               color="primary"
               density="compact"
-              hide-details
+              hint="Global admin (superuser): implicitly includes User Admin and Scheduler rights"
+              persistent-hint
               :disabled="!auth.isAdmin || (editingUser ? isLastAdmin(editingUser) : false)"
             />
           </v-form>
@@ -365,6 +371,7 @@
 
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
+import CopyIdButton from '@/components/CopyIdButton.vue'
 import { api, ApiRequestError } from '@uniweaver/shared'
 import { useAuthStore } from '@/stores/auth'
 import type { LocalUserProfile } from '@uniweaver/shared'
@@ -444,8 +451,8 @@ function openEditDialog(user: LocalUserProfile) {
   editEmail.value = user.email || ''
   editTimezone.value = user.timezone || ''
   editIsAdmin.value = !!user.is_admin
-  editIsUserAdmin.value = !!user.is_user_admin
-  editIsScheduler.value = !!user.is_scheduler
+  editIsUserAdmin.value = user.is_admin || !!user.is_user_admin
+  editIsScheduler.value = user.is_admin || !!user.is_scheduler
   editIsNotLecturer.value = !!user.is_not_lecturer
   editIsActive.value = user.is_active !== false
   dialogError.value = ''
@@ -480,8 +487,15 @@ function buildPatch(): Partial<LocalUserProfile> {
     is_not_lecturer: editIsNotLecturer.value,
   }
   if (auth.isAdmin) {
+    // Global admin implies user admin + scheduler; keep flags consistent.
+    if (editIsAdmin.value) {
+      patch.is_user_admin = true
+      patch.is_scheduler = true
+    } else {
+      patch.is_user_admin = editIsUserAdmin.value
+      patch.is_scheduler = editIsScheduler.value
+    }
     patch.is_admin = editIsAdmin.value
-    patch.is_user_admin = editIsUserAdmin.value
   }
   return patch
 }

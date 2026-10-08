@@ -1,0 +1,13 @@
+id,name,description,ProgramIDs,contact,url
+DEG-INF-B,BSc Informatik,Bachelor of Science in Informatik,PRG-INF,meyer@bfh.ch,https://www.bfh.ch/study/informatik-bsc
+DEG-INF-M,MSc Informatik,Master of Science in Informatik,PRG-INF,meyer@bfh.ch,https://www.bfh.ch/study/informatik-msc
+DEG-CYS-B,BSc Cyber Security,Bachelor of Science in Cyber Security,PRG-CYS,weber@bfh.ch,https://www.bfh.ch/study/cybersecurity-bsc
+DEG-CYS-M,MSc Cyber Security,Master of Science in Cyber Security,PRG-CYS,weber@bfh.ch,https://www.bfh.ch/study/cybersecurity-msc
+DEG-BWL-B,BSc Betriebsökonomie,Bachelor of Science in Betriebsökonomie,PRG-BWL,schneider@bfh.ch,https://www.bfh.ch/study/business-bsc
+DEG-BWL-M,MSc Betriebsökonomie,Master of Science in Business Administration,PRG-BWL,schneider@bfh.ch,https://www.bfh.ch/study/business-msc
+DEG-BIN-B,BSc Business Engineering,Bachelor of Science in Business Engineering,PRG-BIN,schneider@bfh.ch,https://www.bfh.ch/study/businessengineering-bsc
+DEG-BIN-M,MSc Business Engineering,Master of Science in Business Engineering,PRG-BIN,schneider@bfh.ch,https://www.bfh.ch/study/businessengineering-msc
+DEG-SOA-B,BSc Soziale Arbeit,Bachelor of Science in Soziale Arbeit,PRG-SOA,brunners@bfh.ch,https://www.bfh.ch/study/sozialearbeit-bsc
+DEG-SOA-M,MSc Soziale Arbeit,Master of Science in Soziale Arbeit,PRG-SOA,brunners@bfh.ch,https://www.bfh.ch/study/sozialearbeit-msc
+DEG-SKA-B,BSc Soziokulturelle Animation,Bachelor of Science in Soziokulturelle Animation,PRG-SKA,brunners@bfh.ch,https://www.bfh.ch/study/ska-bsc
+DEG-SKA-M,MSc Soziokulturelle Animation,Master of Science in Soziokulturelle Animation,PRG-SKA,brunners@bfh.ch,https://www.bfh.ch/study/ska-msc

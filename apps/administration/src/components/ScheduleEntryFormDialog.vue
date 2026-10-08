@@ -5,7 +5,10 @@
         <template #prepend>
           <v-icon icon="mdi-calendar-clock" size="large" class="me-2" />
         </template>
-        <v-card-title class="text-h6 font-weight-medium">{{ isEdit ? 'Edit Schedule Entry' : 'Add Schedule Entry' }}</v-card-title>
+        <v-card-title class="text-h6 font-weight-medium">
+          {{ isEdit ? 'Edit Schedule Entry' : 'Add Schedule Entry' }}
+          <CopyIdButton v-if="isEdit" :id="entryData?._id || entryData?.id" color="white" />
+        </v-card-title>
         <v-card-subtitle class="text-white text-opacity-80">
           Schedule modules, rooms, classes, and lecturers in a calendar week
         </v-card-subtitle>
@@ -132,6 +135,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
+import CopyIdButton from '@/components/CopyIdButton.vue'
 import type { ScheduleEntry } from '@/types/scheduleEntry'
 import type { Week } from '@/types/week'
 import type { Module } from '@/types/curriculum'

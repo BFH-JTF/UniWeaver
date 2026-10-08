@@ -5,7 +5,10 @@
         <template #prepend>
           <v-icon icon="mdi-book-education" size="large" class="me-2" />
         </template>
-        <v-card-title class="text-h6 font-weight-medium">{{ isEdit ? 'Edit Curriculum' : 'New Curriculum' }}</v-card-title>
+        <v-card-title class="text-h6 font-weight-medium">
+          {{ isEdit ? 'Edit Curriculum' : 'New Curriculum' }}
+          <CopyIdButton v-if="isEdit" :id="curriculumData?._id || curriculumData?.id" color="white" />
+        </v-card-title>
         <v-card-subtitle class="text-white text-opacity-80">
           {{ isEdit ? 'Edit curriculum details' : 'Create a new curriculum starting with an empty V1' }}
         </v-card-subtitle>
@@ -52,6 +55,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
+import CopyIdButton from '@/components/CopyIdButton.vue'
 import type { Curriculum } from '@/types/curriculum'
 
 const props = defineProps<{

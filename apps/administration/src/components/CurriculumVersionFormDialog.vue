@@ -5,7 +5,10 @@
         <template #prepend>
           <v-icon icon="mdi-source-branch" size="large" class="me-2" />
         </template>
-        <v-card-title class="text-h6 font-weight-medium">{{ isEdit ? 'Edit Curriculum Version' : 'Add Curriculum Version' }}</v-card-title>
+        <v-card-title class="text-h6 font-weight-medium">
+          {{ isEdit ? 'Edit Curriculum Version' : 'Add Curriculum Version' }}
+          <CopyIdButton v-if="isEdit" :id="versionData?._id || versionData?.id" color="white" />
+        </v-card-title>
         <v-card-subtitle class="text-white text-opacity-80">
           Create a new curriculum; programs are added within it afterwards
         </v-card-subtitle>
@@ -77,6 +80,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
+import CopyIdButton from '@/components/CopyIdButton.vue'
 import type { CurriculumVersion } from '@/types/curriculum'
 import { emptyCurriculumVersion } from '@/composables/useCurriculumVersions'
 

@@ -2,6 +2,7 @@ import { Router, Response } from 'express'
 import { getPool } from '../db'
 import type { AuthenticatedRequest } from '../auth/middleware'
 import { requireScheduler } from '../auth/middleware'
+import { provisionLecturersFromUsers } from '../db/schedulingDb'
 
 export const schedulingRouter = Router()
 
@@ -23,25 +24,10 @@ schedulingRouter.get(
       const pool = getPool()
 
       // Provision: one lecturer per active, opted-in user account that has no
-      // linked lecturer row yet. Idempotent; runs inside a transaction.
-      const provision = await pool.query(
-        `WITH eligible AS (
-           SELECT u.id,
-                  COALESCE(NULLIF(u.display_name, ''), NULLIF(u.local_name, ''), u.name, u.id) AS lecturer_name
-           FROM local_users u
-           WHERE u.is_active
-             AND NOT u.is_not_lecturer
-             AND NOT EXISTS (SELECT 1 FROM lecturers l WHERE l.user_id = u.id)
-         )
-         INSERT INTO lecturers (id, name, user_id)
-         SELECT 'uw_lec_' || md5(u.id::text || random()::text),
-                u.lecturer_name,
-                u.id
-         FROM eligible u
-         RETURNING user_id, name`,
-      )
-      if (provision.rows.length > 0) {
-        console.log(`[Scheduling] Provisioned ${provision.rows.length} lecturer row(s) from user accounts`)
+      // linked lecturer row yet. Idempotent.
+      const provisioned = await provisionLecturersFromUsers(pool)
+      if (provisioned > 0) {
+        console.log(`[Scheduling] Provisioned ${provisioned} lecturer row(s) from user accounts`)
       }
 
       const lecturersRes = await pool.query(
@@ -191,10 +177,10 @@ schedulingRouter.post(
           const tuples = toSet.map((p, i) => {
             params.push(p.lecturerId, p.moduleId, req.sessionUser!.id)
             const b = i * 3
-            return `($${b + 1}, $${b + 2}, $${b + 3}, $${b + 3}, NOW(), NOW())`
+            return `($${b + 1}, $${b + 2}, $${b + 3})`
           })
           await client.query(
-            `INSERT INTO module_lecturers (lecturer_id, module_id, created_by, created_at, updated_at)
+            `INSERT INTO module_lecturers (lecturer_id, module_id, created_by)
              VALUES ${tuples.join(', ')}
              ON CONFLICT (lecturer_id, module_id) DO NOTHING`,
             params,
