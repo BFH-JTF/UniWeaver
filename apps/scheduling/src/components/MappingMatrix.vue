@@ -420,6 +420,7 @@ function setPairsLocal(next: Set<string>): void {
     const moduleId = key.slice(idx + 1)
     if (lecturerId && moduleId) pairs.push({ lecturerId, moduleId })
   }
+  // eslint-disable-next-line vue/no-mutating-props
   props.mapping.pairs.splice(0, props.mapping.pairs.length, ...pairs)
 }
 
