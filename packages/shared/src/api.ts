@@ -8,6 +8,10 @@ import type {
   MappingPairsResult,
   RoomAvailabilitySlot,
   SchedulingLecturer,
+  SchedulingSemester,
+  ScheduleRun,
+  ScheduleEntryRow,
+  ScheduleScopeSummary,
   SchedulerLocation,
   SchedulerRoom,
   UnavailabilityEntry,
@@ -156,4 +160,30 @@ export const api = {
       method: 'PUT',
       body: JSON.stringify({ entries }),
     }),
+
+  // Schedule generation (scheduler role)
+  getSchedulerHealth: () =>
+    request<{ online: boolean }>('/scheduling/scheduler/health'),
+
+  listSchedulingSemesters: () => request<SchedulingSemester[]>('/scheduling/semesters'),
+
+  getScheduleScope: (semesterId: string) =>
+    request<ScheduleScopeSummary>(`/scheduling/schedules/scope/${encodeURIComponent(semesterId)}`),
+
+  listSchedules: () => request<ScheduleRun[]>('/scheduling/schedules'),
+
+  generateSchedule: (semesterId: string, options: { name?: string; spentLimitSeconds: number }) =>
+    request<{ runId: string }>('/scheduling/schedules/generate', {
+      method: 'POST',
+      body: JSON.stringify({ semesterId, name: options.name, spentLimitSeconds: options.spentLimitSeconds }),
+    }),
+
+  getScheduleRun: (runId: string) =>
+    request<ScheduleRun>(`/scheduling/schedules/${encodeURIComponent(runId)}`),
+
+  listScheduleEntries: (runId: string) =>
+    request<ScheduleEntryRow[]>(`/scheduling/schedules/${encodeURIComponent(runId)}/entries`),
+
+  deleteScheduleRun: (runId: string) =>
+    request<{ ok: boolean }>(`/scheduling/schedules/${encodeURIComponent(runId)}`, { method: 'DELETE' }),
 }

@@ -9,7 +9,7 @@
     </div>
 
     <v-row>
-      <v-col cols="12" md="4">
+      <v-col cols="12" md="3">
         <v-card class="rounded-lg elevation-2 h-100" hover @click="goToMapping">
           <v-card-title class="d-flex align-center">
             <v-icon start color="primary">mdi-format-list-bulleted-type</v-icon>
@@ -25,7 +25,7 @@
         </v-card>
       </v-col>
 
-      <v-col cols="12" md="4">
+      <v-col cols="12" md="3">
         <v-card class="rounded-lg elevation-2 h-100" hover @click="goToRooms">
           <v-card-title class="d-flex align-center">
             <v-icon start color="primary">mdi-door-open</v-icon>
@@ -41,7 +41,7 @@
         </v-card>
       </v-col>
 
-      <v-col cols="12" md="4">
+      <v-col cols="12" md="3">
         <v-card class="rounded-lg elevation-2 h-100" hover @click="goToAvailability">
           <v-card-title class="d-flex align-center">
             <v-icon start color="primary">mdi-calendar-clock-outline</v-icon>
@@ -53,6 +53,22 @@
           <v-card-actions>
             <v-spacer />
             <v-btn color="primary" variant="text" prepend-icon="mdi-arrow-right">Open Availability</v-btn>
+          </v-card-actions>
+        </v-card>
+      </v-col>
+
+      <v-col cols="12" md="3">
+        <v-card class="rounded-lg elevation-2 h-100" hover @click="goToSchedules">
+          <v-card-title class="d-flex align-center">
+            <v-icon start color="primary">mdi-calendar-multiple-check</v-icon>
+            Schedules
+          </v-card-title>
+          <v-card-text>
+            Generate the semester schedule from module, class, room, and lecturer data.
+          </v-card-text>
+          <v-card-actions>
+            <v-spacer />
+            <v-btn color="primary" variant="text" prepend-icon="mdi-arrow-right">Open Schedules</v-btn>
           </v-card-actions>
         </v-card>
       </v-col>
@@ -75,5 +91,9 @@ function goToRooms(): void {
 
 function goToAvailability(): void {
   router.push('/availability')
+}
+
+function goToSchedules(): void {
+  router.push('/schedules')
 }
 </script>

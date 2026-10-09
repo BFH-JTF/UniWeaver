@@ -7,3 +7,5 @@ docpouch-db/
 docpouch-log/
 .env
 docker-compose.override.yml
+scheduler/target/
+*.class

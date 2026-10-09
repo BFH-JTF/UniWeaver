@@ -1,0 +1,19 @@
+server:
+  port: 8081
+
+spring:
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+
+timefold:
+  solver:
+    # Stop after 30s of solving, or as soon as no improvement is found for that long.
+    # Bump this up for real semester-sized problems (minutes, not seconds) once you're
+    # past prototyping. See: https://docs.timefold.ai -> Optimization algorithms -> Termination
+    termination:
+      spent-limit: 30s
+  solver-manager:
+    # How many solve jobs can run in parallel. Keep at 1 on a small box;
+    # each concurrent solve job gets its own CPU-hungry solver thread.
+    parallel-solver-count: 1

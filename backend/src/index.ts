@@ -10,6 +10,7 @@ import { usersRouter } from './routes/users'
 import { schedulingRouter } from './routes/scheduling'
 import { roomsRouter } from './routes/rooms'
 import { lecturersRouter } from './routes/lecturers'
+import { schedulesRouter } from './routes/schedules'
 import { entitiesRouter } from './routes/entities'
 import { restrictionsRouter } from './routes/restrictions'
 
@@ -39,6 +40,8 @@ app.get('/api/health', (_req: Request, res: Response) => {
 app.use('/api/scheduling', schedulingRouter)
 app.use('/api/scheduling', roomsRouter)
 app.use('/api/scheduling', lecturersRouter)
+// Schedule generation runs (Timefold orchestration).
+app.use('/api/scheduling', schedulesRouter)
 
 // Restrictions CRUD + effective (inherited) restriction resolution for
 // curriculum entities. Mounted before the generic entity router so
