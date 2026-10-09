@@ -1,4 +1,20 @@
 # This file configures semantic-release - a customizable release automation tool - using GitHub actions.
+#
+# The main branch is protected: changes only land via pull requests. This
+# pipeline is therefore protection-compatible:
+#
+#   1. semantic-release analyzes commits and creates the git tag + GitHub
+#      release via the GitHub API (API calls are not subject to the branch
+#      push ruleset).
+#   2. The release produced one artifact in the workspace: a bumped
+#      package.json/package-lock.json (via @semantic-release/npm with
+#      npmPublish: false). Those are picked up by create-pull-request, which
+#      pushes them to the chore/version-bump branch and opens (or updates) a
+#      PR against main - respecting "changes must be made through a PR".
+#   3. The bump PR is auto-merged (squash); its chore: commit is not
+#      releasable, so no release loop occurs.
+#
+# No step ever pushes directly to main.
 
 name: Release
 
@@ -24,6 +40,7 @@ jobs:
           fi
         env:
           RELEASE_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+
       - name: Checkout code
         uses: actions/checkout@v4
         with:
@@ -38,7 +55,61 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Record current version
+        id: before
+        run: |
+          echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+
       - name: Run semantic-release
+        id: semantic
         run: npx semantic-release
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+
+      - name: Create version bump pull request
+        id: bump
+        if: steps.semantic.outputs.new_release_version != ''
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.RELEASE_TOKEN }}
+          branch: chore/version-bump
+          base: main
+          delete-branch: false
+          add-paths: |
+            package.json
+            package-lock.json
+          commit-message: |
+            chore(release): v${{ steps.semantic.outputs.new_release_version }}
+
+            Automated version sync after release v${{ steps.semantic.outputs.new_release_version }}.
+          title: "chore(release): v${{ steps.semantic.outputs.new_release_version }}"
+          body: |
+            Automated version-bump PR for release **v${{ steps.semantic.outputs.new_release_version }}**.
+
+            - Updates `package.json` / `package-lock.json` to `${{ steps.semantic.outputs.new_release_version }}`
+            - The git tag and GitHub release were already created by semantic-release
+            - This PR is auto-merged; its commit is not releasable (no loop)
+
+            Triggered by push to main (`${{ github.sha }}`).
+          labels: |
+            release
+            automated
+
+      - name: Auto-merge version bump PR
+        if: steps.bump.outputs.pull-request-number != ''
+        run: |
+          PR_NUMBER="${{ steps.bump.outputs.pull-request-number }}"
+          echo "Auto-merging version bump PR #$PR_NUMBER"
+          # Squash-merge via the RELEASE_TOKEN (ruleset permits PR merges).
+          # Retry a few times: the PR is brand-new, so checks may need a moment.
+          for attempt in 1 2 3 4 5; do
+            if gh pr merge "$PR_NUMBER" --repo "${{ github.repository }}" --squash --auto 2>&1; then
+              echo "Auto-merge scheduled"
+              exit 0
+            fi
+            echo "Attempt $attempt failed; retrying in 10s..."
+            sleep 10
+          done
+          echo "::warning::Could not enable auto-merge for PR #$PR_NUMBER - merge it manually."
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}

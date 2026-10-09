@@ -18,6 +18,7 @@ services:
     restart: unless-stopped
 
   app:
+    image: ghcr.io/bfh-jtf/uniweaver:${UNIWEAVER_TAG:-sha-893058b}
     build:
       context: .
       dockerfile: Dockerfile
@@ -61,6 +62,7 @@ services:
   # UniWeaver scheduling service: Timefold-based timetabling solver, consumed
   # by the backend over REST (POST /api/schedules, poll GET /:jobId).
   scheduler:
+    image: ghcr.io/bfh-jtf/uniweaver-scheduler:${UNIWEAVER_TAG:-sha-893058b}
     build:
       context: ./scheduler
       dockerfile: Dockerfile

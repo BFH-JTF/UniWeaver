@@ -135,8 +135,14 @@ The stack then comes up on <http://localhost:3000>, which redirects to the porta
 | Service | Port | Purpose |
 |---|---|---|
 | `app` | `3000` | Backend + all four SPAs + OIDC proxy |
+| `scheduler` | `127.0.0.1:8081` | Timefold scheduling service (used by the backend) |
 | `postgres` | `5432` | Database, data persisted in `./postgres-data` |
 | `doc-pouch` | `127.0.0.1:3030` | OIDC identity provider (optional admin access) |
+
+Both application services default to the published GHCR images
+(`ghcr.io/bfh-jtf/uniweaver`, `ghcr.io/bfh-jtf/uniweaver-scheduler`, pinned by the
+`UNIWEAVER_TAG` variable, default `sha-893058b` for a specific commit); `--build`
+overrides them with locally built images.
 
 Common commands:
 
@@ -210,9 +216,27 @@ All configuration is environment-based. Copy `.env.example` to `.env`; the backe
 | `OIDC_PROVIDER_NAME` | `docPouch` | Display name on the login button |
 | `DATABASE_URL` | — | Alternative to the individual `POSTGRES_*` variables for the API helper's base URL |
 | `USER_ENTRY_URL` | `http://localhost:5173` | Dev-time override, read by the `user_entry` SPA itself |
+| `SCHEDULER_URL` | `http://scheduler:8081` | Scheduling service used for schedule generation (compose sets it; for local dev: `http://localhost:8081`) |
+| `UNIWEAVER_TAG` | `sha-893058b` | Image tag used by the compose `app` and `scheduler` services |
 
 In docker compose, the `app` service uses `OIDC_INTERNAL_ISSUER_DOCKER` (default
 `http://doc-pouch:3030/oidc`); on the host, `.env` points at `http://localhost:3030/oidc`.
+
+### Releases and images
+
+The `main` branch is protected: all changes land via reviewed pull requests. When a
+merge contains releasable commits (`feat:`, `fix:`, `BREAKING CHANGE:`), the Release
+workflow (`.github/workflows/semantic-release.yml`) cuts a semantic version automatically:
+
+1. semantic-release creates the git tag (`vX.Y.Z`) and the GitHub Release via the API.
+2. The bumped `package.json` / `package-lock.json` are pushed to the `chore/version-bump`
+   branch and a PR `chore(release): vX.Y.Z` is opened against `main` and auto-merged —
+   so the repository version follows the release without anyone pushing to `main` directly.
+3. The release event triggers the Docker workflow (`.github/workflows/docker-publish.yml`),
+   which publishes `ghcr.io/bfh-jtf/uniweaver` and `ghcr.io/bfh-jtf/uniweaver-scheduler`
+   with semver and SHA tags.
+
+Merges without releasable commits (docs/chore/refactor) produce no release and no image.
 
 ### Variables declared in `.env.example` but not read
 
