@@ -31,6 +31,16 @@ const router = createRouter({
       component: () => import('@/views/AvailabilityView.vue'),
     },
     {
+      path: '/schedules',
+      name: 'schedules',
+      component: () => import('@/views/SchedulesView.vue'),
+    },
+    {
+      path: '/schedules/:runId',
+      name: 'schedule-detail',
+      component: () => import('@/views/SchedulesView.vue'),
+    },
+    {
       path: '/:pathMatch(.*)*',
       redirect: { name: 'home' },
     },

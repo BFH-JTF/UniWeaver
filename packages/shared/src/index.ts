@@ -309,7 +309,8 @@ export interface ScheduleRun {
   entryCount: number
 }
 
-/** One placed calendar slot of a schedule run (recurring: weekId null). */
+/** One placed calendar slot of a schedule run (recurring: weekId null).
+ * Includes denormalized display names resolved by the backend. */
 export interface ScheduleEntryRow {
   id: string
   runId: string
@@ -321,6 +322,11 @@ export interface ScheduleEntryRow {
   roomIds: string[]
   classIds: string[]
   lecturerIds: string[]
+  /** Display names resolved server-side (same order as the id arrays). */
+  moduleNames: string[]
+  roomNames: string[]
+  classNames: string[]
+  lecturerNames: string[]
 }
 
 /** Semester as offered in the schedule-generation wizard. */

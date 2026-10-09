@@ -163,11 +163,23 @@ schedulesRouter.get('/schedules/:runId/entries', requireScheduler, async (req: A
     return
   }
   const result = await pool.query(
-    `SELECT id, run_id, week_id, to_char(start_time, 'HH24:MI') AS start_time,
-            to_char(end_time, 'HH24:MI') AS end_time,
-            weekday, module_ids, room_ids, class_ids, lecturer_ids
-     FROM schedule_entries WHERE run_id = $1
-     ORDER BY weekday, start_time`,
+    `SELECT e.id, e.run_id, e.week_id, to_char(e.start_time, 'HH24:MI') AS start_time,
+            to_char(e.end_time, 'HH24:MI') AS end_time,
+            e.weekday, e.module_ids, e.room_ids, e.class_ids, e.lecturer_ids,
+            (SELECT jsonb_agg(m.code || ' - ' || m.name ORDER BY m.code)
+             FROM jsonb_array_elements_text(e.module_ids) AS mid
+             JOIN modules m ON m.id = mid) AS module_names,
+            (SELECT jsonb_agg(r.name ORDER BY r.name)
+             FROM jsonb_array_elements_text(e.room_ids) AS rid
+             JOIN rooms r ON r.id = rid) AS room_names,
+            (SELECT jsonb_agg(c.name ORDER BY c.name)
+             FROM jsonb_array_elements_text(e.class_ids) AS cid
+             JOIN class_entities c ON c.id = cid) AS class_names,
+            (SELECT jsonb_agg(l.name ORDER BY l.name)
+             FROM jsonb_array_elements_text(e.lecturer_ids) AS lid
+             JOIN lecturers l ON l.id = lid) AS lecturer_names
+     FROM schedule_entries e WHERE e.run_id = $1
+     ORDER BY e.weekday, e.start_time`,
     [runId],
   )
   res.json(result.rows.map((r: any) => ({
@@ -181,6 +193,10 @@ schedulesRouter.get('/schedules/:runId/entries', requireScheduler, async (req: A
     roomIds: r.room_ids ?? [],
     classIds: r.class_ids ?? [],
     lecturerIds: r.lecturer_ids ?? [],
+    moduleNames: r.module_names ?? [],
+    roomNames: r.room_names ?? [],
+    classNames: r.class_names ?? [],
+    lecturerNames: r.lecturer_names ?? [],
   })))
 })
 
