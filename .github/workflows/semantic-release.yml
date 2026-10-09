@@ -62,7 +62,18 @@ jobs:
 
       - name: Run semantic-release
         id: semantic
-        run: npx semantic-release
+        # semantic-release prints its result but does not set action outputs
+        # by itself; capture the published version from its log output.
+        run: |
+          npx semantic-release | tee /tmp/semantic-release.log
+          if grep -q "Published release" /tmp/semantic-release.log; then
+            VERSION="$(grep -oE "Published release [0-9]+\.[0-9]+\.[0-9]+" /tmp/semantic-release.log | grep -oE "[0-9]+\.[0-9]+\.[0-9]+" | head -1)"
+            echo "new_release_version=$VERSION" >> "$GITHUB_OUTPUT"
+            echo "release published: $VERSION"
+          else
+            echo "no release published"
+            echo "new_release_version=" >> "$GITHUB_OUTPUT"
+          fi
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
 
