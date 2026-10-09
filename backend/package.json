@@ -16,7 +16,7 @@
     "dotenv": "^18.0.6",
     "express": "^5.2.1",
     "http-proxy-middleware": "^4.2.0",
-    "iron-session": "^8.0.4",
+    "iron-session": "^9.0.1",
     "jose": "^6.0.11",
     "pg": "^8.23.1"
   },
