@@ -18,7 +18,7 @@
       </v-card-item>
 
       <v-card-text class="pa-4 pa-sm-6">
-        <v-form ref="formRef" @submit.prevent="submit">
+        <v-form @submit.prevent="submit">
           <v-select
             v-model="form.weekId"
             :items="weekItems"
@@ -163,7 +163,6 @@ const emit = defineEmits<{
 const isEdit = computed(() => !!props.entryData?._id || !!props.entryData?.id)
 
 const form = ref<ScheduleEntry>(JSON.parse(JSON.stringify(emptyScheduleEntry())))
-const formRef = ref()
 
 const weekdayItems = WEEKDAY_OPTIONS.map(wd => ({ title: WEEKDAY_LABELS[wd], value: wd }))
 

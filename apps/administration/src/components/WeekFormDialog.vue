@@ -18,7 +18,7 @@
       </v-card-item>
 
       <v-card-text class="pa-4 pa-sm-6">
-        <v-form ref="formRef" @submit.prevent="submit">
+        <v-form @submit.prevent="submit">
           <v-select
             v-model="form.semesterId"
             :items="semesterItems"
@@ -117,7 +117,6 @@ const emit = defineEmits<{
 const isEdit = computed(() => !!props.weekData?._id || !!props.weekData?.id)
 
 const form = ref<Week>(JSON.parse(JSON.stringify(emptyWeek())))
-const formRef = ref()
 
 const semesterItems = computed(() =>
   (props.semesters || []).map(s => ({
