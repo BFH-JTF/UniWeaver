@@ -18,7 +18,7 @@
       </v-card-item>
 
       <v-card-text class="pa-4 pa-sm-6">
-        <v-form ref="formRef" @submit.prevent="submit">
+        <v-form @submit.prevent="submit">
           <v-text-field
             v-model="form.name"
             label="Name *"
@@ -136,7 +136,6 @@ const emit = defineEmits<{
 const isEdit = computed(() => !!props.semesterData?._id || !!props.semesterData?.id)
 
 const form = ref<Semester>(JSON.parse(JSON.stringify(emptySemester)))
-const formRef = ref()
 const timeslotError = ref<string | null>(null)
 
 watch(() => props.modelValue, (isOpen) => {
