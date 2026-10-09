@@ -262,6 +262,94 @@ export interface SchedulingLecturer {
   unavailabilityCount: number
 }
 
+// ------------------------------------------------------------------ Schedule generation
+
+/** Status of a generated schedule run. */
+export type ScheduleRunStatus = 'pending' | 'generating' | 'draft' | 'published' | 'failed'
+
+/** One solve of the Timefold scheduling service for one semester. */
+export interface ScheduleRun {
+  id: string
+  semesterId: string
+  semesterName: string
+  name: string
+  status: ScheduleRunStatus
+  score: {
+    hardScore?: number
+    softScore?: number
+    feasible?: boolean
+  }
+  stats: {
+    sessionsTotal?: number
+    sessionsPlaced?: number
+    sessionsUnplaced?: number
+    classes?: number
+    modules?: number
+    rooms?: number
+    lecturers?: number
+    /** Human-readable assembly/solver notes surfaced in the UI. */
+    warnings?: string[]
+    /** Per-session placement failures (modules the solver could not place). */
+    unplaced?: Array<{
+      sessionId: string
+      moduleId: string
+      moduleName?: string
+      classId: string
+      className?: string
+    }>
+    error?: string
+  }
+  meta: {
+    spentLimitSeconds?: number
+  }
+  createdBy: string | null
+  createdAt: string
+  updatedAt: string
+  completedAt: string | null
+  entryCount: number
+}
+
+/** One placed calendar slot of a schedule run (recurring: weekId null). */
+export interface ScheduleEntryRow {
+  id: string
+  runId: string
+  weekId: string | null
+  weekday: Weekday
+  startTime: string
+  endTime: string
+  moduleIds: string[]
+  roomIds: string[]
+  classIds: string[]
+  lecturerIds: string[]
+}
+
+/** Semester as offered in the schedule-generation wizard. */
+export interface SchedulingSemester {
+  id: string
+  name: string
+  code: string
+  startDate: string | null
+  endDate: string | null
+  slotDurationMinutes: number | null
+  slotStartTimes: string[]
+  weekCount: number
+  classCount: number
+}
+
+/** Live scope summary shown on wizard step 2 before generating. */
+export interface ScheduleScopeSummary {
+  semesterId: string
+  sessions: number
+  classes: number
+  modules: number
+  rooms: number
+  lecturers: number
+  /** Assembly warnings that will apply (e.g. modules without lecturer mapping). */
+  warnings: string[]
+  /** True when the semester lacks a usable timeslot grid. */
+  gridMissing: boolean
+}
+
 export interface AuthConfig {
   issuer: string
   clientId: string

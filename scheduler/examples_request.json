@@ -1,0 +1,28 @@
+{
+  "semesterId": "sem-2026-fall",
+  "rooms": [
+    { "id": "room-1", "name": "A101", "roomType": "lecture", "capacity": 40 }
+  ],
+  "lecturers": [
+    { "id": "lect-1", "name": "Dr. Muller" }
+  ],
+  "timeSlots": [
+    { "id": "ts-1", "weekId": "week-1", "dayOfWeek": "MONDAY", "startTime": "09:00:00", "endTime": "10:30:00" }
+  ],
+  "sessions": [
+    {
+      "id": "sess-1",
+      "moduleId": "mod-1",
+      "moduleName": "Algorithms",
+      "classId": "class-1",
+      "className": "CS-2026-A",
+      "studentCount": 30,
+      "durationMinutes": 90,
+      "sequenceIndex": 1,
+      "lecturerCandidateIds": ["lect-1"]
+    }
+  ],
+  "schedulingRules": [
+    { "id": "rule-1", "ruleType": "minGapBetweenUnits", "weight": 10, "enabled": true, "params": {}, "appliesTo": ["sess-1"] }
+  ]
+}

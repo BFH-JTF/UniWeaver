@@ -48,9 +48,27 @@ services:
       ADMINISTRATION_URL: ${ADMINISTRATION_URL:-http://localhost:3000/administration}
       SCHEDULING_URL: ${SCHEDULING_URL:-http://localhost:3000/scheduling}
       COMPETENCIES_URL: ${COMPETENCIES_URL:-http://localhost:3000/competencies}
+      # Solver microservice (schedule generation). As an essential part of
+      # UniWeaver it is a regular compose service, not profile-gated.
+      SCHEDULER_URL: ${SCHEDULER_URL:-http://scheduler:8081}
     depends_on:
       postgres:
         condition: service_healthy
+      scheduler:
+        condition: service_started
+    restart: unless-stopped
+
+  # UniWeaver scheduling service: Timefold-based timetabling solver, consumed
+  # by the backend over REST (POST /api/schedules, poll GET /:jobId).
+  scheduler:
+    build:
+      context: ./scheduler
+      dockerfile: Dockerfile
+    container_name: uniweaver-scheduler
+    ports:
+      # Published for optional direct access; the backend talks to it over
+      # the internal network (SCHEDULER_URL).
+      - "127.0.0.1:8081:8081"
     restart: unless-stopped
 
   # OIDC identity provider service (docPouch instance as an OIDC provider).
