@@ -3,6 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/BFH-JTF/UniWeaver"
+  },
   "workspaces": [
     "packages/shared",
     "backend",
@@ -26,11 +30,14 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@semantic-release/changelog": "^7.0.0",
+    "@semantic-release/git": "^11.0.1",
     "@types/node": "^26.5.1",
     "concurrently": "^10.0.5",
     "eslint": "^10.10.0",
     "eslint-plugin-vue": "^10.11.0",
     "eslint-plugin-vuejs-accessibility": "^2.6.0",
+    "semantic-release": "^25.0.9",
     "tsx": "^4.23.13",
     "typescript": "~5.7",
     "typescript-eslint": "^8.70.0",

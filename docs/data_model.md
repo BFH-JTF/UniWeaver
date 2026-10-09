@@ -10,14 +10,16 @@ All objects within this data structure need versioning. Even static data objects
 erDiagram
 
     %% ── Curriculum structure ─────────────────────────────────
+    CURRICULUM ||--o{ CURRICULUM_VERSION : "has versions"
+    CURRICULUM |o--o| CURRICULUM_VERSION : "active version"
+    PROGRAM }o--o| CURRICULUM : "assigned to"
+
     DEPARTMENT }|--o{ PROGRAM : "offers"
     DEPARTMENT ||--o{ LECTURER : "employs"
     PROGRAM }|--o{ DEGREE : "offers"
     %% kept (7.1, intentional data): degreeIds = degrees the module is part of
     DEGREE }|--|{ MODULE : "contains"
 
-    PROGRAM ||--o{ CURRICULUM_VERSION : "has versions"
-    PROGRAM ||--o| CURRICULUM_VERSION : "currently active"
     CURRICULUM_VERSION ||--o{ MODULE : "defines"
     CURRICULUM_VERSION ||--o{ CLASS_ENTITY : "followed by"
 
@@ -25,8 +27,9 @@ erDiagram
     SEMESTER ||--o{ CLASS_ENTITY : "hosts"
 
     MODULE }o--o{ CLASS_ENTITY : "taken by"
-    %% module-level link = qualified/responsible for the term;
-    %% SCHEDULE_ENTRY.lecturerIds = actually teaching that session (7.2)
+    %% module-level link via the MODULE_LECTURERS join table (resolved per
+    %% term/responsibility); SCHEDULE_ENTRY.lecturerIds = actually teaching
+    %% that session (7.2, planned)
     MODULE }o--o{ LECTURER : "taught by"
     MODULE ||--o{ LESSON : "contains"
 
@@ -46,16 +49,17 @@ erDiagram
     %% ── Resources & calendar ─────────────────────────────────
     LOCATION ||--o{ ROOM : "contains"
 
+    %% rooms with week_id NULL are available every week of the semester
     ROOM ||--o{ ROOM_AVAILABILITY : "has"
-    LECTURER ||--o{ LECTURER_AVAILABILITY : "has"
+    %% inverted semantics: lecturers declare when they are NOT available
+    LECTURER ||--o{ LECTURER_UNAVAILABILITY : "has"
     USER |o--o| LECTURER : "is"
 
     SEMESTER ||--o{ SCHEDULING_RULE : "has"
     SEMESTER ||--o{ WEEK : "contains"
 
-    WEEK ||--o{ ROOM_AVAILABILITY : "defines"
-    WEEK ||--o{ LECTURER_AVAILABILITY : "defines"
-    WEEK ||--o{ SCHEDULE_ENTRY : "contains"
+    WEEK |o--o{ ROOM_AVAILABILITY : "scopes"
+    WEEK |o--o{ SCHEDULE_ENTRY : "contains"
 
     %% ── Scheduling: M:N via FK arrays on SCHEDULE_ENTRY ──────
     ROOM }o--o{ SCHEDULE_ENTRY : "hosts"
@@ -63,12 +67,16 @@ erDiagram
     CLASS_ENTITY }o--o{ SCHEDULE_ENTRY : "participates in"
     LECTURER }o--o{ SCHEDULE_ENTRY : "teaches"
 
+    %% explicit join table stored in the database
+    LECTURER ||--o{ MODULE_LECTURERS : "mapped to"
+    MODULE ||--o{ MODULE_LECTURERS : "mapped from"
+
     %% ── Implicit, derived links (no stored FK) ───────────────
-    %% An availability slot or rule informs an entry when the
-    %% room/lecturer matches and the slot covers the entry's
+    %% An availability window or rule informs an entry when the
+    %% room/lecturer matches and the window covers the entry's
     %% weekday + time window.
     ROOM_AVAILABILITY }o--o{ SCHEDULE_ENTRY : "informs"
-    LECTURER_AVAILABILITY }o--o{ SCHEDULE_ENTRY : "informs"
+    LECTURER_UNAVAILABILITY }o--o{ SCHEDULE_ENTRY : "constrains"
     SCHEDULING_RULE }o--o{ SCHEDULE_ENTRY : "informs"
 
     %% supplierId = external identity provider/tenant; localName = login handle
@@ -79,6 +87,10 @@ erDiagram
         string email
         string supplierId
         array roles
+        boolean isAdmin
+        boolean isUserAdmin
+        boolean isScheduler
+        boolean isNotLecturer
         boolean isActive
         string timezone
         datetime createdAt
@@ -106,7 +118,7 @@ erDiagram
         string name
         string description
         array departmentIds FK
-        string activeCurriculumVersionId FK
+        string curriculumId FK
         string contact
         string url
     }
@@ -120,12 +132,22 @@ erDiagram
         string url
     }
 
+    CURRICULUM {
+        string id PK
+        string name
+        string description
+        string activeVersionId FK
+        datetime createdAt
+    }
+
     CURRICULUM_VERSION {
         string id PK
         string name
         string description
         number versionNumber
-        string programId FK
+        string curriculumId FK
+        string semesterId FK
+        string createdBy FK
         datetime createdAt
     }
 
@@ -247,15 +269,26 @@ erDiagram
         json maintenance
     }
 
-    LECTURER_AVAILABILITY {
+    %% inverted semantics versus availability, see migration 014
+    LECTURER_UNAVAILABILITY {
         string id PK
         string lecturerId FK
-        string weekId FK
+        string kind
         string weekday
+        date date
         time startTime
         time endTime
+        string note
     }
 
+    %% explicit join table; one row per lecturer-module pair
+    MODULE_LECTURERS {
+        string lecturerId PK, FK
+        string moduleId PK, FK
+        string createdBy
+    }
+
+    %% week_id nullable: NULL = applies to every week of the semester
     ROOM_AVAILABILITY {
         string id PK
         string roomId FK
@@ -303,3 +336,19 @@ erDiagram
 ```
 
 # Solver API
+
+The semester schedule generation is **not implemented yet**. What exists is the input
+contract: `packages/shared/src/restrictionSolver.ts` assembles a schedule request for the
+future solver by merging the effective restrictions of all involved entities
+(`buildSchedulingRulesForPairing()`, `mergeParams()`) into solver-facing rule DTOs
+(`SchedulingRuleDTO`).
+
+For each module/class pairing, the entity restrictions (see
+[restrictions.md](restrictions.md)) are merged and mapped onto the solver's rule types:
+
+- Within one entity's parallel parents, same-type restrictions are combined permissively
+  (OR) — the most permissive parameter set wins.
+- Across the module tree and the class tree, restriction sets are combined strictly (AND).
+- Weight stays 1–5; level-5 rules are hard constraints, levels 1–4 are preferences.
+
+The solver itself (algorithm and API endpoint) is future work.

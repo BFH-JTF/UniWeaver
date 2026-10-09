@@ -90,7 +90,7 @@ This module must be scheduled after (one of) the given modules.
 Parameters: `moduleIds` — list of module IDs.
 
 ## Inheritance semantics
-Restrictions are inherited along the curriculum hierarchy (department â†’ program â†’ degree â†’ module, class â†’ degree â†’ program â†’ department):
+Restrictions are inherited along the curriculum hierarchy (department → program → degree → module, class → degree → program → department):
 - Within one entity's parallel parents, alternatives are combined permissively (OR), e.g. a module belonging to two degrees satisfies either degree's restriction set of the same type.
 - Across the module tree and the class tree, restrictions are combined strictly (AND).
 - Inherited restrictions are shown read-only in the GUI; they can only be changed on the entity that defines them.
