@@ -111,10 +111,11 @@ export async function createOrUpdateUser(pool: Pool, data: CreateUserData): Prom
        email = CASE WHEN local_users.email IS NOT NULL AND local_users.email <> '' THEN local_users.email ELSE $5 END,
        -- Never clobber delegated role flags on login; keep the roles mirror in sync.
        roles = CASE WHEN local_users.is_admin THEN '["admin"]'::jsonb
-                    ELSE to_jsonb(ARRAY['user'] ||
-                         (CASE WHEN local_users.is_user_admin THEN 'user_admin' ELSE NULL END) ||
-                         (CASE WHEN local_users.is_scheduler THEN 'scheduler' ELSE NULL END))
-                        FILTER (WHERE VALUE IS NOT NULL) END,
+                    ELSE to_jsonb(array_remove(
+                           ARRAY['user'] ||
+                           (CASE WHEN local_users.is_user_admin THEN 'user_admin' ELSE NULL END) ||
+                           (CASE WHEN local_users.is_scheduler THEN 'scheduler' ELSE NULL END),
+                           NULL)) END,
        updated_at = $8
      RETURNING *`,
     [id, data.oidc_issuer, data.oidc_subject, name, email, JSON.stringify(roles), isAdmin, now],
