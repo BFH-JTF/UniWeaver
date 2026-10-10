@@ -53,10 +53,10 @@ export function useSemesters() {
     }
   }
 
-  async function removeSemester(id: string) {
+  async function removeSemester(id: string, confirmRef = false) {
     error.value = null
     try {
-      await removeDbEntity(EntityTables.SEMESTER, id)
+      await removeDbEntity(EntityTables.SEMESTER, id, confirmRef)
       semesters.value = semesters.value.filter(s => (s._id || s.id) !== id)
     } catch (e: any) {
       error.value = e.message

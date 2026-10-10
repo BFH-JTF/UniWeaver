@@ -3,6 +3,8 @@ import { getPool } from '../db'
 import type { AuthenticatedRequest } from '../auth/middleware'
 import { requireScheduler } from '../auth/middleware'
 import { getSession } from '../auth/session'
+import { findEntityReferences, deleteEntityWithCleanup } from '../db/referenceChecks'
+import type { ReferenceFinding } from '../db/referenceChecks'
 
 export const roomsRouter = Router()
 
@@ -114,15 +116,43 @@ roomsRouter.put('/locations/:id', requireScheduler, async (req: AuthenticatedReq
   }
 })
 
+roomsRouter.get('/locations/:id/references', requireScheduler, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const references = await findEntityReferences(getPool(), 'locations', String(req.params.id))
+    res.json({ table: 'locations', id: req.params.id, references })
+  } catch (error: any) {
+    res.status(500).json({ error: error.message || 'Failed to inspect location references' })
+  }
+})
+
+roomsRouter.get('/rooms/:id/references', requireScheduler, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const references = await findEntityReferences(getPool(), 'rooms', String(req.params.id))
+    res.json({ table: 'rooms', id: req.params.id, references })
+  } catch (error: any) {
+    res.status(500).json({ error: error.message || 'Failed to inspect room references' })
+  }
+})
+
 roomsRouter.delete('/locations/:id', requireScheduler, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    // Rooms referencing this location keep it cleared (ON DELETE SET NULL).
-    const result = await getPool().query('DELETE FROM locations WHERE id = $1', [req.params.id])
-    if (result.rowCount === 0) {
+    const pool = getPool()
+    const references = await findEntityReferences(pool, 'locations', String(req.params.id))
+    const blocking = references.filter((r: ReferenceFinding) => r.severity !== 'cleanup')
+    const confirmed = req.query.confirm === 'true' || req.query.confirm === '1'
+    if (blocking.length > 0 && !confirmed) {
+      res.status(409).json({
+        error: 'Location is referenced elsewhere; pass ?confirm=true to delete it anyway',
+        references,
+      })
+      return
+    }
+    const removed = await deleteEntityWithCleanup(pool, 'locations', String(req.params.id))
+    if (!removed) {
       res.status(404).json({ error: 'Location not found' })
       return
     }
-    res.json({ ok: true })
+    res.json({ ok: true, references })
   } catch (error: any) {
     res.status(500).json({ error: error.message || 'Failed to delete location' })
   }
@@ -239,12 +269,23 @@ roomsRouter.put('/rooms/:id', requireScheduler, async (req: AuthenticatedRequest
 
 roomsRouter.delete('/rooms/:id', requireScheduler, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const result = await getPool().query('DELETE FROM rooms WHERE id = $1', [req.params.id])
-    if (result.rowCount === 0) {
+    const pool = getPool()
+    const references = await findEntityReferences(pool, 'rooms', String(req.params.id))
+    const blocking = references.filter((r: ReferenceFinding) => r.severity !== 'cleanup')
+    const confirmed = req.query.confirm === 'true' || req.query.confirm === '1'
+    if (blocking.length > 0 && !confirmed) {
+      res.status(409).json({
+        error: 'Room is referenced elsewhere; pass ?confirm=true to delete it anyway',
+        references,
+      })
+      return
+    }
+    const removed = await deleteEntityWithCleanup(pool, 'rooms', String(req.params.id))
+    if (!removed) {
       res.status(404).json({ error: 'Room not found' })
       return
     }
-    res.json({ ok: true })
+    res.json({ ok: true, references })
   } catch (error: any) {
     res.status(500).json({ error: error.message || 'Failed to delete room' })
   }

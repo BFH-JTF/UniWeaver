@@ -719,16 +719,57 @@
       @imported="handleCsvImported"
     />
 
-    <v-dialog v-model="deleteDialogOpen" max-width="420">
+    <v-dialog v-model="deleteDialogOpen" max-width="480">
       <v-card>
         <v-card-title>Confirm deletion</v-card-title>
         <v-card-text>
           Are you sure you want to delete <strong>{{ deleteTargetName }}</strong>?
+          <v-progress-linear v-if="deleteRefsLoading" indeterminate class="mt-3" />
+          <template v-else>
+            <div v-if="deleteReferences.length === 0" class="text-caption text-medium-emphasis mt-2">
+              No other elements reference this one.
+            </div>
+            <div v-else class="mt-3">
+              <v-alert
+                v-for="finding in deleteReferences"
+                :key="finding.key"
+                :type="finding.severity === 'cascade' ? 'error' : finding.severity === 'breaks' ? 'warning' : 'info'"
+                variant="tonal"
+                density="compact"
+                class="mb-2"
+              >
+                <div class="text-body-2 font-weight-medium">
+                  {{ severityTitle(finding) }}
+                </div>
+                <div v-if="finding.sampleNames.length" class="text-caption">
+                  {{ finding.sampleNames.join(', ') }}{{ finding.count > finding.sampleNames.length ? ' …' : '' }}
+                </div>
+              </v-alert>
+              <v-checkbox
+                v-if="deleteNeedsConfirm"
+                v-model="deleteConfirmChecked"
+                density="compact"
+                hide-details
+                class="mt-1"
+              >
+                <template #label>
+                  <span class="text-body-2">I understand what this deletes and want to proceed</span>
+                </template>
+              </v-checkbox>
+            </div>
+          </template>
         </v-card-text>
         <v-card-actions>
           <v-spacer />
           <v-btn variant="text" @click="deleteDialogOpen = false">Cancel</v-btn>
-          <v-btn color="error" variant="flat" @click="handleDelete">Delete</v-btn>
+          <v-btn
+            color="error"
+            variant="flat"
+            :disabled="deleteRefsLoading || (deleteNeedsConfirm && !deleteConfirmChecked)"
+            @click="handleDelete"
+          >
+            Delete
+          </v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -766,6 +807,9 @@ import type { Curriculum, Department, Program, Degree, Module } from '@/types/cu
 import type { ClassEntity } from '@/types/curriculumClass'
 import type { Semester, CurriculumVersion } from '@/stores/curriculum'
 import type { ImportType } from '@/types/csvImport'
+import type { EntityReferenceFinding } from '@uniweaver/shared'
+import { ApiRequestError } from '@uniweaver/shared'
+import { usePostgres } from '@/composables/usePostgres'
 
 const auth = useAuthStore()
 
@@ -926,8 +970,57 @@ async function handleAccessChanged() {
 
 const deleteDialogOpen = ref(false)
 const deleteTargetName = ref('')
+const deleteReferences = ref<EntityReferenceFinding[]>([])
+const deleteRefsLoading = ref(false)
+const deleteConfirmChecked = ref(false)
 let deleteKind: 'curriculum' | 'department' | 'program' | 'degree' | 'module' | 'class' | 'semester' | 'version' = 'department'
 let deleteId = ''
+
+const { fetchReferences } = usePostgres()
+
+const DELETE_COLLECTIONS: Record<string, string> = {
+  curriculum: 'curriculums',
+  department: 'departments',
+  program: 'programs',
+  degree: 'degrees',
+  module: 'modules',
+  class: 'classes',
+  semester: 'semesters',
+  version: 'curriculum_versions',
+}
+
+const deleteBlockingRefs = computed(() => deleteReferences.value.filter(r => r.severity !== 'cleanup'))
+const deleteNeedsConfirm = computed(() => deleteBlockingRefs.value.length > 0)
+
+function severityTitle(ref: EntityReferenceFinding): string {
+  if (ref.severity === 'cascade') return `Will also be deleted: ${ref.label}`
+  if (ref.severity === 'breaks') return `Referenced by: ${ref.label} — references will be cleaned`
+  return `Will be cleaned up: ${ref.label}`
+}
+
+async function openDeleteDialog(
+  kind: 'curriculum' | 'department' | 'program' | 'degree' | 'module' | 'class' | 'semester' | 'version',
+  id: string,
+  name: string,
+) {
+  deleteKind = kind
+  deleteId = id
+  deleteTargetName.value = name
+  deleteReferences.value = []
+  deleteConfirmChecked.value = false
+  deleteDialogOpen.value = true
+  const collection = DELETE_COLLECTIONS[kind]
+  if (!collection || !id) return
+  deleteRefsLoading.value = true
+  try {
+    const refs = await fetchReferences(collection as Parameters<typeof fetchReferences>[0], id)
+    deleteReferences.value = refs.references
+  } catch {
+    deleteReferences.value = []
+  } finally {
+    deleteRefsLoading.value = false
+  }
+}
 
 const snackbar = ref(false)
 const snackbarText = ref('')
@@ -1257,10 +1350,7 @@ async function handleCurriculumSave(curr: Curriculum) {
 }
 
 function confirmDeleteCurriculum(curr: Curriculum) {
-  deleteKind = 'curriculum'
-  deleteId = curr._id || curr.id || ''
-  deleteTargetName.value = curr.name
-  deleteDialogOpen.value = true
+  openDeleteDialog('curriculum', curr._id || curr.id || '', curr.name)
 }
 
 async function addVersionToCurriculum(curr: Curriculum) {
@@ -1325,10 +1415,7 @@ async function handleDepartmentSave(dept: Department) {
 }
 
 function confirmDeleteDepartment(dept: Department) {
-  deleteKind = 'department'
-  deleteId = dept.id ?? ''
-  deleteTargetName.value = dept.name
-  deleteDialogOpen.value = true
+  openDeleteDialog('department', dept.id ?? '', dept.name)
 }
 
 function openAddProgram() {
@@ -1362,10 +1449,7 @@ async function handleProgramSave(prog: Program) {
 }
 
 function confirmDeleteProgram(prog: Program) {
-  deleteKind = 'program'
-  deleteId = prog.id ?? ''
-  deleteTargetName.value = prog.name
-  deleteDialogOpen.value = true
+  openDeleteDialog('program', prog.id ?? '', prog.name)
 }
 
 function openAddDegree() {
@@ -1397,10 +1481,7 @@ async function handleDegreeSave(deg: Degree) {
 }
 
 function confirmDeleteDegree(deg: Degree) {
-  deleteKind = 'degree'
-  deleteId = deg.id ?? ''
-  deleteTargetName.value = deg.name
-  deleteDialogOpen.value = true
+  openDeleteDialog('degree', deg.id ?? '', deg.name)
 }
 
 function openAddModule() {
@@ -1450,10 +1531,7 @@ async function handleModuleSave(mod: Module) {
 }
 
 function confirmDeleteModule(mod: Module) {
-  deleteKind = 'module'
-  deleteId = mod.id ?? ''
-  deleteTargetName.value = mod.name
-  deleteDialogOpen.value = true
+  openDeleteDialog('module', mod.id ?? '', mod.name)
 }
 
 function openAddClass() {
@@ -1488,10 +1566,7 @@ async function handleClassSave(cls: ClassEntity) {
 }
 
 function confirmDeleteClass(cls: ClassEntity) {
-  deleteKind = 'class'
-  deleteId = cls.id ?? ''
-  deleteTargetName.value = cls.name
-  deleteDialogOpen.value = true
+  openDeleteDialog('class', cls.id ?? '', cls.name)
 }
 
 function openAddSemester() {
@@ -1519,10 +1594,7 @@ async function handleSemesterSave(sem: Semester) {
 }
 
 function confirmDeleteSemester(sem: Semester) {
-  deleteKind = 'semester'
-  deleteId = sem._id || sem.id || ''
-  deleteTargetName.value = sem.name ?? sem.code ?? 'Unnamed Semester'
-  deleteDialogOpen.value = true
+  openDeleteDialog('semester', sem._id || sem.id || '', sem.name ?? sem.code ?? 'Unnamed Semester')
 }
 
 function openEditVersion(version: CurriculumVersion) {
@@ -1541,43 +1613,53 @@ async function handleVersionSave(version: CurriculumVersion) {
 }
 
 function confirmDeleteVersion(version: CurriculumVersion) {
-  deleteKind = 'version'
-  deleteId = version._id || version.id || ''
-  deleteTargetName.value = version.name || `Version ${version.versionNumber}`
-  deleteDialogOpen.value = true
+  openDeleteDialog('version', version._id || version.id || '', version.name || `Version ${version.versionNumber}`)
 }
 
 async function handleDelete() {
+  const confirmRef = deleteBlockingRefs.value.length > 0
   try {
     if (deleteKind === 'curriculum') {
-      await removeCurriculum(deleteId)
+      await removeCurriculum(deleteId, confirmRef)
       showSnackbar('Curriculum deleted')
     } else if (deleteKind === 'department') {
-      await removeDepartment(deleteId)
+      await removeDepartment(deleteId, confirmRef)
       showSnackbar('Department deleted')
     } else if (deleteKind === 'program') {
-      await removeProgram(deleteId)
+      await removeProgram(deleteId, confirmRef)
       showSnackbar('Program deleted')
     } else if (deleteKind === 'degree') {
-      await removeDegree(deleteId)
+      await removeDegree(deleteId, confirmRef)
       showSnackbar('Degree deleted')
     } else if (deleteKind === 'class') {
-      await removeClass(deleteId)
+      await removeClass(deleteId, confirmRef)
       showSnackbar('Class deleted')
     } else if (deleteKind === 'semester') {
-      await removeSemester(deleteId)
+      await removeSemester(deleteId, confirmRef)
       showSnackbar('Semester deleted')
     } else if (deleteKind === 'version') {
-      await removeCurriculumVersion(deleteId)
+      await removeCurriculumVersion(deleteId, confirmRef)
       showSnackbar('Curriculum version deleted')
     } else {
-      await removeModule(deleteId)
+      await removeModule(deleteId, confirmRef)
       showSnackbar('Module deleted')
     }
-  } catch {
-    showSnackbar('Deletion failed', 'error')
+    deleteDialogOpen.value = false
+  } catch (err) {
+    if (err instanceof ApiRequestError && err.status === 409 && isReferencesBody(err.body)) {
+      // A reference appeared between opening the dialog and deleting; show it.
+      deleteReferences.value = err.body.references
+      deleteConfirmChecked.value = false
+      showSnackbar('Deletion blocked: new references were found. Please review and confirm again.', 'error')
+    } else {
+      showSnackbar('Deletion failed', 'error')
+      deleteDialogOpen.value = false
+    }
   }
-  deleteDialogOpen.value = false
+}
+
+function isReferencesBody(body: unknown): body is { references: EntityReferenceFinding[] } {
+  return !!body && typeof body === 'object' && Array.isArray((body as { references?: unknown }).references)
 }
 
 function openCsvImport(type: ImportType) {

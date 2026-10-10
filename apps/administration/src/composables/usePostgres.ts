@@ -1,4 +1,5 @@
 import { ApiRequestError, getApiBaseUrl } from '@uniweaver/shared'
+import type { EntityReferences } from '@uniweaver/shared'
 
 export const EntityTables = {
   CURRICULUM: 'curriculums',
@@ -29,7 +30,7 @@ async function apiRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))
     const message = (body as { error?: unknown }).error
-    throw new ApiRequestError(res.status, typeof message === 'string' ? message : `Request failed: ${res.status}`)
+    throw new ApiRequestError(res.status, typeof message === 'string' ? message : `Request failed: ${res.status}`, body)
   }
   return res.json() as Promise<T>
 }
@@ -76,10 +77,14 @@ export function usePostgres() {
     })
   }
 
-  async function removeEntity(tableName: EntityTableName, id: string): Promise<void> {
-    await apiRequest(`${getApiBaseUrl()}/${tableName}/${id}`, {
+  async function removeEntity(tableName: EntityTableName, id: string, confirmRef = false): Promise<void> {
+    await apiRequest(`${getApiBaseUrl()}/${tableName}/${id}${confirmRef ? '?confirm=true' : ''}`, {
       method: 'DELETE',
     })
+  }
+
+  async function fetchReferences(tableName: EntityTableName, id: string): Promise<EntityReferences> {
+    return apiRequest<EntityReferences>(`${getApiBaseUrl()}/${tableName}/${id}/references`)
   }
 
   return {
@@ -87,5 +92,6 @@ export function usePostgres() {
     createEntity,
     updateEntity,
     removeEntity,
+    fetchReferences,
   }
 }

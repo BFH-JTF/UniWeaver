@@ -378,6 +378,21 @@ export interface ApiError {
   error: string
 }
 
+/** One group of dependents found for an entity before its deletion. */
+export interface EntityReferenceFinding {
+  key: string
+  label: string
+  severity: 'cascade' | 'breaks' | 'cleanup'
+  count: number
+  sampleNames: string[]
+}
+
+export interface EntityReferences {
+  table: string
+  id: string
+  references: EntityReferenceFinding[]
+}
+
 export const DEFAULT_TOOL_LINKS: ToolLink[] = [
   {
     key: 'administration',

@@ -51,10 +51,10 @@ export function useDepartments() {
     }
   }
 
-  async function removeDepartment(id: string) {
+  async function removeDepartment(id: string, confirmRef = false) {
     error.value = null
     try {
-      await removeDbEntity(EntityTables.DEPARTMENT, id)
+      await removeDbEntity(EntityTables.DEPARTMENT, id, confirmRef)
       departments.value = departments.value.filter(d => d.id !== id)
     } catch (e: any) {
       error.value = e.message

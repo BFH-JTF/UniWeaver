@@ -53,10 +53,10 @@ export function useCurriculumVersions() {
     }
   }
 
-  async function removeCurriculumVersion(id: string) {
+  async function removeCurriculumVersion(id: string, confirmRef = false) {
     error.value = null
     try {
-      await removeDbEntity(EntityTables.CURRICULUM_VERSION, id)
+      await removeDbEntity(EntityTables.CURRICULUM_VERSION, id, confirmRef)
       curriculumVersions.value = curriculumVersions.value.filter(v => (v._id || v.id) !== id)
     } catch (e: any) {
       error.value = e.message
@@ -166,10 +166,10 @@ export function useCurriculums() {
     }
   }
 
-  async function removeCurriculum(id: string) {
+  async function removeCurriculum(id: string, confirmRef = false) {
     error.value = null
     try {
-      await removeDbEntity(EntityTables.CURRICULUM, id)
+      await removeDbEntity(EntityTables.CURRICULUM, id, confirmRef)
       curriculums.value = curriculums.value.filter(c => (c._id || c.id) !== id)
     } catch (e: any) {
       error.value = e.message
