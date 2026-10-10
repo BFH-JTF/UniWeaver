@@ -7,11 +7,16 @@ import {
   fetchEntity,
   createEntity,
   updateEntity,
-  removeEntity,
   copyCurriculumVersion,
   EntityHttpError,
+  TABLE_SPECS,
 } from '../db/entityService'
 import { genEntityId } from '../db/entities'
+import {
+  findEntityReferences,
+  deleteEntityWithCleanup,
+} from '../db/referenceChecks'
+import type { ReferenceFinding } from '../db/referenceChecks'
 import {
   listEntityAccess,
   getEntityAccessMap,
@@ -249,22 +254,57 @@ entitiesRouter.put('/:table/:id', withEntityContext(async (req, res) => {
   res.json(decorate(updated, role))
 }))
 
+entitiesRouter.get('/:table/:id/references', withEntityContext(async (req, res) => {
+  const pool = getPool()
+  const user = getUser(req)
+  const { table, id } = pathParams(req)
+  if (!TABLE_SPECS[table]) {
+    res.status(404).json({ error: `Unknown collection: ${table}` })
+    return
+  }
+  const role = await getUserRole(pool, table, id, user.id, user.is_admin)
+  if (!role) {
+    res.status(403).json({ error: 'Read access required' })
+    return
+  }
+  const exists = await fetchEntity(pool, table, id)
+  if (!exists) {
+    res.status(404).json({ error: 'Entity not found' })
+    return
+  }
+  const references = await findEntityReferences(pool, table, id)
+  res.json({ table, id, references })
+}))
+
 entitiesRouter.delete('/:table/:id', withEntityContext(async (req, res) => {
   const pool = getPool()
   const user = getUser(req)
   const { table, id } = pathParams(req)
+  if (!TABLE_SPECS[table]) {
+    res.status(404).json({ error: `Unknown collection: ${table}` })
+    return
+  }
   const role = await getUserRole(pool, table, id, user.id, user.is_admin)
   if (role !== 'admin') {
     res.status(403).json({ error: 'Administrator access required' })
     return
   }
-  const removed = await removeEntity(pool, table, id)
+  const references = await findEntityReferences(pool, table, id)
+  const blocking = references.filter((r: ReferenceFinding) => r.severity !== 'cleanup')
+  const confirmed = req.query.confirm === 'true' || req.query.confirm === '1'
+  if (blocking.length > 0 && !confirmed) {
+    res.status(409).json({
+      error: 'Entity is referenced elsewhere; pass ?confirm=true to delete it anyway',
+      references,
+    })
+    return
+  }
+  const removed = await deleteEntityWithCleanup(pool, table, id)
   if (!removed) {
     res.status(404).json({ error: 'Entity not found' })
     return
   }
-  await pool.query(`DELETE FROM entity_access WHERE table_name = $1 AND entity_id = $2`, [table, id])
-  res.json({ ok: true })
+  res.json({ ok: true, references })
 }))
 
 // ── Access (ACL) management ──────────────────────────────────────────────

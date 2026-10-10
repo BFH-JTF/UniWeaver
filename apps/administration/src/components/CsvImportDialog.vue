@@ -524,7 +524,7 @@ const props = withDefaults(
     curriculumContext?: { curriculumId?: string; curriculumVersionId?: string } | null
   }>(),
   {
-    initialType: 'rooms',
+    initialType: 'departments',
     allowedTypes: undefined,
     curriculumContext: null,
   }
@@ -567,7 +567,7 @@ watch(
   () => props.modelValue,
   isOpen => {
     if (isOpen) {
-      selectedType.value = props.initialType || 'rooms'
+      selectedType.value = props.initialType || 'departments'
       errorMessage.value = null
       if (rawCsvText.value) {
         parseAndApply(rawCsvText.value)
@@ -579,7 +579,7 @@ watch(
 )
 
 const currentConfig = computed(() => {
-  return IMPORT_CONFIGS[selectedType.value] || IMPORT_CONFIGS.rooms
+  return IMPORT_CONFIGS[selectedType.value] || IMPORT_CONFIGS.departments
 })
 
 const availableTypeOptions = computed(() => {

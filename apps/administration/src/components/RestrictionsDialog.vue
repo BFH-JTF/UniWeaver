@@ -475,10 +475,15 @@ const moduleOptions = computed(() =>
 const ownerModuleId = computed(() => (props.owner?.table === 'modules' ? props.owner.id : ''))
 
 async function loadReferenceData() {
-  if (!curriculum.semesters?.length) void curriculum.fetchSemesters()
-  if (!curriculum.locations?.length) void curriculum.fetchLocations()
-  if (!curriculum.rooms?.length) void curriculum.fetchRooms()
-  if (!curriculum.modules?.length) void curriculum.fetchModules()
+  try {
+    if (!curriculum.semesters?.length) await curriculum.fetchSemesters()
+    if (!curriculum.locations?.length) await curriculum.fetchLocations()
+    if (!curriculum.rooms?.length) await curriculum.fetchRooms()
+    if (!curriculum.modules?.length) await curriculum.fetchModules()
+  } catch {
+    // Reference data only decorates restriction params (human-readable
+    // names, room/location pickers); the dialog still works without it.
+  }
 }
 
 function choiceOptions(param: RestrictionParamSpec): { title: string; value: string }[] {

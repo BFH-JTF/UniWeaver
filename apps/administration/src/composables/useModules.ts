@@ -58,10 +58,10 @@ export function useModules() {
     }
   }
 
-  async function removeModule(id: string) {
+  async function removeModule(id: string, confirmRef = false) {
     error.value = null
     try {
-      await removeDbEntity(EntityTables.MODULE, id)
+      await removeDbEntity(EntityTables.MODULE, id, confirmRef)
       modules.value = modules.value.filter(m => m.id !== id)
     } catch (e: any) {
       error.value = e.message

@@ -53,10 +53,10 @@ export function useClasses() {
     }
   }
 
-  async function removeClass(id: string) {
+  async function removeClass(id: string, confirmRef = false) {
     error.value = null
     try {
-      await removeDbEntity(EntityTables.CLASS, id)
+      await removeDbEntity(EntityTables.CLASS, id, confirmRef)
       classes.value = classes.value.filter(c => c.id !== id)
     } catch (e: any) {
       error.value = e.message

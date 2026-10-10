@@ -57,10 +57,10 @@ export function useDegrees() {
     }
   }
 
-  async function removeDegree(id: string) {
+  async function removeDegree(id: string, confirmRef = false) {
     error.value = null
     try {
-      await removeDbEntity(EntityTables.DEGREE, id)
+      await removeDbEntity(EntityTables.DEGREE, id, confirmRef)
       degrees.value = degrees.value.filter(d => d.id !== id)
     } catch (e: any) {
       error.value = e.message

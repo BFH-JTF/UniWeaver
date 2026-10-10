@@ -238,7 +238,7 @@
       @save="saveLocation"
     />
 
-    <v-dialog v-model="deleteDialogOpen" max-width="440px" persistent>
+    <v-dialog v-model="deleteDialogOpen" max-width="480px" persistent>
       <v-card class="rounded-lg">
         <v-card-title class="d-flex align-center py-3 px-4">
           <v-icon start color="error">mdi-alert-outline</v-icon>
@@ -252,11 +252,51 @@
           <div v-else class="text-caption text-medium-emphasis mt-1">
             Rooms in this location keep their data but lose the location reference.
           </div>
+          <v-progress-linear v-if="deleteRefsLoading" indeterminate class="mt-3" />
+          <template v-else>
+            <div v-if="deleteReferences.length === 0" class="text-caption text-medium-emphasis mt-2">
+              No other elements reference this one.
+            </div>
+            <div v-else class="mt-3">
+              <v-alert
+                v-for="finding in deleteReferences"
+                :key="finding.key"
+                :type="finding.severity === 'cascade' ? 'error' : finding.severity === 'breaks' ? 'warning' : 'info'"
+                variant="tonal"
+                density="compact"
+                class="mb-2"
+              >
+                <div class="text-body-2 font-weight-medium">{{ severityTitle(finding) }}</div>
+                <div v-if="finding.sampleNames.length" class="text-caption">
+                  {{ finding.sampleNames.join(', ') }}{{ finding.count > finding.sampleNames.length ? ' …' : '' }}
+                </div>
+              </v-alert>
+              <v-checkbox
+                v-if="deleteNeedsConfirm"
+                v-model="deleteConfirmChecked"
+                density="compact"
+                hide-details
+                class="mt-1"
+              >
+                <template #label>
+                  <span class="text-body-2">I understand what this deletes and want to proceed</span>
+                </template>
+              </v-checkbox>
+            </div>
+          </template>
         </v-card-text>
         <v-card-actions>
           <v-spacer />
           <v-btn variant="text" :disabled="deleting" @click="deleteDialogOpen = false">Cancel</v-btn>
-          <v-btn color="error" variant="flat" :loading="deleting" @click="confirmDelete">Delete</v-btn>
+          <v-btn
+            color="error"
+            variant="flat"
+            :loading="deleting"
+            :disabled="deleteRefsLoading || (deleteNeedsConfirm && !deleteConfirmChecked)"
+            @click="confirmDelete"
+          >
+            Delete
+          </v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -422,8 +462,8 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import type { SchedulerLocation, SchedulerRoom, RoomAvailabilitySlot, Weekday } from '@uniweaver/shared'
-import { api } from '@uniweaver/shared'
+import type { SchedulerLocation, SchedulerRoom, RoomAvailabilitySlot, Weekday, EntityReferenceFinding } from '@uniweaver/shared'
+import { ApiRequestError, api } from '@uniweaver/shared'
 import { useAuthStore } from '@/stores/auth'
 import RoomFormDialog from '@/components/RoomFormDialog.vue'
 import LocationFormDialog from '@/components/LocationFormDialog.vue'
@@ -450,6 +490,39 @@ const deleteKind = ref<'room' | 'location'>('room')
 const deleteTargetId = ref('')
 const deleteTargetName = ref('')
 const deleting = ref(false)
+const deleteReferences = ref<EntityReferenceFinding[]>([])
+const deleteRefsLoading = ref(false)
+const deleteConfirmChecked = ref(false)
+
+const deleteBlockingRefs = computed(() => deleteReferences.value.filter(r => r.severity !== 'cleanup'))
+const deleteNeedsConfirm = computed(() => deleteBlockingRefs.value.length > 0)
+
+function severityTitle(ref: EntityReferenceFinding): string {
+  if (ref.severity === 'cascade') return `Will also be deleted: ${ref.label}`
+  if (ref.severity === 'breaks') return `Referenced by: ${ref.label} — references will be cleaned`
+  return `Will be cleaned up: ${ref.label}`
+}
+
+function isReferencesBody(body: unknown): body is { references: EntityReferenceFinding[] } {
+  return !!body && typeof body === 'object' && Array.isArray((body as { references?: unknown }).references)
+}
+
+async function loadDeleteReferences(): Promise<void> {
+  deleteReferences.value = []
+  deleteConfirmChecked.value = false
+  if (!deleteTargetId.value) return
+  deleteRefsLoading.value = true
+  try {
+    const refs = deleteKind.value === 'room'
+      ? await api.getRoomReferences(deleteTargetId.value)
+      : await api.getLocationReferences(deleteTargetId.value)
+    deleteReferences.value = refs.references
+  } catch {
+    deleteReferences.value = []
+  } finally {
+    deleteRefsLoading.value = false
+  }
+}
 
 type AvailabilitySlotInput = Array<Omit<RoomAvailabilitySlot, 'id' | 'roomId'>>
 
@@ -604,6 +677,7 @@ function askDeleteRoom(room: SchedulerRoom): void {
   deleteTargetId.value = room.id
   deleteTargetName.value = room.name
   deleteDialogOpen.value = true
+  void loadDeleteReferences()
 }
 
 function askDeleteLocation(location: SchedulerLocation): void {
@@ -611,6 +685,7 @@ function askDeleteLocation(location: SchedulerLocation): void {
   deleteTargetId.value = location.id
   deleteTargetName.value = location.name
   deleteDialogOpen.value = true
+  void loadDeleteReferences()
 }
 
 // ------------------------------------------------------------------ location dialog
@@ -647,22 +722,30 @@ async function saveLocation(location: SchedulerLocation): Promise<void> {
 async function confirmDelete(): Promise<void> {
   deleting.value = true
   error.value = ''
+  const confirmRef = deleteBlockingRefs.value.length > 0
   try {
     if (deleteKind.value === 'room') {
-      await api.deleteRoom(deleteTargetId.value)
+      await api.deleteRoom(deleteTargetId.value, confirmRef)
       rooms.value = rooms.value.filter(r => r.id !== deleteTargetId.value)
       successMsg.value = `Room "${deleteTargetName.value}" deleted.`
     } else {
-      await api.deleteLocation(deleteTargetId.value)
+      await api.deleteLocation(deleteTargetId.value, confirmRef)
       locations.value = locations.value.filter(l => l.id !== deleteTargetId.value)
       successMsg.value = `Location "${deleteTargetName.value}" deleted.`
     }
     await fetchRooms()
+    deleteDialogOpen.value = false
   } catch (err: any) {
-    error.value = err.message || 'Failed to delete'
+    if (err instanceof ApiRequestError && err.status === 409 && isReferencesBody(err.body)) {
+      deleteReferences.value = err.body.references
+      deleteConfirmChecked.value = false
+      error.value = 'Deletion blocked: new references were found. Please review and confirm again.'
+    } else {
+      error.value = err.message || 'Failed to delete'
+      deleteDialogOpen.value = false
+    }
   } finally {
     deleting.value = false
-    deleteDialogOpen.value = false
   }
 }
 

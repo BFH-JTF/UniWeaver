@@ -56,10 +56,10 @@ export function usePrograms() {
     }
   }
 
-  async function removeProgram(id: string) {
+  async function removeProgram(id: string, confirmRef = false) {
     error.value = null
     try {
-      await removeDbEntity(EntityTables.PROGRAM, id)
+      await removeDbEntity(EntityTables.PROGRAM, id, confirmRef)
       programs.value = programs.value.filter(p => p.id !== id)
     } catch (e: any) {
       error.value = e.message

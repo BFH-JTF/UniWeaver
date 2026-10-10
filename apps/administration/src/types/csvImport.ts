@@ -1,17 +1,8 @@
 export type ImportType =
-  | 'rooms'
-  | 'locations'
-  | 'competencies'
-  | 'modules'
-  | 'proofs_of_competency'
   | 'departments'
   | 'programs'
   | 'degrees'
-  | 'availability'
-  | 'room_availability'
-  | 'weeks'
-  | 'schedule_entries'
-  | 'matrix_competencies'
+  | 'modules'
 
 export type FieldDataType = 'string' | 'number' | 'boolean' | 'enum'
 

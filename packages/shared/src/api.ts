@@ -15,14 +15,18 @@ import type {
   SchedulerLocation,
   SchedulerRoom,
   UnavailabilityEntry,
+  EntityReferences,
 } from './index'
 
 export class ApiRequestError extends Error {
   status: number
+  /** Parsed response body, when the server sent JSON (e.g. 409 reference lists). */
+  body?: unknown
 
-  constructor(status: number, message: string) {
+  constructor(status: number, message: string, body?: unknown) {
     super(message)
     this.status = status
+    this.body = body
   }
 }
 
@@ -38,15 +42,17 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   })
   if (!res.ok) {
     let message = `Request failed: ${res.status} ${res.statusText}`
+    let body: unknown
     try {
       const data: unknown = await res.json()
+      body = data
       if (data && typeof data === 'object' && 'error' in data && typeof (data as { error: unknown }).error === 'string') {
         message = (data as { error: string }).error
       }
     } catch {
       // response had no JSON body
     }
-    throw new ApiRequestError(res.status, message)
+    throw new ApiRequestError(res.status, message, body)
   }
   return res.json() as Promise<T>
 }
@@ -118,8 +124,15 @@ export const api = {
       body: JSON.stringify(room),
     }),
 
-  deleteRoom: (id: string) =>
-    request<{ ok: boolean }>(`/scheduling/rooms/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  deleteRoom: (id: string, confirmRef = false) =>
+    request<{ ok: boolean }>(
+      `/scheduling/rooms/${encodeURIComponent(id)}${confirmRef ? '?confirm=true' : ''}`,
+      { method: 'DELETE' },
+    ),
+
+  /** Dependents of a room (availability, schedule entries) before deletion. */
+  getRoomReferences: (id: string) =>
+    request<EntityReferences>(`/scheduling/rooms/${encodeURIComponent(id)}/references`),
 
   listLocations: () => request<SchedulerLocation[]>('/scheduling/locations'),
 
@@ -135,8 +148,15 @@ export const api = {
       body: JSON.stringify(location),
     }),
 
-  deleteLocation: (id: string) =>
-    request<{ ok: boolean }>(`/scheduling/locations/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  deleteLocation: (id: string, confirmRef = false) =>
+    request<{ ok: boolean }>(
+      `/scheduling/locations/${encodeURIComponent(id)}${confirmRef ? '?confirm=true' : ''}`,
+      { method: 'DELETE' },
+    ),
+
+  /** Dependents of a location (rooms) before deletion. */
+  getLocationReferences: (id: string) =>
+    request<EntityReferences>(`/scheduling/locations/${encodeURIComponent(id)}/references`),
 
   listRoomAvailability: (roomId: string) =>
     request<RoomAvailabilitySlot[]>(`/scheduling/rooms/${encodeURIComponent(roomId)}/availability`),
