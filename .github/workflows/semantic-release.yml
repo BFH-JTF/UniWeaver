@@ -12,7 +12,9 @@
 #      pushes them to the chore/version-bump branch and opens (or updates) a
 #      PR against main - respecting "changes must be made through a PR".
 #   3. The bump PR is auto-merged (squash); its chore: commit is not
-#      releasable, so no release loop occurs.
+#      releasable, so no release loop occurs. Right after the merge the
+#      chore/version-bump branch is deleted, so no stale bump branch lingers
+#      between releases - it is recreated fresh by the next release.
 #
 # No step ever pushes directly to main.
 
@@ -85,7 +87,10 @@ jobs:
           token: ${{ secrets.RELEASE_TOKEN }}
           branch: chore/version-bump
           base: main
-          delete-branch: false
+          # Safety net: the action itself only deletes the branch lazily on a
+          # later run when there is no diff; on-merge deletion happens in the
+          # auto-merge step below.
+          delete-branch: true
           add-paths: |
             package.json
             package-lock.json
@@ -106,21 +111,50 @@ jobs:
             release
             automated
 
-      - name: Auto-merge version bump PR
+      - name: Auto-merge version bump PR and delete its branch
         if: steps.bump.outputs.pull-request-number != ''
         run: |
           PR_NUMBER="${{ steps.bump.outputs.pull-request-number }}"
+          BRANCH="${{ steps.bump.outputs.pull-request-branch }}"
           echo "Auto-merging version bump PR #$PR_NUMBER"
           # Squash-merge via the RELEASE_TOKEN (ruleset permits PR merges).
           # Retry a few times: the PR is brand-new, so checks may need a moment.
+          scheduled=0
           for attempt in 1 2 3 4 5; do
             if gh pr merge "$PR_NUMBER" --repo "${{ github.repository }}" --squash --auto 2>&1; then
               echo "Auto-merge scheduled"
-              exit 0
+              scheduled=1
+              break
             fi
             echo "Attempt $attempt failed; retrying in 10s..."
             sleep 10
           done
-          echo "::warning::Could not enable auto-merge for PR #$PR_NUMBER - merge it manually."
+          if [ "$scheduled" != "1" ]; then
+            echo "::warning::Could not enable auto-merge for PR #$PR_NUMBER - merge it manually."
+            exit 0
+          fi
+          # Wait for the merge to complete so the bump branch can be deleted
+          # deterministically (delete-branch above cannot delete on merge).
+          merged=0
+          for attempt in 1 2 3 4 5 6 7 8 9; do
+            STATE="$(gh pr view "$PR_NUMBER" --repo "${{ github.repository }}" --json state --jq .state 2>/dev/null || echo unknown)"
+            if [ "$STATE" = "MERGED" ]; then
+              echo "PR #$PR_NUMBER merged"
+              merged=1
+              break
+            fi
+            echo "Waiting for merge (state: $STATE), attempt $attempt..."
+            sleep 10
+          done
+          if [ "$merged" != "1" ]; then
+            echo "::warning::PR #$PR_NUMBER not merged yet - bump branch kept."
+            exit 0
+          fi
+          # Delete the bump branch so it cannot linger/diverge from main.
+          if gh api --method DELETE "repos/${{ github.repository }}/git/refs/heads/$BRANCH" 2>&1; then
+            echo "Bump branch '$BRANCH' deleted"
+          else
+            echo "::warning::Could not delete bump branch '$BRANCH' - delete it manually."
+          fi
         env:
           GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
