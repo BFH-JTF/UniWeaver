@@ -1,5 +1,5 @@
 import { ref } from 'vue'
-import { useAuthStore } from '@/stores/auth'
+import { getApiBaseUrl } from '@uniweaver/shared'
 
 export type AccessRole = 'read' | 'write' | 'admin'
 
@@ -27,49 +27,16 @@ export function useAcl() {
   const loading = ref(false)
   const error = ref<string | null>(null)
 
-  function getApiUrl(): string {
-    return (
-      localStorage.getItem('uniweaver_pg_api_url') ||
-      localStorage.getItem('courseweaver_pg_api_url') ||
-      import.meta.env.DATABASE_URL?.replace(/\/+$/, '') ||
-      '/api'
-    )
-  }
-
-  function getHeaders(): Record<string, string> {
-    const auth = useAuthStore()
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-    const token =
-      localStorage.getItem('uniweaver_oidc_access_token') ||
-      localStorage.getItem('courseweaver_oidc_access_token') ||
-      localStorage.getItem('authToken') ||
-      ''
-    const idToken =
-      localStorage.getItem('uniweaver_oidc_id_token') ||
-      localStorage.getItem('courseweaver_oidc_id_token') ||
-      ''
-    const primaryToken = idToken || token
-    if (primaryToken) headers['Authorization'] = `Bearer ${primaryToken}`
-    if (idToken) headers['X-ID-Token'] = idToken
-    const issuer =
-      localStorage.getItem('uniweaver_oidc_issuer') ||
-      localStorage.getItem('courseweaver_oidc_issuer') ||
-      import.meta.env.OIDC_ISSUER ||
-      ''
-    if (issuer) headers['X-OIDC-Issuer'] = issuer
-    const localUser = auth.localUser
-    if (localUser?.id) headers['X-OIDC-Subject'] = localUser.id
-    if (localUser?.name) headers['X-OIDC-Name'] = localUser.name
-    if (localUser?.email) headers['X-OIDC-Email'] = localUser.email
-    return headers
-  }
+  // The JSON API authenticates via the iron-session cookie (`credentials:
+  // 'include'`); there are no token headers to set.
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
 
   async function fetchAccess(entity: string, id: string) {
     loading.value = true
     error.value = null
     try {
-      const res = await fetch(`${getApiUrl()}/${entity}/${id}/access`, {
-        headers: getHeaders(),
+      const res = await fetch(`${getApiBaseUrl()}/${entity}/${id}/access`, {
+        headers,
         credentials: 'include',
       })
       if (!res.ok) {
@@ -86,9 +53,9 @@ export function useAcl() {
 
   async function addUser(entity: string, id: string, userId: string, role: AccessRole): Promise<boolean> {
     try {
-      const res = await fetch(`${getApiUrl()}/${entity}/${id}/access`, {
+      const res = await fetch(`${getApiBaseUrl()}/${entity}/${id}/access`, {
         method: 'POST',
-        headers: getHeaders(),
+        headers,
         credentials: 'include',
         body: JSON.stringify({ userId, role }),
       })
@@ -106,9 +73,9 @@ export function useAcl() {
 
   async function changeRole(entity: string, id: string, userId: string, role: AccessRole): Promise<boolean> {
     try {
-      const res = await fetch(`${getApiUrl()}/${entity}/${id}/access/${encodeURIComponent(userId)}`, {
+      const res = await fetch(`${getApiBaseUrl()}/${entity}/${id}/access/${encodeURIComponent(userId)}`, {
         method: 'PUT',
-        headers: getHeaders(),
+        headers,
         credentials: 'include',
         body: JSON.stringify({ role }),
       })
@@ -126,9 +93,9 @@ export function useAcl() {
 
   async function removeUser(entity: string, id: string, userId: string): Promise<boolean> {
     try {
-      const res = await fetch(`${getApiUrl()}/${entity}/${id}/access/${encodeURIComponent(userId)}`, {
+      const res = await fetch(`${getApiBaseUrl()}/${entity}/${id}/access/${encodeURIComponent(userId)}`, {
         method: 'DELETE',
-        headers: getHeaders(),
+        headers,
         credentials: 'include',
       })
       if (!res.ok) {
@@ -146,8 +113,8 @@ export function useAcl() {
   async function searchUsers(query: string): Promise<UserSearchResult[]> {
     if (!query || query.length < 1) return []
     try {
-      const res = await fetch(`${getApiUrl()}/users/search?q=${encodeURIComponent(query)}`, {
-        headers: getHeaders(),
+      const res = await fetch(`${getApiBaseUrl()}/users/search?q=${encodeURIComponent(query)}`, {
+        headers,
         credentials: 'include',
       })
       if (!res.ok) return []

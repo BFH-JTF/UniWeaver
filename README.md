@@ -1,8 +1,8 @@
 # UniWeaver
 
 A tool collection to administrate university curricula, manage scheduling resources,
-maintain lecturer mappings and — in the future — generate semester schedules and
-competency mappings.
+maintain lecturer mappings, generate semester schedules and — at a later stage — map
+Competencies.
 
 UniWeaver is a monorepo containing one shared backend and four single-page applications that
 share a login, a data model and a database. The backend is at the same time the JSON API, the
@@ -37,14 +37,14 @@ Be aware of what is implemented and what is not:
 |---|---|
 | OIDC login end-to-end (incl. Dynamic Client Registration) | Implemented |
 | Server-side sessions (`iron-session`), shared across all four SPAs | Implemented |
-| PostgreSQL schema migrations (14) | Implemented |
+| PostgreSQL schema migrations (15) | Implemented |
 | First-administrator bootstrap with rate limiting | Implemented |
 | Per-entity access control (read/write/admin ACL) | Implemented |
 | Curriculum restrictions with inheritance | Implemented |
 | `user_entry` — login + tool portal, bootstrap, lecturer opt-out | Implemented |
 | `administration` — curriculum administration (departments, programs, degrees, modules, classes, semesters, curricula), user management, CSV import | Implemented, backed by PostgreSQL |
 | `scheduling` — lecturer↔module mapping (list + matrix), rooms & locations (with map picker), room availability, lecturer unavailability | Implemented, backed by PostgreSQL |
-| Semester schedule **generation** | **Not implemented** |
+| Schedule generation (Timefold orchestration, scope wizard, timetable view) | Implemented for the recurring weekly pattern; per-week placements pending |
 | `competencies` — competency mapping | **Placeholder** |
 
 ---
@@ -61,17 +61,23 @@ Be aware of what is implemented and what is not:
                     │  /scheduling     │   hosting     │
                     │  /competencies  ┘                 │
                     │  /oidc, /interaction  proxy       │
-                    └──────┬───────────────┬────────────┘
-                           │               │
-                    ┌──────▼──────┐  ┌─────▼──────────────┐
-                    │ PostgreSQL  │  │ docPouch (OIDC)    │
-                    │ :5432       │  │ :3030, intern      │
-                    └─────────────┘  └────────────────────┘
+                    └────┬────────────┬─────────────┬──┘
+                         │            │             │
+                 ┌───────▼──────┐ ┌───▼──────────┐ ┌▼──────────────────────┐
+                 │ PostgreSQL   │ │ docPouch     │ │ scheduler (Timefold)  │
+                 │ :5432        │ │ :3030, intern│ │ :8081, intern         │
+                 └──────────────┘ └──────────────┘ └───────────────────────┘
 ```
 
 **Session sharing.** All four SPAs are mounted under the same origin and the session cookie is
 host-scoped, so a single login at `/user_entry` grants access to all three tools. Each tool's
 route guard only calls `api.me()` against the backend.
+
+**Schedule generation.** The backend orchestrates each generation run
+(`backend/src/scheduler/`): it assembles the semester's scope (modules, classes, rooms, lecturer
+unavailability, room availability, effective restrictions), calls the Timefold solver service,
+and persists the run's status/score/entries in PostgreSQL. The scheduling app's Schedules view
+lists runs, shows the timetable of finished runs and publishes/deletes them.
 
 **OIDC through a same-origin proxy.** The whole OIDC conversation (discovery, authorize, token,
 interaction login pages, end-session) is served through the backend under `/oidc`. The provider
@@ -383,6 +389,22 @@ Reads are open to every authenticated user; all writes require the scheduler rol
 | `GET` | `/api/scheduling/mapping` | Bulk load: lecturers, departments, programs, degrees, modules, versions, all module/lecturer pairs |
 | `POST` | `/api/scheduling/mapping/pairs` | Apply a lecturer↔module assignment diff atomically |
 
+### Schedule generation
+
+Orchestrates the Timefold scheduling service; scheduler role required for all of these —
+schedule drafts are working state of the planning tool.
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/scheduling/scheduler/health` | `{ online }` — Timefold service reachability |
+| `GET` | `/api/scheduling/semesters` | Semesters with timeslot grid, week and class counts |
+| `GET` | `/api/scheduling/schedules` | List generation runs (status, score, stats, entry count) |
+| `GET` | `/api/scheduling/schedules/scope/:semesterId` | Generation scope summary (counts + warnings) for the wizard |
+| `POST` | `/api/scheduling/schedules/generate` | Start a run: `{ semesterId, spentLimitSeconds (5–600), name? }`; the solver runs in the background |
+| `GET` | `/api/scheduling/schedules/:runId` | Single run status, score, stats |
+| `GET` | `/api/scheduling/schedules/:runId/entries` | Timetable entries of a finished run (draft/published only) |
+| `DELETE` | `/api/scheduling/schedules/:runId` | Delete a run (only draft or failed ones) |
+
 ---
 
 ## Data Model
@@ -410,12 +432,13 @@ alphabetical order, each inside a transaction, tracked in the `schema_migrations
 | `012_user_not_lecturer.sql` | `is_not_lecturer` opt-out flag |
 | `013_room_availability.sql` | `room_availability` — weekly room time windows, optionally scoped to a week |
 | `014_lecturer_unavailability.sql` | `lecturer_unavailability` — weekly recurring / individual-date unavailability |
+| `015_schedule_runs.sql` | `schedule_runs` + `schedule_entries` — generated semester schedules (runs, status, score, entries) |
 
 ---
 
 ## Testing
 
-Three test scripts exist in `backend/test/`, run via `tsx` with a hand-written `assert()`
+Four test scripts exist in `backend/test/`, run via `tsx` with a hand-written `assert()`
 helper — there is no test framework dependency in the project.
 
 | File | Covers |
@@ -423,14 +446,14 @@ helper — there is no test framework dependency in the project.
 | `api.test.ts` | Health, bootstrap status, auth guards (401 without session), ID token validation, logout, rate limiter threshold + reset |
 | `restrictions.test.ts` | Restriction fixtures, validation, CRUD, inheritance, access control |
 | `entityAcl.test.ts` | Entity ACL: visibility, creation rules, grant/change/revoke, last-admin protection, user search |
+| `scheduler.test.ts` | Schedule generation: timeslot grid spans, complementing against grid, session folding, orchestrator against a stubbed solver |
 
 ```bash
 npm test
 ```
 
-The tests start the backend on a fixed port and need a reachable PostgreSQL. Note that
-`npm test` currently runs only `api.test.ts` and `restrictions.test.ts`; for the ACL tests run
-`npx tsx test/entityAcl.test.ts` manually from `backend/`.
+`npm test` runs all four files sequentially; they start the backend on a fixed port and need a
+reachable PostgreSQL.
 
 There are no frontend tests.
 
@@ -440,28 +463,12 @@ There are no frontend tests.
 
 These are worth knowing before relying on the apps:
 
-1. **Semester schedule generation does not exist yet.** The restriction catalog, the
-   inheritance logic and `packages/shared/src/restrictionSolver.ts` (a rule assembler that
-   prepares `SchedulingRuleDTO`s for a future solver) are in place, but there is no solver and
-   no generation endpoint.
-2. **`competencies` is a placeholder.** The competency model exists in migration 002, but
+1. **`competencies` is a placeholder.** The competency model exists in migration 002, but
    there is no mapping UI or API yet.
-3. **Offline fallback.** The administration app writes entities to PostgreSQL first, but on
-   *network* failure (server unreachable) it silently falls back to a per-table
-   `localStorage` cache (`uw_pg_jsonb_<table>`), so data can diverge between browsers. API
-   rejections (401/403) are surfaced, not masked.
-4. **Dead code in the administration app.** Composables and form dialogs for rooms, weeks,
-   schedule entries, availabilities, competencies and proofs of competency are prepared but
-   unused; the scheduling app has its own live implementations of rooms and availability.
-5. **Legacy storage keys.** The administration app's localStorage keys still carry
-   `courseweaver_*` names from a predecessor project.
-6. **`schedule_entries` and `lecturer_availability` have no tables yet.** The frontend's
-   entity table map references them, but no migration creates them and the backend does not
-   serve them (`class_entities` vs `classes` is resolved at the API layer).
-7. **`scripts/generate-tool-apps.ts` is outdated and dangerous.** It writes
-   `outDir: 'dist'`, but the apps actually build to `dist/apps/<slug>`. Running it would
-   overwrite the app scaffolds with placeholder versions and break the production mount. It
-   is not wired to any npm script. The same holds for `scripts/fix-tool-apps.ts`.
+2. **Schedule generation covers the recurring weekly pattern only.** A run places sessions
+   against the representative weekly timeslot grid — every stored entry has `week_id` set to
+   `NULL`, i.e. it applies to every week of the semester. Placing concrete calendar weeks with
+   per-week exceptions (days-off) is a planned follow-up.
 
 ---
 

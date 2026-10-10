@@ -1,5 +1,5 @@
 import { ref } from 'vue'
-import { usePostgres, EntityTables } from '@/composables/usePostgres'
+import { usePostgres, EntityTables, type EntityTableName } from '@/composables/usePostgres'
 import type { ImportType } from '@/types/csvImport'
 
 export function useCsvImport() {
@@ -7,20 +7,11 @@ export function useCsvImport() {
   const isImporting = ref(false)
   const importError = ref<string | null>(null)
 
-  const entityTableMap: Record<ImportType, string> = {
-    rooms: EntityTables.ROOM,
-    locations: EntityTables.LOCATION,
-    competencies: EntityTables.COMPETENCY,
+  const entityTableMap: Record<ImportType, EntityTableName> = {
     modules: EntityTables.MODULE,
-    proofs_of_competency: EntityTables.PROOF_OF_COMPETENCY,
     departments: EntityTables.DEPARTMENT,
     programs: EntityTables.PROGRAM,
     degrees: EntityTables.DEGREE,
-    availability: EntityTables.LECTURER_AVAILABILITY,
-    room_availability: EntityTables.ROOM_AVAILABILITY,
-    weeks: EntityTables.WEEK,
-    schedule_entries: EntityTables.SCHEDULE_ENTRY,
-    matrix_competencies: EntityTables.MATRIX_COMPETENCY,
   }
 
   /**

@@ -1,4 +1,5 @@
 import { ref } from 'vue'
+import { getApiBaseUrl } from '@uniweaver/shared'
 import { usePostgres, EntityTables } from '@/composables/usePostgres'
 import type { Curriculum, CurriculumVersion } from '@/types/curriculum'
 
@@ -96,13 +97,9 @@ export function useCurriculums() {
   async function createCurriculumWithV1(name: string, description: string) {
     error.value = null
     try {
-      const apiUrl = localStorage.getItem('uniweaver_pg_api_url') || 'http://localhost:3000/api'
-      const res = await fetch(`${apiUrl.replace(/\/+$/, '')}/curriculums`, {
+      const res = await fetch(`${getApiBaseUrl()}/curriculums`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('uniweaver_oidc_access_token') || localStorage.getItem('uniweaver_oidc_id_token') || ''}`,
-        },
+        headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({ name, description }),
       })
@@ -122,13 +119,9 @@ export function useCurriculums() {
   async function addVersionToCurriculum(curriculumId: string) {
     error.value = null
     try {
-      const apiUrl = localStorage.getItem('uniweaver_pg_api_url') || 'http://localhost:3000/api'
-      const res = await fetch(`${apiUrl.replace(/\/+$/, '')}/curriculums/${curriculumId}/versions`, {
+      const res = await fetch(`${getApiBaseUrl()}/curriculums/${curriculumId}/versions`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('uniweaver_oidc_access_token') || localStorage.getItem('uniweaver_oidc_id_token') || ''}`,
-        },
+        headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
       })
       if (!res.ok) {

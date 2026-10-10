@@ -1,28 +1,15 @@
 import { ref } from 'vue'
+import { ApiRequestError, getApiBaseUrl } from '@uniweaver/shared'
 import type { EntityRestriction, EffectiveRestriction } from '@uniweaver/shared'
 
-const apiUrl = localStorage.getItem('uniweaver_pg_api_url')
-  || localStorage.getItem('courseweaver_pg_api_url')
-  || import.meta.env.DATABASE_URL
-  || 'http://localhost:3000/api'
-
-function restrictionsEndpoint(table: string, entityId: string): string {
-  return `${apiUrl.replace(/\/+$/, '')}/${table}/${entityId}/restrictions`
-}
-
-async function authedFetch<T>(path: string, init: RequestInit & { auth?: Record<string, string> } = {}): Promise<T> {
-  const res = await fetch(path, init)
+/** The JSON API authenticates via the iron-session cookie (`credentials:
+ *  'include'`); there are no token headers to set. */
+async function authedFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const res = await fetch(path, { credentials: 'include', ...init })
   if (!res.ok) {
-    let message = `Request failed: ${res.status}`
-    try {
-      const body = await res.json()
-      if (body && typeof body === 'object' && 'error' in body && typeof (body as any).error === 'string') {
-        message = (body as any).error
-      }
-    } catch {
-      // no JSON body
-    }
-    throw new Error(message)
+    const body = await res.json().catch(() => ({}))
+    const message = (body as { error?: unknown }).error
+    throw new ApiRequestError(res.status, typeof message === 'string' ? message : `Request failed: ${res.status}`)
   }
   return res.json() as Promise<T>
 }
@@ -36,8 +23,11 @@ export interface RestrictionsOwner {
   _canEdit?: boolean
 }
 
+export function restrictionsEndpoint(table: string, entityId: string): string {
+  return `${getApiBaseUrl()}/${table}/${entityId}/restrictions`
+}
+
 export function useRestrictions() {
-  const { getAuthHeader } = usePostgresAuth()
   const loading = ref(false)
   const error = ref<string | null>(null)
 
@@ -46,8 +36,7 @@ export function useRestrictions() {
     error.value = null
     try {
       return await authedFetch<EntityRestriction[]>(restrictionsEndpoint(owner.table, owner.id), {
-        headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
-        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
       })
     } catch (e: any) {
       error.value = e.message
@@ -64,8 +53,7 @@ export function useRestrictions() {
       return await authedFetch<EffectiveRestriction[]>(
         `${restrictionsEndpoint(owner.table, owner.id)}/effective`,
         {
-          headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
-          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
         },
       )
     } catch (e: any) {
@@ -82,8 +70,7 @@ export function useRestrictions() {
     try {
       return await authedFetch<EntityRestriction>(restrictionsEndpoint(owner.table, owner.id), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
-        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(restriction),
       })
     } catch (e: any) {
@@ -102,8 +89,7 @@ export function useRestrictions() {
         `${restrictionsEndpoint(owner.table, owner.id)}/${restriction.id}`,
         {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
-          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(restriction),
         },
       )
@@ -121,8 +107,7 @@ export function useRestrictions() {
     try {
       await authedFetch(`${restrictionsEndpoint(owner.table, owner.id)}/${restrictionId}`, {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
-        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
       })
       return true
     } catch (e: any) {
@@ -141,46 +126,5 @@ export function useRestrictions() {
     addRestriction,
     updateRestriction,
     removeRestriction,
-  }
-}
-
-// The shared auth-header helper lives inside usePostgres; expose a thin
-// wrapper so this composable does not instantiate a whole postgres store.
-function usePostgresAuth() {
-  return {
-    getAuthHeader(): Record<string, string> {
-      const token =
-        localStorage.getItem('uniweaver_oidc_access_token') ||
-        localStorage.getItem('courseweaver_oidc_access_token') ||
-        localStorage.getItem('authToken') ||
-        ''
-      const idToken =
-        localStorage.getItem('uniweaver_oidc_id_token') ||
-        localStorage.getItem('courseweaver_oidc_id_token') ||
-        ''
-      const issuer =
-        localStorage.getItem('uniweaver_oidc_issuer') ||
-        localStorage.getItem('courseweaver_oidc_issuer') ||
-        import.meta.env.OIDC_ISSUER ||
-        ''
-      const userJson =
-        localStorage.getItem('uniweaver_oidc_user') ||
-        localStorage.getItem('courseweaver_oidc_user')
-      let userId = ''
-      if (userJson) {
-        try {
-          userId = JSON.parse(userJson).id || ''
-        } catch {
-          // ignore
-        }
-      }
-      const headers: Record<string, string> = {}
-      const primaryToken = idToken || token
-      if (primaryToken) headers['Authorization'] = `Bearer ${primaryToken}`
-      if (idToken) headers['X-ID-Token'] = idToken
-      if (issuer) headers['X-OIDC-Issuer'] = issuer
-      if (userId) headers['X-OIDC-Subject'] = userId
-      return headers
-    },
   }
 }
