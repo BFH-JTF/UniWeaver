@@ -343,6 +343,7 @@ Non-admins only see entities shared with them.
 | `GET` | `/api/{table}` | session | List entities (visibility filtered by ACL) |
 | `GET` | `/api/{table}/:id` | ACL read | Fetch one entity |
 | `POST` | `/api/{table}` | ACL admin over referenced parents | Create entity |
+| `POST` | `/api/{table}/import` | ACL admin over referenced parents (per row) | Batch create `{ rows: [...] }`: every row is validated like `POST /:table` before anything is written, then all rows are inserted in a single transaction (all-or-nothing; a 400 carries `details: [{ row, message }, ...]`) |
 | `PUT` | `/api/{table}/:id` | ACL write | Update entity |
 | `DELETE` | `/api/{table}/:id` | ACL admin | Delete entity and its ACL rows |
 | `GET` | `/api/{table}/:id/access` | ACL read | List ACL entries |

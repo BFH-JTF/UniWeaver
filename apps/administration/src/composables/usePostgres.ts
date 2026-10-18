@@ -87,11 +87,29 @@ export function usePostgres() {
     return apiRequest<EntityReferences>(`${getApiBaseUrl()}/${tableName}/${id}/references`)
   }
 
+  /** Bulk create via POST /{table}/import: all rows or none. A 400 carries
+   *  { error, details: [{ row, message }, ...] } for per-row reporting. */
+  async function importEntities<T extends { _id?: string; id?: string }>(
+    tableName: EntityTableName,
+    rows: Record<string, unknown>[],
+  ): Promise<T[]> {
+    const json = await apiRequest<unknown>(`${getApiBaseUrl()}/${tableName}/import`, {
+      method: 'POST',
+      body: JSON.stringify({ rows }),
+    })
+    const items = Array.isArray(json) ? json : (json as { data?: unknown[] }).data || []
+    return (items as { id?: string; _id?: string }[]).map((item: { id?: string; _id?: string }) => {
+      const id = item.id || item._id
+      return { ...item, _id: id, id }
+    }) as T[]
+  }
+
   return {
     fetchEntities,
     createEntity,
     updateEntity,
     removeEntity,
     fetchReferences,
+    importEntities,
   }
 }

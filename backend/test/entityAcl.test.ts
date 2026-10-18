@@ -113,6 +113,36 @@ async function main() {
     assert(!!program.id, 'program has id')
     assert(program._isAdmin === true, 'creator gets admin flag on created program')
 
+    // ── Reference existence validation (program -> departments) ─────────
+    console.log('Reference existence checks...')
+    const deptRes = await fetch(`${base}/departments`, {
+      method: 'POST', headers: auth(adminCookie), body: JSON.stringify({ name: 'Existence Dept' }),
+    })
+    assert(deptRes.status === 201, 'global admin creates department')
+    const dept = await deptRes.json() as any
+
+    const progBadRef = await fetch(`${base}/programs`, {
+      method: 'POST', headers: auth(adminCookie), body: JSON.stringify({ name: 'BSc Ref', curriculumId: curriculum.id, departmentIds: ['uw_missing_dept_id'] }),
+    })
+    assert(progBadRef.status === 400, 'program with unknown department id is rejected')
+
+    const progGoodRef = await fetch(`${base}/programs`, {
+      method: 'POST', headers: auth(adminCookie), body: JSON.stringify({ name: 'BSc Ref', curriculumId: curriculum.id, departmentIds: [dept.id] }),
+    })
+    assert(progGoodRef.status === 201, 'program with existing department id is created')
+    const refProgram = await progGoodRef.json() as any
+    assert(Array.isArray(refProgram.departmentIds) && refProgram.departmentIds.includes(dept.id), 'program persists department ids')
+
+    const refUpdSame = await fetch(`${base}/programs/${refProgram.id}`, {
+      method: 'PUT', headers: auth(adminCookie), body: JSON.stringify({ description: 'same references' }),
+    })
+    assert(refUpdSame.status === 200, 'program update without changed references succeeds')
+
+    const refUpdBad = await fetch(`${base}/programs/${refProgram.id}`, {
+      method: 'PUT', headers: auth(adminCookie), body: JSON.stringify({ departmentIds: ['uw_missing_dept_id'] }),
+    })
+    assert(refUpdBad.status === 400, 'program update introducing unknown department id is rejected')
+
     // ── ACL on program: grant reader/writer to others ───────────────────
     console.log('Access management on program...')
     const grantReader = await fetch(`${base}/programs/${program.id}/access`, {
@@ -201,6 +231,43 @@ async function main() {
     })
     assert(modNoVersion.status === 400, 'module without curriculum version is rejected')
 
+    // ── Batch import ─────────────────────────────────────────────────────
+    console.log('Batch import...')
+    const batchAnon = await fetch(`${base}/degrees/import`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ rows: [{ name: 'X' }] }),
+    })
+    assert(batchAnon.status === 401, 'batch import without session returns 401')
+
+    const batchOk = await fetch(`${base}/degrees/import`, {
+      method: 'POST', headers: auth(creatorCookie), body: JSON.stringify({ rows: [
+        { name: 'Import Batch BSc', programIds: [program.id] },
+        { name: 'Import Batch MSc', programIds: [program.id], description: 'desc' },
+      ] }),
+    })
+    assert(batchOk.status === 201, 'batch import creates tied degrees')
+    const batchCreated = await batchOk.json() as any[]
+    assert(Array.isArray(batchCreated) && batchCreated.length === 2, 'batch import returns created entities')
+    assert(batchCreated.every(d => d.id), 'batch import entities have ids')
+    assert(batchCreated.every(d => d._isAdmin === true), 'batch creator gets admin flags')
+
+    const batchBad = await fetch(`${base}/degrees/import`, {
+      method: 'POST', headers: auth(creatorCookie), body: JSON.stringify({ rows: [
+        { name: 'Import Fail A', programIds: [program.id] },
+        { name: 'Import Fail B', programIds: ['uw_missing_program'] },
+        { name: 'Import Fail C', programIds: [] },
+      ] }),
+    })
+    assert(batchBad.status === 400, 'batch import with invalid rows is rejected wholesale')
+    const batchBadBody = await batchBad.json() as any
+    assert(Array.isArray(batchBadBody.details) && batchBadBody.details.length === 2, 'batch import aggregates failing rows')
+    assert(batchBadBody.details.some((d: any) => d.row === 1), 'batch import reports row indices')
+    assert(batchBadBody.details.some((d: any) => String(d.message).includes('Unknown program')), 'batch import reports unknown parents')
+
+    const listAfterBatch = await fetch(`${base}/degrees`, { headers: auth(adminCookie) })
+    const degreesAfterBatch = await listAfterBatch.json() as any[]
+    assert(!degreesAfterBatch.some((d: any) => d.name === 'Import Fail A'), 'failed batch import leaves no partial rows')
+    assert(degreesAfterBatch.some((d: any) => d.name === 'Import Batch BSc'), 'successful batch rows persist')
+
     // ── Last-admin protection (degree: creator is its only admin) ───────
     console.log('Last-admin protection...')
     const degRemoveLast = await fetch(`${base}/degrees/${degree.id}/access/${creator.id}`, {
@@ -237,6 +304,16 @@ async function main() {
     await pool.query(`DELETE FROM programs WHERE name = 'BSc Inf'`)
     await pool.query(`DELETE FROM curriculums WHERE name = 'ACL Curriculum'`)
     await pool.query(`DELETE FROM local_users WHERE id IN ('user_creator','user_writer','user_reader','user_outsider','user_global_admin')`)
+
+    // Reference-existence test rows
+    await pool.query(`DELETE FROM entity_access WHERE table_name = 'programs' AND entity_id IN (SELECT id FROM programs WHERE name = 'BSc Ref')`)
+    await pool.query(`DELETE FROM programs WHERE name = 'BSc Ref'`)
+    await pool.query(`DELETE FROM entity_access WHERE table_name = 'departments' AND entity_id IN (SELECT id FROM departments WHERE name = 'Existence Dept')`)
+    await pool.query(`DELETE FROM departments WHERE name = 'Existence Dept'`)
+
+    // Batch-import test rows
+    await pool.query(`DELETE FROM entity_access WHERE table_name = 'degrees' AND entity_id IN (SELECT id FROM degrees WHERE name LIKE 'Import Batch%')`)
+    await pool.query(`DELETE FROM degrees WHERE name LIKE 'Import Batch%'`)
 
     // Remove leftovers from crashed earlier runs so tests are repeatable.
     await pool.query(`DELETE FROM entity_access WHERE entity_id IN (SELECT id FROM programs WHERE name = 'BSc Inf')`)

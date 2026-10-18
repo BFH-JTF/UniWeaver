@@ -6,6 +6,18 @@ export type ImportType =
 
 export type FieldDataType = 'string' | 'number' | 'boolean' | 'enum'
 
+/** A field (or parts of it) holds IDs referencing other curriculum entities. */
+export interface ReferenceTargetSpec {
+  /** API table of the referenced entities */
+  entityTable: 'departments' | 'programs' | 'degrees'
+  /** Display name of a single referenced element, e.g. "Department" */
+  entityLabel: string
+  /** The backend requires the importer to have admin access over the referenced entities */
+  requireAdmin: boolean
+  /** The backend rejects rows that reference nothing */
+  required: boolean
+}
+
 export interface ImportFieldDefinition {
   key: string
   label: string
@@ -15,6 +27,7 @@ export interface ImportFieldDefinition {
   aliases: string[]
   options?: string[]
   defaultValue?: any
+  reference?: ReferenceTargetSpec
 }
 
 export interface ImportTypeConfig {

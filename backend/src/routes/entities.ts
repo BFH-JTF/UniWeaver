@@ -7,10 +7,12 @@ import {
   fetchEntity,
   createEntity,
   updateEntity,
+  importEntities,
   copyCurriculumVersion,
   EntityHttpError,
   TABLE_SPECS,
 } from '../db/entityService'
+import type { ImportRowError } from '../db/entityService'
 import { genEntityId } from '../db/entities'
 import {
   findEntityReferences,
@@ -72,7 +74,12 @@ function pathParams(req: AuthenticatedRequest): { table: string; id: string } {
 
 function handleError(res: Response, error: unknown): void {
   if (error instanceof EntityHttpError) {
-    res.status(error.status).json({ error: error.message })
+    const body: Record<string, unknown> = { error: error.message }
+    const details = (error as { details?: ImportRowError[] }).details
+    if (Array.isArray(details) && details.length > 0) {
+      body.details = details
+    }
+    res.status(error.status).json(body)
     return
   }
   const message = error instanceof Error ? error.message : 'Internal server error'
@@ -235,6 +242,17 @@ entitiesRouter.post('/:table', withEntityContext(async (req, res) => {
   const table = String(req.params.table)
   const created = await createEntity(getPool(), table, req.body ?? {}, user.id, user.is_admin)
   res.status(201).json(decorate(created, 'admin'))
+}))
+
+// Bulk create: every row is validated like POST /:table would validate it
+// before anything is written; the insert happens in a single transaction, so
+// the import is all-or-nothing. Response carries the created entities in
+// request order; a 400 carries { details: [{ row, message }, ...] }.
+entitiesRouter.post('/:table/import', withEntityContext(async (req, res) => {
+  const user = getUser(req)
+  const table = String(req.params.table)
+  const created = await importEntities(getPool(), table, req.body?.rows ?? null, user.id, user.is_admin)
+  res.status(201).json(created.map(row => decorate(row, 'admin')))
 }))
 
 entitiesRouter.put('/:table/:id', withEntityContext(async (req, res) => {

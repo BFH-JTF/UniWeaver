@@ -3,7 +3,7 @@ import { usePostgres, EntityTables, type EntityTableName } from '@/composables/u
 import type { ImportType } from '@/types/csvImport'
 
 export function useCsvImport() {
-  const { createEntity } = usePostgres()
+  const { importEntities } = usePostgres()
   const isImporting = ref(false)
   const importError = ref<string | null>(null)
 
@@ -18,6 +18,9 @@ export function useCsvImport() {
    * Curriculum containment for imported records: programs must carry the
    * curriculum they belong to, modules the curriculum version. The caller
    * resolves these from the currently displayed curriculum/context.
+   *
+   * All rows are sent in a single batch request; the backend validates every
+   * row first and inserts atomically, so imports are all-or-nothing.
    */
   async function saveImportedData(
     type: ImportType,
@@ -29,21 +32,34 @@ export function useCsvImport() {
     const tableName = entityTableMap[type]
 
     try {
-      let count = 0
-      for (const item of items) {
+      const rows = items.map(item => {
+        const row = { ...item }
+        delete row.created_at
+        delete row.updated_at
         if (type === 'programs' && context?.curriculumId) {
-          item.curriculumId = context.curriculumId
+          row.curriculumId = context.curriculumId
         }
         if (type === 'modules' && context?.curriculumVersionId) {
-          item.curriculumVersionId = context.curriculumVersionId
+          row.curriculumVersionId = context.curriculumVersionId
         }
-        await createEntity(tableName, item)
-        count++
-      }
-      return count
+        return row
+      })
+      const saved = await importEntities(tableName, rows)
+      return saved.length
     } catch (e: any) {
-      importError.value = e.message || 'Failed to save imported records'
-      throw e
+      const details: any[] | undefined = e?.body?.details
+      let message = e?.message || 'Failed to save imported records'
+      if (Array.isArray(details) && details.length > 0) {
+        const shown = details
+          .slice(0, 5)
+          .map((d: any) => `Row ${(d.row ?? 0) + 1}: ${d.message}`)
+        if (details.length > 5) {
+          shown.push(`… and ${details.length - 5} more error${details.length - 5 === 1 ? '' : 's'}`)
+        }
+        message = `Import failed (nothing was saved): ${shown.join(' · ')}`
+      }
+      importError.value = message
+      throw new Error(message, { cause: e })
     } finally {
       isImporting.value = false
     }

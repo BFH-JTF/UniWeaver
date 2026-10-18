@@ -168,7 +168,7 @@ export const IMPORT_CONFIGS: Record<ImportType, ImportTypeConfig> = {
         label: 'Department IDs',
         required: false,
         type: 'string',
-        description: 'Referenced department IDs (comma, semicolon, or pipe separated)',
+        description: 'Referenced department IDs (comma, semicolon, or pipe separated). Unknown IDs must be resolved during import.',
         aliases: [
           'departmentids',
           'department_ids',
@@ -181,6 +181,12 @@ export const IMPORT_CONFIGS: Record<ImportType, ImportTypeConfig> = {
           'dept_ids',
           'dept_id',
         ],
+        reference: {
+          entityTable: 'departments',
+          entityLabel: 'Department',
+          requireAdmin: false,
+          required: false,
+        },
       },
       {
         key: 'contact',
@@ -258,7 +264,7 @@ export const IMPORT_CONFIGS: Record<ImportType, ImportTypeConfig> = {
         label: 'Program IDs',
         required: false,
         type: 'string',
-        description: 'Referenced program IDs (comma, semicolon, or pipe separated)',
+        description: 'Referenced program IDs (comma, semicolon, or pipe separated). Each degree requires at least one program; unknown IDs must be resolved during import.',
         aliases: [
           'programids',
           'program_ids',
@@ -271,6 +277,12 @@ export const IMPORT_CONFIGS: Record<ImportType, ImportTypeConfig> = {
           'studiengang',
           'studiengang_ids',
         ],
+        reference: {
+          entityTable: 'programs',
+          entityLabel: 'Program',
+          requireAdmin: true,
+          required: true,
+        },
       },
       {
         key: 'contact',
@@ -349,7 +361,7 @@ export const IMPORT_CONFIGS: Record<ImportType, ImportTypeConfig> = {
         label: 'Degree IDs',
         required: false,
         type: 'string',
-        description: 'Referenced degree IDs (comma, semicolon, or pipe separated)',
+        description: 'Referenced degree IDs (comma, semicolon, or pipe separated). Each module requires at least one degree; unknown IDs must be resolved during import.',
         aliases: [
           'degreeids',
           'degree_ids',
@@ -363,6 +375,12 @@ export const IMPORT_CONFIGS: Record<ImportType, ImportTypeConfig> = {
           'abschluss',
           'abschluss_ids',
         ],
+        reference: {
+          entityTable: 'degrees',
+          entityLabel: 'Degree',
+          requireAdmin: true,
+          required: true,
+        },
       },
       {
         key: 'contact',
