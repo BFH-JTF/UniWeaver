@@ -14,7 +14,7 @@
     "@uniweaver/shared": "*",
     "pinia": "^4.1.0",
     "vue": "^3.5.42",
-    "vue-router": "^5.3.1",
+    "vue-router": "^5.4.0",
     "vuetify": "^4.2.4"
   },
   "devDependencies": {
