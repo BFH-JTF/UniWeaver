@@ -138,6 +138,11 @@ export const TABLE_SPECS: Record<string, TableSpec> = {
     dbTable: 'class_entities',
     kind: 'audited',
     nameRequired: true,
+    existenceRefs: [
+      { key: 'semesterId', table: 'semesters', label: 'semester' },
+      { key: 'degreeId', table: 'degrees', label: 'degree' },
+      { key: 'moduleIds', table: 'modules', label: 'module' },
+    ],
     columns: [
       col('name', 'name'),
       col('code', 'code'),

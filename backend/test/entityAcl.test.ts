@@ -268,6 +268,35 @@ async function main() {
     assert(!degreesAfterBatch.some((d: any) => d.name === 'Import Fail A'), 'failed batch import leaves no partial rows')
     assert(degreesAfterBatch.some((d: any) => d.name === 'Import Batch BSc'), 'successful batch rows persist')
 
+    // ── Class reference existence validation ─────────────────────────────
+    console.log('Class reference existence checks...')
+    const refSemRes = await fetch(`${base}/semesters`, {
+      method: 'POST', headers: auth(adminCookie), body: JSON.stringify({ name: 'Ref Existence Semester' }),
+    })
+    assert(refSemRes.status === 201, 'global admin creates semester')
+    const refSemester = await refSemRes.json() as any
+
+    const clsBadSem = await fetch(`${base}/classes`, {
+      method: 'POST', headers: auth(adminCookie), body: JSON.stringify({ name: 'Ref Existence Class', curriculumVersionId: aclVersion.id, semesterId: 'uw_missing_semester' }),
+    })
+    assert(clsBadSem.status === 400 && String(((await clsBadSem.json()) as any).error).includes('Unknown semester'), 'class with unknown semester id is rejected')
+
+    const clsBadMod = await fetch(`${base}/classes`, {
+      method: 'POST', headers: auth(adminCookie), body: JSON.stringify({ name: 'Ref Existence Class', curriculumVersionId: aclVersion.id, moduleIds: ['uw_missing_module'] }),
+    })
+    assert(clsBadMod.status === 400 && String(((await clsBadMod.json()) as any).error).includes('Unknown module'), 'class with unknown module id is rejected')
+
+    const clsOk = await fetch(`${base}/classes`, {
+      method: 'POST', headers: auth(adminCookie), body: JSON.stringify({ name: 'Ref Existence Class', curriculumVersionId: aclVersion.id, semesterId: refSemester.id, degreeId: degree.id, moduleIds: [mod.id] }),
+    })
+    assert(clsOk.status === 201, 'class with existing references is created')
+    const refClass = await clsOk.json() as any
+
+    const clsUpdBad = await fetch(`${base}/classes/${refClass.id}`, {
+      method: 'PUT', headers: auth(adminCookie), body: JSON.stringify({ moduleIds: ['uw_missing_module'] }),
+    })
+    assert(clsUpdBad.status === 400, 'class update introducing unknown module id is rejected')
+
     // ── Last-admin protection (degree: creator is its only admin) ───────
     console.log('Last-admin protection...')
     const degRemoveLast = await fetch(`${base}/degrees/${degree.id}/access/${creator.id}`, {
@@ -314,6 +343,12 @@ async function main() {
     // Batch-import test rows
     await pool.query(`DELETE FROM entity_access WHERE table_name = 'degrees' AND entity_id IN (SELECT id FROM degrees WHERE name LIKE 'Import Batch%')`)
     await pool.query(`DELETE FROM degrees WHERE name LIKE 'Import Batch%'`)
+
+    // Class reference-existence test rows
+    await pool.query(`DELETE FROM entity_access WHERE table_name = 'classes' AND entity_id IN (SELECT id FROM class_entities WHERE name = 'Ref Existence Class')`)
+    await pool.query(`DELETE FROM class_entities WHERE name = 'Ref Existence Class'`)
+    await pool.query(`DELETE FROM entity_access WHERE table_name = 'semesters' AND entity_id IN (SELECT id FROM semesters WHERE name = 'Ref Existence Semester')`)
+    await pool.query(`DELETE FROM semesters WHERE name = 'Ref Existence Semester'`)
 
     // Remove leftovers from crashed earlier runs so tests are repeatable.
     await pool.query(`DELETE FROM entity_access WHERE entity_id IN (SELECT id FROM programs WHERE name = 'BSc Inf')`)
