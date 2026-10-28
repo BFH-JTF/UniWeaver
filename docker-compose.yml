@@ -9,7 +9,9 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - "./postgres-data:/var/lib/postgresql/data"
+      # Named volume: docker initializes ownership from the image (postgres's
+      # entrypoint chowns its data dir), and `docker compose down -v` wipes it.
+      - "pgdata:/var/lib/postgresql/data"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U uniweaver -d uniweaver"]
       interval: 5s
@@ -87,7 +89,16 @@ services:
       # direct port is only published for optional admin access to docPouch.
       - "127.0.0.1:3030:3030"
     volumes:
-      - "./docpouch-db:/app/db"
-      - "./docpouch-log:/app/log"
+      # Named volumes: docker initializes ownership from the image (doc-pouch
+      # runs as the unprivileged `node` user, uid/gid 1000), so freshly created
+      # state dirs are writable; bind mounts created by the daemon (root) would
+      # fail with EACCES. `docker compose down -v` wipes them.
+      - "docpouch-db:/app/db"
+      - "docpouch-log:/app/log"
     env_file: .env
     restart: unless-stopped
+
+volumes:
+  pgdata:
+  docpouch-db:
+  docpouch-log:
