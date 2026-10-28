@@ -100,7 +100,7 @@ services:
   doc-pouch:
     # Pinned like UNIWEAVER_TAG; :latest is not maintained upstream and can
     # be stale (it currently still runs as root and lacks the fixed layout).
-    image: ghcr.io/bfh-jtf/doc-pouch:${DOCOUCH_TAG:-1.27.3}
+    image: ghcr.io/bfh-jtf/doc-pouch:${DOCPOUCH_TAG:-1.27.3}
     container_name: uniweaver-docpouch-oidc
     ports:
       # Provider is reached through the app's same-origin /oidc proxy; the

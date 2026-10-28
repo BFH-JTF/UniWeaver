@@ -224,7 +224,7 @@ All configuration is environment-based. Copy `.env.example` to `.env`; the backe
 | `USER_ENTRY_URL` | `http://localhost:5173` | Dev-time override, read by the `user_entry` SPA itself |
 | `SCHEDULER_URL` | `http://scheduler:8081` | Scheduling service used for schedule generation (compose sets it; for local dev: `http://localhost:8081`) |
 | `UNIWEAVER_TAG` | `sha-893058b` | Image tag used by the compose `app` and `scheduler` services |
-| `DOCOUCH_TAG` | `1.27.3` | Image tag of the `doc-pouch` service (upstream does not maintain `:latest` — pin it) |
+| `DOCPOUCH_TAG` | `1.27.3` | Image tag of the `doc-pouch` service (upstream does not maintain `:latest` — pin it) |
 
 In docker compose, the `app` service uses `OIDC_INTERNAL_ISSUER_DOCKER` (default
 `http://doc-pouch:3030/oidc`); on the host, `.env` points at `http://localhost:3030/oidc`.
