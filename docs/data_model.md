@@ -152,7 +152,9 @@ erDiagram
     }
 
     %% selfStudyHours and contactHours dropped; module duration is expressed
-    %% in semester timeslots (timeslots = n × semester slot length)
+    %% in semester timeslots (timeslots = n × semester slot length);
+    %% installments = number of separate installments taught per semester
+    %% (unset = 1); the scheduler generates one session per installment × class
     MODULE {
         string id PK
         string name
@@ -164,6 +166,7 @@ erDiagram
         array proofOfCompetencyIds FK
         number creditPoints
         number timeslots
+        number installments
         string contact
         string url
     }

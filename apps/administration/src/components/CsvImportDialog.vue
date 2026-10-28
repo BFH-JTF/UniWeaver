@@ -445,7 +445,11 @@
               </thead>
               <tbody>
                 <tr v-for="(row, idx) in previewMappedEntities" :key="idx">
-                  <td v-for="field in previewTableFields" :key="field.key">
+                  <td
+                    v-for="field in previewTableFields"
+                    :key="field.key"
+                    :class="previewInvalidCellKeys.has(`${idx}:${field.key}`) ? 'text-error font-weight-medium' : ''"
+                  >
                     <span v-if="formatPreviewCell(row, field.key)">
                       {{ formatPreviewCell(row, field.key) }}
                     </span>
@@ -477,6 +481,91 @@
                 </tr>
               </tbody>
             </v-table>
+          </div>
+
+          <!-- Section 4: Reference Validation -->
+          <div v-if="referenceFieldsForType.length > 0" class="mb-2">
+            <div class="d-flex align-center justify-space-between mb-2">
+              <h3 class="text-subtitle-1 font-weight-bold d-flex align-center">
+                <v-icon start color="primary" icon="mdi-link-variant" />
+                Reference Validation
+              </h3>
+              <v-chip
+                size="small"
+                :color="referencesValid ? 'success' : 'error'"
+                variant="flat"
+              >
+                <v-icon start :icon="referencesValid ? 'mdi-check-circle' : 'mdi-alert-circle'" />
+                {{ referencesValid ? 'All references valid' : referenceStatusText }}
+              </v-chip>
+            </div>
+
+            <v-alert
+              v-if="referencesValid"
+              type="success"
+              variant="tonal"
+              density="compact"
+              class="mb-2"
+            >
+              Every referenced ID resolves to an existing element.
+            </v-alert>
+
+            <template v-else>
+              <v-alert type="error" variant="tonal" density="compact" class="mb-2">
+                The following IDs do not match any existing element. Select the correct element for each one —
+                importing stays blocked until every reference is resolved.
+              </v-alert>
+              <v-sheet
+                v-for="issue in referenceIssues"
+                :key="issue.key"
+                class="pa-3 rounded border mb-2"
+              >
+                <div class="d-flex align-center justify-space-between mb-1">
+                  <div class="d-flex align-center ga-2 flex-wrap">
+                    <span class="text-body-2 font-weight-medium">{{ issue.fieldLabel }} reference</span>
+                    <code
+                      v-if="issue.token !== MISSING_TOKEN"
+                      class="text-caption pa-1 rounded bg-red-lighten-5 text-red-darken-3"
+                    >
+                      {{ issue.token }}
+                    </code>
+                    <span v-else class="text-caption text-error">
+                      Cell is empty — a {{ issue.fieldLabel.toLowerCase() }} is required
+                    </span>
+                  </div>
+                  <v-chip size="x-small" variant="tonal" color="warning">
+                    used in {{ issue.rowIndices.length }} row{{ issue.rowIndices.length === 1 ? '' : 's' }}
+                  </v-chip>
+                </div>
+                <v-autocomplete
+                  v-if="issue.token !== MISSING_TOKEN"
+                  v-model="referenceResolutions[issue.key]"
+                  :items="referencePickerItems(issue.target)"
+                  :label="`Pick the correct ${issue.fieldLabel.toLowerCase()}`"
+                  prepend-inner-icon="mdi-magnify"
+                  clearable
+                  variant="outlined"
+                  density="compact"
+                  hide-details
+                  :menu-props="{ maxHeight: 320 }"
+                />
+                <v-select
+                  v-else
+                  :model-value="missingResolution(issue.key)"
+                  :items="referencePickerItems(issue.target)"
+                  :label="`Pick ${issue.fieldLabel.toLowerCase()}(s) to assign to all affected rows`"
+                  multiple
+                  chips
+                  closable-chips
+                  clearable
+                  variant="outlined"
+                  density="compact"
+                  hide-details
+                  :menu-props="{ maxHeight: 320 }"
+                  @update:model-value="(v: string[] | null) => setMissingResolution(issue.key, v)"
+                />
+              </v-sheet>
+            </template>
           </div>
         </template>
       </v-card-text>
@@ -510,10 +599,19 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import type { ImportType, ColumnMapping } from '@/types/csvImport'
+import type { ImportType, ColumnMapping, ReferenceTargetSpec } from '@/types/csvImport'
 import { IMPORT_CONFIGS, autoMapColumns } from '@/utils/csvSchemas'
+import {
+  MISSING_TOKEN,
+  referenceFields,
+  collectReferenceIssues,
+  resolveMappedRows,
+  type ReferenceResolutions,
+} from '@/utils/csvReferenceResolution'
 import { parseCsv, type ParsedCsv } from '@/utils/csvParser'
 import { useCsvImport } from '@/composables/useCsvImport'
+import { usePostgres, EntityTables, type EntityTableName } from '@/composables/usePostgres'
+import { useAuthStore } from '@/stores/auth'
 
 const props = withDefaults(
   defineProps<{
@@ -536,6 +634,8 @@ const emit = defineEmits<{
 }>()
 
 const { isImporting, saveImportedData } = useCsvImport()
+const { fetchEntities } = usePostgres()
+const authStore = useAuthStore()
 
 const selectedType = ref<ImportType>(props.initialType)
 const inputTab = ref<'file' | 'paste'>('file')
@@ -550,6 +650,9 @@ const previewMode = ref<'mapped' | 'raw'>('mapped')
 const fieldsOverviewMode = ref<'compact' | 'detailed'>('compact')
 const errorMessage = ref<string | null>(null)
 const fileInputRef = ref<HTMLInputElement>()
+const targetEntities = ref<Record<string, any[]>>({})
+const targetEntitiesLoaded = ref<Record<string, boolean>>({})
+const referenceResolutions = ref<ReferenceResolutions>({})
 
 // Watch initialType prop when dialog opens
 watch(
@@ -569,6 +672,7 @@ watch(
     if (isOpen) {
       selectedType.value = props.initialType || 'departments'
       errorMessage.value = null
+      ensureTargetEntities()
       if (rawCsvText.value) {
         parseAndApply(rawCsvText.value)
       }
@@ -578,9 +682,67 @@ watch(
   }
 )
 
+// Resolutions must not outlive the data they were chosen for.
+watch(selectedType, () => {
+  referenceResolutions.value = {}
+})
+watch(parsedCsv, () => {
+  referenceResolutions.value = {}
+})
+watch(columnMapping, () => {
+  referenceResolutions.value = {}
+}, { deep: true })
+
 const currentConfig = computed(() => {
   return IMPORT_CONFIGS[selectedType.value] || IMPORT_CONFIGS.departments
 })
+
+const referenceFieldsForType = computed(() => referenceFields(selectedType.value))
+
+const TARGET_TABLES: Record<ReferenceTargetSpec['entityTable'], EntityTableName> = {
+  departments: EntityTables.DEPARTMENT,
+  programs: EntityTables.PROGRAM,
+  degrees: EntityTables.DEGREE,
+  semesters: EntityTables.SEMESTER,
+  modules: EntityTables.MODULE,
+}
+
+/** Loads the target entity lists a pending import needs to validate IDs against. */
+async function ensureTargetEntities(): Promise<void> {
+  for (const field of referenceFieldsForType.value) {
+    const table = field.reference!.entityTable
+    if (targetEntitiesLoaded.value[table]) continue
+    targetEntitiesLoaded.value[table] = true
+    fetchEntities<any>(TARGET_TABLES[table])
+      .then(items => {
+        targetEntities.value = { ...targetEntities.value, [table]: items }
+      })
+      .catch((err: any) => {
+        targetEntitiesLoaded.value[table] = false
+        errorMessage.value = err.message || `Failed to load ${table} for reference validation`
+      })
+  }
+}
+
+function referencePickerItems(target: ReferenceTargetSpec) {
+  const list = targetEntities.value[target.entityTable] ?? []
+  const selectable = target.requireAdmin && !authStore.isAdmin
+    ? list.filter(e => e._isAdmin === true)
+    : list
+  return selectable.map((e: any) => ({
+    title: e.name || e.id || 'Unnamed',
+    subtitle: e.id,
+    value: e.id,
+  }))
+}
+
+function missingResolution(key: string): string[] | undefined | null {
+  return referenceResolutions.value[key] as string[] | undefined | null
+}
+
+function setMissingResolution(key: string, value: string[] | null | undefined): void {
+  referenceResolutions.value[key] = value ?? undefined
+}
 
 const availableTypeOptions = computed(() => {
   const all = Object.values(IMPORT_CONFIGS)
@@ -651,8 +813,49 @@ const previewTableFields = computed(() => {
 
 const previewMappedEntities = computed(() => {
   if (!parsedCsv.value || previewRows.value.length === 0) return []
-  const mappedRows = transformCsvRowsWithMapping(previewRows.value)
-  return currentConfig.value.transform(mappedRows)
+  const resolvedRows = resolveMappedRows(
+    selectedType.value,
+    transformCsvRowsWithMapping(previewRows.value),
+    targetEntities.value,
+    authStore.isAdmin,
+    referenceResolutions.value
+  )
+  return currentConfig.value.transform(resolvedRows)
+})
+
+/** Mapped rows of the full CSV — used to validate every row, not just the preview. */
+const allMappedRows = computed<Record<string, unknown>[]>(() => {
+  if (!parsedCsv.value) return []
+  return transformCsvRowsWithMapping(parsedCsv.value.rows)
+})
+
+const referenceIssues = computed(() => {
+  if (!parsedCsv.value || referenceFieldsForType.value.length === 0) return []
+  return collectReferenceIssues(
+    selectedType.value,
+    allMappedRows.value,
+    targetEntities.value,
+    authStore.isAdmin,
+    referenceResolutions.value
+  )
+})
+
+const referencesValid = computed(() => referenceIssues.value.length === 0)
+
+const referenceStatusText = computed(() => {
+  const count = referenceIssues.value.length
+  return `${count} unresolved reference${count === 1 ? '' : 's'}`
+})
+
+/** Preview cells (rowIdx:fieldKey) that still contain unresolved references. */
+const previewInvalidCellKeys = computed(() => {
+  const keys = new Set<string>()
+  for (const issue of referenceIssues.value) {
+    for (const idx of issue.rowIndices) {
+      if (idx < previewRows.value.length) keys.add(`${idx}:${issue.fieldKey}`)
+    }
+  }
+  return keys
 })
 
 const canImport = computed(() => {
@@ -660,11 +863,13 @@ const canImport = computed(() => {
     !!parsedCsv.value &&
     parsedCsv.value.rows.length > 0 &&
     isMandatorySatisfied.value &&
+    referencesValid.value &&
     !isImporting.value
   )
 })
 
 function handleTypeChange() {
+  ensureTargetEntities()
   resetMappingForCurrentType()
 }
 
@@ -759,6 +964,8 @@ function resetState() {
   errorMessage.value = null
   isDragging.value = false
   fieldsOverviewMode.value = 'compact'
+  referenceResolutions.value = {}
+  targetEntitiesLoaded.value = {}
   if (fileInputRef.value) {
     fileInputRef.value.value = ''
   }
@@ -806,8 +1013,14 @@ async function executeImport() {
   errorMessage.value = null
 
   try {
-    // 1. Transform all CSV rows using user's column mapping
-    const mappedRows = transformCsvRowsWithMapping(parsedCsv.value.rows)
+    // 1. Transform all CSV rows using user's column mapping, with resolved references
+    const mappedRows = resolveMappedRows(
+      selectedType.value,
+      transformCsvRowsWithMapping(parsedCsv.value.rows),
+      targetEntities.value,
+      authStore.isAdmin,
+      referenceResolutions.value
+    )
     // 2. Convert to typed domain entities
     const entities = currentConfig.value.transform(mappedRows)
     // 3. Save to database / local store

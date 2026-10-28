@@ -10,6 +10,15 @@ export interface ColumnSpec {
   numeric?: boolean
 }
 
+export interface ExistenceRefSpec {
+  /** camel key in the payload carrying the referenced entity ids */
+  key: string
+  /** table that must contain every referenced id */
+  table: string
+  /** label used in error messages, e.g. "department" */
+  label: string
+}
+
 export interface TableSpec {
   dbTable: string
   kind: EntityKind
@@ -17,6 +26,8 @@ export interface TableSpec {
   parentKey?: string
   parentTable?: 'departments' | 'programs' | 'degrees' | 'curriculums'
   parentLabel?: string
+  /** JSON-array references that must exist, without requiring ACL access over them */
+  existenceRefs?: ExistenceRefSpec[]
   columns: ColumnSpec[]
   nameRequired?: boolean
   /** camel keys of columns that must be non-empty on create and cannot be cleared on update */
@@ -76,6 +87,7 @@ export const TABLE_SPECS: Record<string, TableSpec> = {
     dbTable: 'programs',
     kind: 'audited',
     nameRequired: true,
+    existenceRefs: [{ key: 'departmentIds', table: 'departments', label: 'department' }],
     columns: [
       col('name', 'name'),
       col('description', 'description'),
@@ -117,6 +129,7 @@ export const TABLE_SPECS: Record<string, TableSpec> = {
       jsonCol('proof_ids', 'proofOfCompetencyIds', ['proofIds']),
       numCol('credit_points', 'creditPoints'),
       numCol('timeslots', 'timeslots'),
+      numCol('installments', 'installments'),
       col('contact', 'contact'),
       URL_COL,
     ],
@@ -208,6 +221,8 @@ export interface RowPayload {
   row: Record<string, unknown>
   extra: Record<string, unknown>
   parentIds: string[]
+  /** per existenceRef.key: the referenced ids supplied in the payload */
+  existenceIds: Record<string, string[]>
 }
 
 /**
@@ -248,7 +263,22 @@ export function payloadToRowPayload(spec: TableSpec, payload: Record<string, unk
     if (Array.isArray(raw)) parentIds = raw.map(String).filter(id => id.length > 0)
   }
 
-  return { row, extra, parentIds }
+  const existenceIds: Record<string, string[]> = {}
+  for (const ref of spec.existenceRefs ?? []) {
+    const c = spec.columns.find(cc => cc.camel === ref.key)
+    if (!c) continue
+    const raw = firstDefined(payload, keyChain(c))
+    if (Array.isArray(raw)) {
+      existenceIds[ref.key] = raw.map(String).filter(id => id.length > 0)
+    } else if (typeof raw === 'string' && raw.trim().length > 0) {
+      // tolerate single-text payloads: split like the client-side CSV parser does
+      existenceIds[ref.key] = raw.split(/[;,|]/).map(s => s.trim()).filter(Boolean)
+    } else {
+      existenceIds[ref.key] = []
+    }
+  }
+
+  return { row, extra, parentIds, existenceIds }
 }
 
 export function rowToEntity(spec: TableSpec, row: Record<string, unknown>): Record<string, unknown> {
@@ -308,5 +338,22 @@ export async function assertAdminOfAll(
   const adminCount = parseInt(String(admin.rows[0]?.count ?? '0'), 10)
   if (adminCount < ids.length) {
     throw new EntityHttpError(403, `Administrator access required for the referenced ${parentLabel}`)
+  }
+}
+
+/** Validates that referenced rows exist (existence-only; no ACL requirement). */
+export async function assertExistenceOfAll(
+  pool: Pool,
+  table: string,
+  label: string,
+  ids: string[],
+): Promise<void> {
+  const existing = await pool.query(
+    `SELECT COUNT(DISTINCT id) AS count FROM ${table} WHERE id = ANY($1)`,
+    [ids],
+  )
+  const foundCount = parseInt(String(existing.rows[0]?.count ?? '0'), 10)
+  if (foundCount < ids.length) {
+    throw new EntityHttpError(400, `Unknown ${label}: ${ids.join(', ')}`)
   }
 }

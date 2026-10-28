@@ -1,0 +1,7 @@
+id,name,description,semester,degree,moduleIds,size,contact,url
+CLS-INF-B1,1BINF-2024,First semester cohort BSc Informatik,SEM-HS25,DEG-INF-B,MOD-INF-B1|MOD-INF-B2|MOD-BWL-B1,30,meier@bfh.ch,https://www.bfh.ch/classes/1binf
+CLS-INF-B3,3BINF-2024,Third semester cohort BSc Informatik,SEM-HS25,DEG-INF-B,MOD-BWL-B1|MOD-BIN-B1,28,meier@bfh.ch,https://www.bfh.ch/classes/3binf
+CLS-CYS-B1,1CYS-2024,First semester cohort BSc Cyber Security,SEM-HS25,DEG-CYS-B,MOD-CYS-B1|MOD-CYS-B2|MOD-INF-B1,25,weber@bfh.ch,https://www.bfh.ch/classes/1cys
+CLS-BWL-B1,1BWL-2024,First semester cohort BSc Betriebsökonomie,SEM-HS25,DEG-BWL-B,MOD-BWL-B1|MOD-BWL-B2,40,schneider@bfh.ch,https://www.bfh.ch/classes/1bwl
+CLS-BIN-M1,1BIN-M,First semester cohort MSc Business Engineering,SEM-HS25,DEG-BIN-M,MOD-BIN-M1|MOD-BIN-M2,20,frey@bfh.ch,https://www.bfh.ch/classes/1binm
+CLS-INF-M1,1INF-M,First semester cohort MSc Informatik,SEM-HS25,DEG-INF-M,MOD-INF-M1|MOD-INF-M2|MOD-CYS-M2,18,meier@bfh.ch,https://www.bfh.ch/classes/1infm

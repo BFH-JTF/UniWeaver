@@ -1,5 +1,6 @@
 import type { ImportType, ImportTypeConfig, ImportFieldDefinition, ColumnMapping } from '@/types/csvImport'
 import type { Department, Program, Degree, Module } from '@/types/curriculum'
+import type { ClassEntity } from '@/types/curriculumClass'
 
 export function normalizeHeader(str: string): string {
   return str.toLowerCase().replace(/[^a-z0-9]/g, '')
@@ -168,7 +169,7 @@ export const IMPORT_CONFIGS: Record<ImportType, ImportTypeConfig> = {
         label: 'Department IDs',
         required: false,
         type: 'string',
-        description: 'Referenced department IDs (comma, semicolon, or pipe separated)',
+        description: 'Referenced department IDs (comma, semicolon, or pipe separated). Unknown IDs must be resolved during import.',
         aliases: [
           'departmentids',
           'department_ids',
@@ -181,6 +182,12 @@ export const IMPORT_CONFIGS: Record<ImportType, ImportTypeConfig> = {
           'dept_ids',
           'dept_id',
         ],
+        reference: {
+          entityTable: 'departments',
+          entityLabel: 'Department',
+          requireAdmin: false,
+          required: false,
+        },
       },
       {
         key: 'contact',
@@ -258,7 +265,7 @@ export const IMPORT_CONFIGS: Record<ImportType, ImportTypeConfig> = {
         label: 'Program IDs',
         required: false,
         type: 'string',
-        description: 'Referenced program IDs (comma, semicolon, or pipe separated)',
+        description: 'Referenced program IDs (comma, semicolon, or pipe separated). Each degree requires at least one program; unknown IDs must be resolved during import.',
         aliases: [
           'programids',
           'program_ids',
@@ -271,6 +278,12 @@ export const IMPORT_CONFIGS: Record<ImportType, ImportTypeConfig> = {
           'studiengang',
           'studiengang_ids',
         ],
+        reference: {
+          entityTable: 'programs',
+          entityLabel: 'Program',
+          requireAdmin: true,
+          required: true,
+        },
       },
       {
         key: 'contact',
@@ -317,7 +330,7 @@ export const IMPORT_CONFIGS: Record<ImportType, ImportTypeConfig> = {
     type: 'modules',
     label: 'Modules',
     icon: 'mdi-book-open-page-variant',
-    description: 'Curriculum modules, degree associations, credits, and contact hours.',
+    description: 'Curriculum modules, degree associations, credits, lesson length, and installments.',
     entityName: 'Module',
     fields: [
       {
@@ -349,7 +362,7 @@ export const IMPORT_CONFIGS: Record<ImportType, ImportTypeConfig> = {
         label: 'Degree IDs',
         required: false,
         type: 'string',
-        description: 'Referenced degree IDs (comma, semicolon, or pipe separated)',
+        description: 'Referenced degree IDs (comma, semicolon, or pipe separated). Each module requires at least one degree; unknown IDs must be resolved during import.',
         aliases: [
           'degreeids',
           'degree_ids',
@@ -363,6 +376,12 @@ export const IMPORT_CONFIGS: Record<ImportType, ImportTypeConfig> = {
           'abschluss',
           'abschluss_ids',
         ],
+        reference: {
+          entityTable: 'degrees',
+          entityLabel: 'Degree',
+          requireAdmin: true,
+          required: true,
+        },
       },
       {
         key: 'contact',
@@ -387,6 +406,22 @@ export const IMPORT_CONFIGS: Record<ImportType, ImportTypeConfig> = {
         type: 'number',
         description: 'ECTS credits',
         aliases: ['creditpoints', 'credit_points', 'credits', 'ects', 'points'],
+      },
+      {
+        key: 'timeslots',
+        label: 'Timeslots per Installment',
+        required: false,
+        type: 'number',
+        description: 'Number of semester timeslots one installment of the module lasts (duration = n × slot length)',
+        aliases: ['timeslots', 'timeslotcount', 'timeslot_count', 'timeslotsperinstallment', 'slots', 'lessonlength', 'lesson_length'],
+      },
+      {
+        key: 'installments',
+        label: 'Installments per Semester',
+        required: false,
+        type: 'number',
+        description: 'How many separate installments of the module are taught per semester (unset = 1)',
+        aliases: ['installments', 'installmentcount', 'installment_count', 'installmentspersemester', 'sessionspersemester', 'sessions_per_semester'],
       },
     ],
     transform: (mappedRows: Record<string, any>[]): Module[] => {
@@ -413,7 +448,139 @@ export const IMPORT_CONFIGS: Record<ImportType, ImportTypeConfig> = {
         if (obj.creditPoints !== undefined && obj.creditPoints !== '') {
           mod.creditPoints = Number(obj.creditPoints) || undefined
         }
+        if (obj.timeslots !== undefined && obj.timeslots !== '') {
+          mod.timeslots = Number(obj.timeslots) || undefined
+        }
+        if (obj.installments !== undefined && obj.installments !== '') {
+          mod.installments = Number(obj.installments) || undefined
+        }
         return mod
+      })
+    },
+  },
+
+  classes: {
+    type: 'classes',
+    label: 'Classes',
+    icon: 'mdi-account-group',
+    description: 'Student groups/cohorts with semester, degree, module assignments and size.',
+    entityName: 'Class',
+    fields: [
+      {
+        key: 'name',
+        label: 'Class Name',
+        required: true,
+        type: 'string',
+        description: 'Name of the student group or cohort (e.g. 1BINF-2024)',
+        aliases: ['name', 'class_name', 'class name', 'klasse', 'klassenname', 'cohort', 'group', 'gruppe', 'title', 'titel'],
+      },
+      {
+        key: 'id',
+        label: 'Class ID / Code',
+        required: false,
+        type: 'string',
+        description: 'Unique class identifier or code (e.g. 1BINF24)',
+        aliases: ['id', 'code', 'class_code', 'class code', 'class_id', 'class id', 'kuerzel', 'klassencode', 'identifier'],
+      },
+      {
+        key: 'description',
+        label: 'Description',
+        required: false,
+        type: 'string',
+        description: 'Description of the class',
+        aliases: ['description', 'beschreibung', 'details', 'desc', 'summary'],
+      },
+      {
+        key: 'semesterId',
+        label: 'Semester',
+        required: false,
+        type: 'string',
+        description: 'Referenced semester ID (intake semester). Unknown IDs must be resolved during import.',
+        aliases: ['semesterid', 'semester_id', 'semester id', 'semester', 'semestercode', 'semester_name', 'semestername'],
+        reference: {
+          entityTable: 'semesters',
+          entityLabel: 'Semester',
+          requireAdmin: false,
+          required: false,
+        },
+      },
+      {
+        key: 'degreeId',
+        label: 'Degree',
+        required: false,
+        type: 'string',
+        description: 'Referenced degree ID (the degree of this class). Unknown IDs must be resolved during import.',
+        aliases: ['degreeid', 'degree_id', 'degree id', 'degree', 'degrees', 'abschluss', 'abschluss_id', 'abschlussids'],
+        reference: {
+          entityTable: 'degrees',
+          entityLabel: 'Degree',
+          requireAdmin: false,
+          required: false,
+        },
+      },
+      {
+        key: 'moduleIds',
+        label: 'Module IDs',
+        required: false,
+        type: 'string',
+        description: 'Referenced module IDs (comma, semicolon, or pipe separated): the modules this class attends.',
+        aliases: ['moduleids', 'module_ids', 'module ids', 'moduleid', 'modules', 'module', 'modul', 'module_ids'],
+        reference: {
+          entityTable: 'modules',
+          entityLabel: 'Module',
+          requireAdmin: false,
+          required: false,
+        },
+      },
+      {
+        key: 'size',
+        label: 'Class Size',
+        required: false,
+        type: 'number',
+        description: 'Number of students in this class',
+        aliases: ['size', 'classsize', 'class_size', 'students', 'studentcount', 'student_count', 'participants', 'groesse'],
+      },
+      {
+        key: 'contact',
+        label: 'Contact',
+        required: false,
+        type: 'string',
+        description: 'Contact person for the class',
+        aliases: ['contact', 'kontakt', 'contact_person', 'email', 'person', 'ansprechpartner'],
+      },
+      {
+        key: 'url',
+        label: 'URL',
+        required: false,
+        type: 'string',
+        description: 'Website or URL of the class',
+        aliases: ['url', 'URL', 'link', 'website', 'webseite', 'uri', 'homepage'],
+      },
+    ],
+    transform: (mappedRows: Record<string, any>[]): ClassEntity[] => {
+      return mappedRows.map(obj => {
+        const cls: ClassEntity = {
+          name: String(obj.name || ''),
+        }
+        if (obj.id) cls.id = String(obj.id)
+        if (obj.code || obj.id) cls.code = String(obj.code || obj.id)
+        if (obj.description) cls.description = String(obj.description)
+        const semesterTokens = parseStringArray(obj.semesterId)
+        if (semesterTokens.length > 0) cls.semesterId = String(semesterTokens[0])
+        const degreeTokens = parseStringArray(obj.degreeId)
+        if (degreeTokens.length > 0) cls.degreeId = String(degreeTokens[0])
+        const moduleIds = parseStringArray(obj.moduleIds)
+        if (moduleIds.length > 0) cls.moduleIds = moduleIds
+        if (obj.contact) cls.contact = String(obj.contact)
+        const urlVal = obj.url || obj.URL
+        if (urlVal) {
+          cls.url = String(urlVal)
+          cls.URL = String(urlVal)
+        }
+        if (obj.size !== undefined && obj.size !== '') {
+          cls.size = Number(obj.size) || undefined
+        }
+        return cls
       })
     },
   },

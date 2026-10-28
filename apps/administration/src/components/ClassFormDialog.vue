@@ -92,20 +92,6 @@
           </template>
 
           <v-autocomplete
-            v-model="form.programIds"
-            :items="programs"
-            item-title="name"
-            item-value="id"
-            label="Programs of the displayed curriculum"
-            variant="outlined"
-            density="compact"
-            multiple
-            chips
-            closable-chips
-            class="mb-3"
-          />
-
-          <v-autocomplete
             v-model="form.semesterId"
             :items="semesterItems"
             item-title="title"
@@ -161,14 +147,13 @@
 import { ref, computed, watch } from 'vue'
 import CopyIdButton from '@/components/CopyIdButton.vue'
 import type { ClassEntity } from '@/types/curriculumClass'
-import type { Degree, Module, Program } from '@/types/curriculum'
+import type { Degree, Module } from '@/types/curriculum'
 import type { Semester } from '@/stores/curriculum'
 import { emptyClass } from '@/composables/useClasses'
 
 const props = defineProps<{
   modelValue: boolean
   classData?: ClassEntity
-  programs: Program[]
   degrees: Degree[]
   /** Modules of the displayed curriculum version (for linking to this class). */
   modules?: Module[]

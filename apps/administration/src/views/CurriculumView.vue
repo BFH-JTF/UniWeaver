@@ -509,6 +509,10 @@
               <span v-else-if="item.timeslots != null">{{ item.timeslots }}</span>
               <span v-else class="text-medium-emphasis">—</span>
             </template>
+            <template #item.installments="{ item }">
+              <span v-if="item.installments != null">{{ item.installments }}</span>
+              <span v-else class="text-medium-emphasis">1</span>
+            </template>
             <template #item.name="{ item }">
               <span>{{ item.name }}</span>
               <v-chip v-if="item._isAdmin" size="x-small" variant="tonal" color="primary" class="ml-1">Admin</v-chip>
@@ -547,6 +551,7 @@
           <v-row class="align-center mb-4">
             <v-col cols="12" sm="6" class="d-flex ga-2">
               <v-btn v-if="auth.isAdmin" color="primary" prepend-icon="mdi-plus" @click="openAddClass">Add Class</v-btn>
+              <v-btn v-if="auth.isAdmin" variant="outlined" prepend-icon="mdi-file-import" @click="openCsvImport('classes')">Import CSV</v-btn>
             </v-col>
             <v-col cols="12" sm="6">
               <v-text-field
@@ -577,14 +582,6 @@
             </template>
             <template #item.size="{ item }">
               {{ item.size ?? '-' }}
-            </template>
-            <template #item.programIds="{ item }">
-              <template v-if="getClassProgramNames(item).length">
-                <v-chip v-for="name in getClassProgramNames(item)" :key="name" size="x-small" variant="tonal" color="secondary" class="mr-1">
-                  {{ name }}
-                </v-chip>
-              </template>
-              <span v-else class="text-medium-emphasis">-</span>
             </template>
             <template #item.semesterId="{ item }">
               {{ getSemesterName(item.semesterId) || '-' }}
@@ -672,7 +669,6 @@
     <ClassFormDialog
       v-model="clsDialogOpen"
       :class-data="editClass"
-      :programs="programsOfDisplayedVersion"
       :degrees="degreesOfDisplayedVersion"
       :modules="modulesOfDisplayedVersion"
       :semesters="semesterList"
@@ -1059,13 +1055,13 @@ const modHeaders = [
   { title: 'Classes', key: 'classCount', sortable: true },
   { title: 'ECTS', key: 'creditPoints', sortable: true },
   { title: 'Timeslots', key: 'timeslots', sortable: true },
+  { title: 'Installments', key: 'installments', sortable: true },
   { title: '', key: 'actions', sortable: false, width: '150px' },
 ]
 
 const clsHeaders = [
   { title: 'Code', key: 'code', sortable: true },
   { title: 'Name', key: 'name', sortable: true },
-  { title: 'Programs', key: 'programIds', sortable: false },
   { title: 'Degree', key: 'degreeId', sortable: false },
   { title: 'Size', key: 'size', sortable: true },
   { title: 'Semester', key: 'semesterId', sortable: false },
@@ -1120,14 +1116,6 @@ function getDegreeName(degreeId: string | undefined): string {
   if (!degreeId) return '-'
   const deg = degrees.value.find(d => d.id === degreeId)
   return deg ? (deg.name || degreeId) : degreeId
-}
-
-function getClassProgramNames(cls: ClassEntity): string[] {
-  const ids = cls.programIds ?? []
-  return ids.map((id: string) => {
-    const prog = programs.value.find(p => p.id === id)
-    return prog ? prog.name : id
-  })
 }
 
 function getSemesterName(semesterId: string | undefined): string {
@@ -1256,7 +1244,7 @@ const filteredClasses = computed(() => {
     (c.code ?? '').toLowerCase().includes(q) ||
     (c.description ?? '').toLowerCase().includes(q) ||
     (c.contact ?? '').toLowerCase().includes(q) ||
-    getClassProgramNames(c).some(n => n.toLowerCase().includes(q))
+    (c.degreeId && getDegreeName(c.degreeId).toLowerCase().includes(q))
   )
 })
 
@@ -1671,6 +1659,10 @@ function openCsvImport(type: ImportType) {
     showSnackbar('Select a curriculum version first: modules cannot exist without one', 'error')
     return
   }
+  if (type === 'classes' && !displayedVersionId.value) {
+    showSnackbar('Select a curriculum version first: classes cannot exist without one', 'error')
+    return
+  }
   csvImportType.value = type
   csvImportDialogOpen.value = true
 }
@@ -1681,6 +1673,7 @@ async function handleCsvImported(payload: { type: ImportType; count: number; ite
     programs: 'program',
     degrees: 'degree',
     modules: 'module',
+    classes: 'class',
   }
   if (payload.type === 'departments') {
     await fetchDepartments()
@@ -1690,6 +1683,8 @@ async function handleCsvImported(payload: { type: ImportType; count: number; ite
     await fetchDegrees()
   } else if (payload.type === 'modules') {
     await fetchModules()
+  } else if (payload.type === 'classes') {
+    await fetchClasses()
   }
   const singular = labelMap[payload.type] || payload.type
   showSnackbar(`${payload.count} ${singular}${payload.count === 1 ? '' : 's'} imported successfully`)

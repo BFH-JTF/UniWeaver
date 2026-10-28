@@ -48,7 +48,8 @@ Curriculum administration: curricula with versions, departments, programs, degre
 classes and semesters — each as CRUD tables with form dialogs, per-entity access management
 and typed restriction editors. Includes CSV import with schema auto-mapping (example files:
 [departments.csv](departments.csv), [programs.csv](programs.csv), [degrees.csv](degrees.csv),
-[modules.csv](modules.csv)) and the user management view (role flags, lecturer opt-out).
+[modules.csv](modules.csv), [classes.csv](classes.csv)) and the user management view (role
+flags, lecturer opt-out).
 
 ### scheduling
 
