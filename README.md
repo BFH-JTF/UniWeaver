@@ -143,7 +143,7 @@ The stack then comes up on <http://localhost:3000>, which redirects to the porta
 | `app` | `3000` | Backend + all four SPAs + OIDC proxy |
 | `scheduler` | `127.0.0.1:8081` | Timefold scheduling service (used by the backend) |
 | `postgres` | `5432` | Database, data in the `uniweaver_pgdata` volume |
-| `doc-pouch` | `127.0.0.1:3030` | OIDC identity provider (optional admin access); login state in the `uniweaver_docpouch-db` volume |
+| `doc-pouch` | `127.0.0.1:3030` | OIDC identity provider (optional admin access); login state in the `uniweaver_docpouch-db` volume; a one-shot `volume-permissions` service fixes volume ownership before it starts |
 
 Both application services default to the published GHCR images
 (`ghcr.io/bfh-jtf/uniweaver`, `ghcr.io/bfh-jtf/uniweaver-scheduler`, pinned by the
@@ -224,9 +224,15 @@ All configuration is environment-based. Copy `.env.example` to `.env`; the backe
 | `USER_ENTRY_URL` | `http://localhost:5173` | Dev-time override, read by the `user_entry` SPA itself |
 | `SCHEDULER_URL` | `http://scheduler:8081` | Scheduling service used for schedule generation (compose sets it; for local dev: `http://localhost:8081`) |
 | `UNIWEAVER_TAG` | `sha-893058b` | Image tag used by the compose `app` and `scheduler` services |
+| `DOCOUCH_TAG` | `1.27.3` | Image tag of the `doc-pouch` service (upstream does not maintain `:latest` — pin it) |
 
 In docker compose, the `app` service uses `OIDC_INTERNAL_ISSUER_DOCKER` (default
 `http://doc-pouch:3030/oidc`); on the host, `.env` points at `http://localhost:3030/oidc`.
+
+**Bundled doc-pouch hardening.** doc-pouch reads `JWT_SECRET` (session tokens; unset means a
+random per-process secret and logins reset on every restart) and `ALLOWED_ORIGINS` (CORS;
+unset means all origins) from the same `.env` via `env_file`. Set both in production and keep
+the CORS list to the UniWeaver origin plus the doc-pouch admin UI origin (`:3030`).
 
 ### Releases and images
 
