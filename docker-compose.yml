@@ -81,13 +81,34 @@ services:
   # runs without --profile oidc (which took the provider down repeatedly).
   # To use an external identity provider instead, remove this service and
   # point OIDC_ISSUER / OIDC_INTERNAL_ISSUER at your provider.
+  volume-permissions:
+    # One-shot ownership pre-flight for the doc-pouch volumes below: docker
+    # seeds a named volume with the *image's* mount-point ownership only when
+    # that path exists in the image. Volumes created before doc-pouch v1.27.3
+    # (which only then shipped node-owned /app/db and /app/log) came up
+    # root-owned, and the unprivileged doc-pouch process (node, uid 1000)
+    # crash-loops with EACCES on its NeDB files. This heals those volumes in
+    # place on every `up`; harmless no-op on healthy ones.
+    image: alpine:3.20
+    user: "0"
+    volumes:
+      - "docpouch-db:/fix/docpouch-db"
+      - "docpouch-log:/fix/docpouch-log"
+    command: chown -R 1000:1000 /fix/docpouch-db /fix/docpouch-log
+    restart: "no"
+
   doc-pouch:
-    image: ghcr.io/bfh-jtf/doc-pouch:latest
+    # Pinned like UNIWEAVER_TAG; :latest is not maintained upstream and can
+    # be stale (it currently still runs as root and lacks the fixed layout).
+    image: ghcr.io/bfh-jtf/doc-pouch:${DOCOUCH_TAG:-1.27.3}
     container_name: uniweaver-docpouch-oidc
     ports:
       # Provider is reached through the app's same-origin /oidc proxy; the
       # direct port is only published for optional admin access to docPouch.
       - "127.0.0.1:3030:3030"
+    depends_on:
+      volume-permissions:
+        condition: service_completed_successfully
     volumes:
       # Named volumes: docker initializes ownership from the image (doc-pouch
       # runs as the unprivileged `node` user, uid/gid 1000), so freshly created
