@@ -142,8 +142,8 @@ The stack then comes up on <http://localhost:3000>, which redirects to the porta
 |---|---|---|
 | `app` | `3000` | Backend + all four SPAs + OIDC proxy |
 | `scheduler` | `127.0.0.1:8081` | Timefold scheduling service (used by the backend) |
-| `postgres` | `5432` | Database, data persisted in `./postgres-data` |
-| `doc-pouch` | `127.0.0.1:3030` | OIDC identity provider (optional admin access) |
+| `postgres` | `5432` | Database, data in the `uniweaver_pgdata` volume |
+| `doc-pouch` | `127.0.0.1:3030` | OIDC identity provider (optional admin access); login state in the `uniweaver_docpouch-db` volume |
 
 Both application services default to the published GHCR images
 (`ghcr.io/bfh-jtf/uniweaver`, `ghcr.io/bfh-jtf/uniweaver-scheduler`, pinned by the
@@ -156,7 +156,7 @@ Common commands:
 docker compose up -d --build   # build and start
 docker compose logs -f app     # follow backend logs
 docker compose down            # stop, keep data
-docker compose down -v         # stop and delete all volumes
+docker compose down -v         # stop and delete all volumes (database and login state, incl. accounts)
 ```
 
 **First login.** docPouch starts empty, so create the first account in its admin UI
