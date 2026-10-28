@@ -129,6 +129,7 @@ export const TABLE_SPECS: Record<string, TableSpec> = {
       jsonCol('proof_ids', 'proofOfCompetencyIds', ['proofIds']),
       numCol('credit_points', 'creditPoints'),
       numCol('timeslots', 'timeslots'),
+      numCol('installments', 'installments'),
       col('contact', 'contact'),
       URL_COL,
     ],

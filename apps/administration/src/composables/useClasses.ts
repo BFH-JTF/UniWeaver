@@ -5,7 +5,6 @@ import type { ClassEntity } from '@/types/curriculumClass'
 export function emptyClass(): ClassEntity {
   return {
     name: '',
-    programIds: [],
   }
 }
 

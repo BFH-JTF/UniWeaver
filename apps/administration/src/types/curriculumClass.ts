@@ -9,7 +9,6 @@ export interface ClassEntity extends AclInfo {
   semesterId?: string
   curriculumVersionId?: string
   degreeId?: string
-  programIds?: string[]
   moduleIds?: string[]
   contact?: string
   url?: string

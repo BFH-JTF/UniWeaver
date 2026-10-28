@@ -9,6 +9,7 @@ export function useCsvImport() {
 
   const entityTableMap: Record<ImportType, EntityTableName> = {
     modules: EntityTables.MODULE,
+    classes: EntityTables.CLASS,
     departments: EntityTables.DEPARTMENT,
     programs: EntityTables.PROGRAM,
     degrees: EntityTables.DEGREE,
@@ -16,8 +17,8 @@ export function useCsvImport() {
 
   /**
    * Curriculum containment for imported records: programs must carry the
-   * curriculum they belong to, modules the curriculum version. The caller
-   * resolves these from the currently displayed curriculum/context.
+   * curriculum they belong to, modules and classes the curriculum version.
+   * The caller resolves these from the currently displayed curriculum/context.
    *
    * All rows are sent in a single batch request; the backend validates every
    * row first and inserts atomically, so imports are all-or-nothing.
@@ -39,7 +40,7 @@ export function useCsvImport() {
         if (type === 'programs' && context?.curriculumId) {
           row.curriculumId = context.curriculumId
         }
-        if (type === 'modules' && context?.curriculumVersionId) {
+        if ((type === 'modules' || type === 'classes') && context?.curriculumVersionId) {
           row.curriculumVersionId = context.curriculumVersionId
         }
         return row

@@ -595,8 +595,8 @@ export async function copyCurriculumVersion(
         for (const module of modulesRes.rows) {
           const newModuleId = genEntityId()
           await client.query(
-            `INSERT INTO modules (id, name, code, description, degree_ids, curriculum_version_id, competency_ids, proof_ids, credit_points, timeslots, contact, url, extra, created_at, updated_at)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW(), NOW())`,
+            `INSERT INTO modules (id, name, code, description, degree_ids, curriculum_version_id, competency_ids, proof_ids, credit_points, timeslots, installments, contact, url, extra, created_at, updated_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW(), NOW())`,
             [
               newModuleId,
               module.name,
@@ -608,6 +608,7 @@ export async function copyCurriculumVersion(
               module.proof_ids,
               module.credit_points,
               module.timeslots,
+              module.installments,
               module.contact,
               module.url,
               module.extra,

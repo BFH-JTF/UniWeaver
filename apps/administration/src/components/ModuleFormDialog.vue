@@ -60,16 +60,31 @@
                 min="0"
               />
             </v-col>
+          </v-row>
+          <v-row dense>
             <v-col cols="12" sm="6">
               <v-text-field
                 v-model.number="mod.timeslots"
                 :label="timeslotInputInfo ? `# of Timeslots (${timeslotInputInfo.duration} minutes)` : '# of Timeslots'"
                 :hint="timeslotInputInfo
-                  ? `One module instance spans ${mod.timeslots ?? '?'} × ${timeslotInputInfo.duration} min`
+                  ? `One installment spans ${mod.timeslots ?? '?'} × ${timeslotInputInfo.duration} min`
                   : 'Semester without timeslot grid — define the grid in the semester settings'"
                 persistent-hint
                 type="number"
                 min="0"
+                step="1"
+              />
+            </v-col>
+            <v-col cols="12" sm="6">
+              <v-text-field
+                v-model.number="mod.installments"
+                label="Installments per Semester"
+                :hint="timeslotInputInfo
+                  ? `The solver schedules ${mod.installments ?? 1} × ${mod.timeslots ?? '?'} × ${timeslotInputInfo.duration} min per semester`
+                  : 'How many separate installments the solver teaches per semester (unset = 1)'"
+                persistent-hint
+                type="number"
+                min="1"
                 step="1"
               />
             </v-col>

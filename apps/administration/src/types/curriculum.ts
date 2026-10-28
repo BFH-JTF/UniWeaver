@@ -92,6 +92,8 @@ export interface Module extends AclInfo {
   creditPoints?: number
   /** Number of semester timeslots one instance of the module needs (module duration = n × slot length) */
   timeslots?: number
+  /** How many separate installments of the module are taught per semester (unset = 1) */
+  installments?: number
   curriculumVersionId?: string
   competencyIds?: string[]
   proofOfCompetencyIds?: string[]

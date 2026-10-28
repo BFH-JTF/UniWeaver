@@ -7,7 +7,8 @@
  * 2. Blackout -> allow-list: rooms declare allowed windows (absence of rows
  *    = always available); lecturers declare unavailability, which is flipped
  *    into the complement within each candidate daily slot grid.
- * 3. Module/class pairings -> one session per pairing; duration derived from
+ * 3. Module/class pairings -> one-or-more sessions per pairing
+ *    (module.installments, 1 when unset); duration derived from
  *    module.timeslots x semester slot duration; lecturer candidates from
  *    module_lecturers (falls back to all lecturers with a warning).
  * 4. Effective curriculum restrictions -> per-pairing SchedulingRuleDTOs
@@ -367,10 +368,10 @@ export async function assembleScheduleRequest(
     throw new AssemblyError(`No modules assigned to the classes of semester "${semester.name}".`)
   }
   const modulesRes = await pool.query(
-    `SELECT id, name, code, timeslots FROM modules WHERE id = ANY($1::text[])`,
+    `SELECT id, name, code, timeslots, installments FROM modules WHERE id = ANY($1::text[])`,
     [moduleIds],
   )
-  const modules = new Map<string, { id: string; name: string; code: string; timeslots: number | null }>()
+  const modules = new Map<string, { id: string; name: string; code: string; timeslots: number | null; installments: number | null }>()
   for (const row of modulesRes.rows as any[]) {
     modules.set(row.id, row)
   }
@@ -421,22 +422,28 @@ export async function assembleScheduleRequest(
       if (!mod.timeslots) {
         warnings.push(`Module ${mod.code || mod.name}: no lesson length set; scheduled with one slot (${grid.durationMinutes} min).`)
       }
+      const installCount = mod.installments && mod.installments > 0 ? mod.installments : 1
+      if (!mod.installments) {
+        warnings.push(`Module ${mod.code || mod.name}: no installment count set; scheduled as one installment.`)
+      }
       const durationMinutes = slotCount * grid.durationMinutes
       const candidateIds = (poolByModule.get(moduleId) ?? []).filter((id) => byLecturer.has(id))
       if (candidateIds.length === 0) {
         warnings.push(`Module ${mod.code || mod.name}: no lecturer mapping; any lecturer may be assigned.`)
       }
-      sessions.push({
-        id: `s_${cls.id}_${moduleId}`,
-        moduleId,
-        moduleName: mod.code ? `${mod.code} – ${mod.name}` : mod.name,
-        classId: cls.id,
-        className: cls.name,
-        studentCount: cls.size ?? 0,
-        durationMinutes,
-        sequenceIndex: 1,
-        lecturerCandidateIds: candidateIds.length > 0 ? candidateIds : allLecturerIds,
-      })
+      for (let seq = 1; seq <= installCount; seq += 1) {
+        sessions.push({
+          id: installCount === 1 ? `s_${cls.id}_${moduleId}` : `s_${cls.id}_${moduleId}_${seq}`,
+          moduleId,
+          moduleName: mod.code ? `${mod.code} – ${mod.name}` : mod.name,
+          classId: cls.id,
+          className: cls.name,
+          studentCount: cls.size ?? 0,
+          durationMinutes,
+          sequenceIndex: seq,
+          lecturerCandidateIds: candidateIds.length > 0 ? candidateIds : allLecturerIds,
+        })
+      }
     }
   }
   if (sessions.length === 0) {

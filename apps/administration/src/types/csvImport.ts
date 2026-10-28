@@ -3,13 +3,14 @@ export type ImportType =
   | 'programs'
   | 'degrees'
   | 'modules'
+  | 'classes'
 
 export type FieldDataType = 'string' | 'number' | 'boolean' | 'enum'
 
 /** A field (or parts of it) holds IDs referencing other curriculum entities. */
 export interface ReferenceTargetSpec {
   /** API table of the referenced entities */
-  entityTable: 'departments' | 'programs' | 'degrees'
+  entityTable: 'departments' | 'programs' | 'degrees' | 'semesters' | 'modules'
   /** Display name of a single referenced element, e.g. "Department" */
   entityLabel: string
   /** The backend requires the importer to have admin access over the referenced entities */

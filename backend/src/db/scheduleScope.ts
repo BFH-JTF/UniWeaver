@@ -40,14 +40,17 @@ export async function getScheduleScope(pool: Pool, semesterId: string): Promise<
   let sessions = 0
   if (moduleIds.length > 0) {
     const modulesRes = await pool.query(
-      `SELECT id, code, name, timeslots FROM modules WHERE id = ANY($1::text[])`,
+      `SELECT id, code, name, timeslots, installments FROM modules WHERE id = ANY($1::text[])`,
       [moduleIds],
     )
-    const modules = new Map<string, { code: string; name: string; timeslots: number | null }>()
+    const modules = new Map<string, { code: string; name: string; timeslots: number | null; installments: number | null }>()
     for (const row of modulesRes.rows as any[]) {
       modules.set(row.id, row)
       if (!row.timeslots) {
         unmappedModules.push(`${row.code || row.name} (no lesson length; scheduled with one slot)`)
+      }
+      if (!row.installments || row.installments < 1) {
+        unmappedModules.push(`${row.code || row.name} (no installment count; scheduled as one installment)`)
       }
     }
     moduleCount = modules.size
@@ -59,7 +62,11 @@ export async function getScheduleScope(pool: Pool, semesterId: string): Promise<
       }
     }
     for (const cls of classes) {
-      sessions += (cls.module_ids ?? []).filter((id) => modules.has(id)).length
+      for (const id of cls.module_ids ?? []) {
+        if (!modules.has(id)) continue
+        const installments = modules.get(id)?.installments
+        sessions += installments && installments > 0 ? installments : 1
+      }
     }
   }
 

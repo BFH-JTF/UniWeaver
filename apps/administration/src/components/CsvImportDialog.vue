@@ -703,6 +703,8 @@ const TARGET_TABLES: Record<ReferenceTargetSpec['entityTable'], EntityTableName>
   departments: EntityTables.DEPARTMENT,
   programs: EntityTables.PROGRAM,
   degrees: EntityTables.DEGREE,
+  semesters: EntityTables.SEMESTER,
+  modules: EntityTables.MODULE,
 }
 
 /** Loads the target entity lists a pending import needs to validate IDs against. */

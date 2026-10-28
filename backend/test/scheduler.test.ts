@@ -90,14 +90,18 @@ async function runTests(): Promise<void> {
                     VALUES ('t-w1', 't-sem', 1, '2026-10-01', '2026-10-07') ON CONFLICT (id) DO NOTHING`)
   await pool.query(`INSERT INTO rooms (id, name, room_type, capacity) VALUES ('t-room', 'Testraum', 'lecture', 80) ON CONFLICT (id) DO NOTHING`)
   await pool.query(`INSERT INTO lecturers (id, name) VALUES ('t-lect', 'Test Lecturer') ON CONFLICT (id) DO NOTHING`)
-  await pool.query(`INSERT INTO modules (id, name, code, timeslots) VALUES ('t-mod', 'Testmodul', 'T1', 2) ON CONFLICT (id) DO NOTHING`)
+  await pool.query(`INSERT INTO modules (id, name, code, timeslots, installments) VALUES ('t-mod', 'Testmodul', 'T1', 2, NULL)
+                    ON CONFLICT (id) DO UPDATE SET timeslots = 2, installments = NULL`)
   await pool.query(`INSERT INTO class_entities (id, name, semester_id, size, module_ids)
                     VALUES ('t-class', 'Testklasse', 't-sem', 20, '["t-mod"]'::jsonb) ON CONFLICT (id) DO NOTHING`)
   await pool.query(`INSERT INTO module_lecturers (lecturer_id, module_id) VALUES ('t-lect', 't-mod') ON CONFLICT DO NOTHING`)
 
   // Stub solver: answers POST /api/schedules and GET /api/schedules/:jobId
-  // with a deterministic solution after the first poll.
+  // with a deterministic solution after the first poll. Places every received
+  // session (first installment on Thursday, further ones on Friday).
   const stubResponses: Record<string, unknown> = {}
+  let expectedSessionCount = 1
+  let lastSeenSessions: Array<{ id?: string; sequenceIndex?: number }> = []
   const solver = http.createServer((req, res) => {
     if (req.method === 'POST' && req.url === '/api/schedules') {
       let body = ''
@@ -106,15 +110,17 @@ async function runTests(): Promise<void> {
         const parsed = JSON.parse(body) as {
           semesterId?: string
           timeSlots?: Array<Record<string, unknown>>
-          sessions?: Array<{ durationMinutes?: number; lecturerCandidateIds?: string[] }>
+          sessions?: Array<{ id?: string; sequenceIndex?: number; durationMinutes?: number; lecturerCandidateIds?: string[] }>
           rooms?: Array<{ id?: string; capacity?: number }>
           terminationSpentLimitSeconds?: number
         }
         assert(typeof parsed.terminationSpentLimitSeconds === 'number' && parsed.terminationSpentLimitSeconds > 0, 'solver receives the user-chosen time limit')
         assert((parsed.timeSlots?.length ?? 0) === 14, 'representative grid: 7 weekdays x 2 slot starts')
-        assert((parsed.sessions?.length ?? 0) === 1, 'one session per class x module pairing')
-        assert(parsed.sessions?.[0]?.durationMinutes === 90, 'duration = timeslots x slot duration')
-        assert(parsed.sessions?.[0]?.lecturerCandidateIds?.includes('t-lect') === true, 'lecturer pool from module_lecturers')
+        const sessionsIn = parsed.sessions ?? []
+        assert(sessionsIn.length === expectedSessionCount, `solver receives ${expectedSessionCount} session(s) per installment count`)
+        lastSeenSessions = sessionsIn
+        assert(sessionsIn[0]?.durationMinutes === 90, 'duration = timeslots x slot duration')
+        assert(sessionsIn[0]?.lecturerCandidateIds?.includes('t-lect') === true, 'lecturer pool from module_lecturers')
         assert(parsed.rooms?.some((r) => r.id === 't-room' && r.capacity === 80) === true, 'room capacity passed through')
         const jobId = 'stub-job'
         stubResponses[jobId] = {
@@ -122,24 +128,22 @@ async function runTests(): Promise<void> {
           semesterId: parsed.semesterId ?? '',
           solverStatus: 'NOT_SOLVING',
           score: { hardScore: 0, softScore: -3, feasible: true },
-          sessions: [
-            {
-              id: 's_t-class_t-mod',
-              moduleId: 't-mod',
-              moduleName: 'T1 – Testmodul',
-              classId: 't-class',
-              className: 'Testklasse',
-              assigned: true,
-              weekId: 'weekly',
-              dayOfWeek: 'THURSDAY',
-              startTime: { hour: 8, minute: 0, second: 0 },
-              endTime: { hour: 9, minute: 45, second: 0 },
-              roomId: 't-room',
-              roomName: 'Testraum',
-              lecturerId: 't-lect',
-              lecturerName: 'Test Lecturer',
-            },
-          ],
+          sessions: sessionsIn.map((s, i) => ({
+            id: s.id,
+            moduleId: 't-mod',
+            moduleName: 'T1 – Testmodul',
+            classId: 't-class',
+            className: 'Testklasse',
+            assigned: true,
+            weekId: 'weekly',
+            dayOfWeek: i % 2 === 0 ? 'THURSDAY' : 'FRIDAY',
+            startTime: { hour: 8, minute: 0, second: 0 },
+            endTime: { hour: 9, minute: 45, second: 0 },
+            roomId: 't-room',
+            roomName: 'Testraum',
+            lecturerId: 't-lect',
+            lecturerName: 'Test Lecturer',
+          })),
         }
         res.statusCode = 202
         res.setHeader('Content-Type', 'application/json')
@@ -198,6 +202,35 @@ async function runTests(): Promise<void> {
   assert(entry.weekday === 'thursday', 'weekday lowercased for storage')
   assert((entry.module_ids as string[]).includes('t-mod'), 'entry module id stored')
   assert((entry.room_ids as string[]).includes('t-room'), 'entry room id stored')
+
+  // ------------------------------------------------- installments per semester
+  console.log('Testing multi-installment assembly...')
+  await pool.query(`UPDATE modules SET installments = 2 WHERE id = 't-mod'`)
+  expectedSessionCount = 2
+
+  const { getScheduleScope } = await import('../src/db/scheduleScope')
+  const scope = await getScheduleScope(pool, 't-sem')
+  assert(scope.sessions === 2, 'scope counts one session per installment')
+
+  const { id: run2Id } = await createScheduleRun(pool, {
+    semesterId: 't-sem',
+    name: 'Testlauf Installments',
+    spentLimitSeconds: 15,
+  })
+  await runScheduleGeneration(pool, run2Id, { semesterId: 't-sem', spentLimitSeconds: 15 })
+
+  assert(lastSeenSessions[0]?.id === 's_t-class_t-mod_1' && lastSeenSessions[0]?.sequenceIndex === 1, 'first installment: id suffix _1, sequenceIndex 1')
+  assert(lastSeenSessions[1]?.id === 's_t-class_t-mod_2' && lastSeenSessions[1]?.sequenceIndex === 2, 'second installment: id suffix _2, sequenceIndex 2')
+
+  const run2 = await pool.query(`SELECT status, stats FROM schedule_runs WHERE id = $1`, [run2Id])
+  const run2Row = run2.rows[0] as any
+  assert(run2Row.status === 'draft', 'multi-installment run finishes as draft')
+  assert(run2Row.stats.sessionsPlaced === 2, 'both installments placed')
+
+  const entries2 = await pool.query(`SELECT weekday FROM schedule_entries WHERE run_id = $1 ORDER BY weekday`, [run2Id])
+  assert(entries2.rows.length === 2, 'two installment entries persisted')
+  const weekdays2 = (entries2.rows as Array<{ weekday: string }>).map((r) => r.weekday)
+  assert(weekdays2.includes('thursday') && weekdays2.includes('friday'), 'installments land in distinct slots')
 
   console.log(`\nResults: ${passed} passed, ${failed} failed`)
   solver.close()
