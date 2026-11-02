@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express'
+import { errText } from '../lib/errText'
 import { fetchAuthConfig, verifyIdToken, probeClient } from '../auth/verify'
 import { getSession, type AppIronSession } from '../auth/session'
 import {
@@ -21,8 +22,8 @@ export const authRouter = Router()
 authRouter.get('/config', async (_req: Request, res: Response) => {
   try {
     res.json(await fetchAuthConfig())
-  } catch (error: any) {
-    res.status(500).json({ error: error.message || 'Failed to load auth configuration' })
+  } catch (error) {
+    res.status(500).json({ error: errText(error) || 'Failed to load auth configuration' })
   }
 })
 
@@ -41,8 +42,8 @@ authRouter.get('/probe-client', async (req: Request, res: Response) => {
     }
     const result = await probeClient(clientId, redirectUri)
     res.json({ clientId, result })
-  } catch (error: any) {
-    res.status(500).json({ error: error.message || 'Client probe failed' })
+  } catch (error) {
+    res.status(500).json({ error: errText(error) || 'Client probe failed' })
   }
 })
 
@@ -50,8 +51,8 @@ authRouter.get('/bootstrap-status', async (_req: Request, res: Response) => {
   try {
     const adminCount = await getAdminCount(getPool())
     res.json({ bootstrapRequired: adminCount === 0, adminCount })
-  } catch (error: any) {
-    res.status(500).json({ error: error.message || 'Failed to check bootstrap status' })
+  } catch (error) {
+    res.status(500).json({ error: errText(error) || 'Failed to check bootstrap status' })
   }
 })
 
@@ -73,8 +74,8 @@ authRouter.post('/session', async (req: Request, res: Response) => {
     let claims
     try {
       claims = await verifyIdToken(String(idToken))
-    } catch (err: any) {
-      res.status(401).json({ error: `Invalid ID token: ${err.message}` })
+    } catch (err) {
+      res.status(401).json({ error: `Invalid ID token: ${errText(err)}` })
       return
     }
 
@@ -102,8 +103,8 @@ authRouter.post('/session', async (req: Request, res: Response) => {
     await session.save()
 
     res.json({ bootstrapRequired, user })
-  } catch (error: any) {
-    res.status(500).json({ error: error.message || 'Failed to establish session' })
+  } catch (error) {
+    res.status(500).json({ error: errText(error) || 'Failed to establish session' })
   }
 })
 
@@ -170,8 +171,8 @@ authRouter.post('/bootstrap-admin', async (req: Request, res: Response) => {
     await session.save()
 
     res.status(201).json({ bootstrapRequired: false, user: result.user })
-  } catch (error: any) {
-    res.status(500).json({ error: error.message || 'Bootstrap failed' })
+  } catch (error) {
+    res.status(500).json({ error: errText(error) || 'Bootstrap failed' })
   }
 })
 

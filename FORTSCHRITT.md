@@ -36,6 +36,12 @@ Vieles (Geheimnisse, SQL-Parametrisierung, ACL, CI, README) ist bereits erfüllt
 - ✅ SEC-05: npm audit — `npm audit fix` angewendet (54 → 50, alle runtime-Vulns entfernt;
   `npm audit --omit=dev`: 0). Rest: 1 high (`undici`) **dev-only** in der semantic-release
   CI-Toolchain — kein Runtime-Risiko; Dependabot übernimmt Upgrades. 209 Backend-Tests grün.
+- ⏳ CODE-01 (Teil): backend/src **0 warnings** — typed pg-Rows + `errText`-Helfer statt
+  `catch (x: any)`; Tests via ESLint-Override befreit (bewusste loose Payloads).
+  **Dabei latenter Bug gefunden:** Solver-Restrictions kamen snake_case aus der DB und
+  wurden als camelCase-`RawRule` gelesen → `ruleType` war `undefined`, Regeln wurden
+  stillschweigend ignoriert (`scheduler/assemble.ts`). Jetzt explizit gemappt.
+  Offen: `no-explicit-any` in den 4 Frontend-Apps (~110)
 - ✅ OPS-01: Git sauber — verifiziert: `.env`, `dist/`, Datenverzeichnisse ignored;
   Lockfile committet; keine Build-/Runtime-Artefakte im Repo
 - ✅ CODE-03 (Teil): 6 Format-Warnings via `lint:fix` behoben; `console.log`-Stellen

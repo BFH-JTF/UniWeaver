@@ -3,6 +3,7 @@ import { fileURLToPath } from 'url'
 import { Pool } from 'pg'
 import dotenv from 'dotenv'
 import { initDatabase, getDbConfig } from './migrate'
+import { errText } from '../lib/errText'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -42,8 +43,8 @@ export async function initDb(): Promise<boolean> {
     const config = getDbConfig()
     console.log(`[Database] Connected to PostgreSQL at ${config.host}:${config.port}/${config.database}`)
     return true
-  } catch (err: any) {
-    console.error(`[Database] Connection or migration failed: ${err.message}`)
+  } catch (err) {
+    console.error(`[Database] Connection or migration failed: ${errText(err)}`)
     pool = null
     return false
   }

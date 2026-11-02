@@ -27,6 +27,12 @@ import type {
 } from './solverClient'
 import type { EffectiveRestriction, Weekday } from '@uniweaver/shared'
 
+interface RoomAvailabilityWindowsRow { week_id: string | null; weekday: string; start_time: string; end_time: string }
+interface LecturerUnavailabilityDbRow { lecturer_id: string; kind: string; weekday: Weekday | null; date: string | null; start_time: string | null; end_time: string | null }
+interface AssembleModuleDbRow { id: string; name: string; code: string | null; timeslots: number | null; installments: number | null }
+interface AssembleMapPairRow { module_id: string; lecturer_id: string }
+interface AssembleRestrictionDbRow { id: string; table_name: string; entity_id: string; rule_type: string; params: unknown | null; weight: number | string | null; enabled: boolean }
+
 const WEEKDAYS: Weekday[] = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
 
 export interface AssembleResult {
@@ -290,7 +296,7 @@ export async function assembleScheduleRequest(
       [room.id],
     )
     const built = buildRoomWindows(
-      availRes.rows.map((r: any) => ({
+      availRes.rows.map((r: RoomAvailabilityWindowsRow) => ({
         weekId: r.week_id,
         weekday: r.weekday as Weekday,
         startTime: r.start_time,
@@ -327,7 +333,7 @@ export async function assembleScheduleRequest(
     byLecturer.set(lecturer.id, { id: lecturer.id, name: lecturer.name, availability: [] })
   }
   const unavailByLecturer = new Map<string, Array<{ kind: string; weekday: Weekday | null; startTime: string | null; endTime: string | null }>>()
-  for (const row of unavailRes.rows as any[]) {
+  for (const row of unavailRes.rows as LecturerUnavailabilityDbRow[]) {
     const list = unavailByLecturer.get(row.lecturer_id) ?? []
     list.push({ kind: row.kind, weekday: row.weekday, startTime: row.start_time, endTime: row.end_time })
     unavailByLecturer.set(row.lecturer_id, list)
@@ -372,14 +378,14 @@ export async function assembleScheduleRequest(
     [moduleIds],
   )
   const modules = new Map<string, { id: string; name: string; code: string; timeslots: number | null; installments: number | null }>()
-  for (const row of modulesRes.rows as any[]) {
-    modules.set(row.id, row)
+  for (const row of modulesRes.rows as AssembleModuleDbRow[]) {
+    modules.set(row.id, { id: row.id, name: row.name, code: row.code ?? row.id, timeslots: row.timeslots, installments: row.installments })
   }
 
   // Lecturer qualification pool per module.
   const mappingRes = await pool.query(`SELECT module_id, lecturer_id FROM module_lecturers`)
   const poolByModule = new Map<string, string[]>()
-  for (const row of mappingRes.rows as any[]) {
+  for (const row of mappingRes.rows as AssembleMapPairRow[]) {
     const list = poolByModule.get(row.module_id) ?? []
     list.push(row.lecturer_id)
     poolByModule.set(row.module_id, list)
@@ -402,10 +408,20 @@ export async function assembleScheduleRequest(
     [entityIds],
   )
   const rulesByEntity = new Map<string, RawRule[]>()
-  for (const row of restrictionsRes.rows as any[]) {
+  for (const row of restrictionsRes.rows as AssembleRestrictionDbRow[]) {
     const key = `${row.table_name}:${row.entity_id}`
     const list = rulesByEntity.get(key) ?? []
-    list.push(row)
+    // DB uses snake_case; RawRule is camelCase — convert explicitly instead of
+    // relying on an unchecked cast that silently dropped every ruleType.
+    list.push({
+      id: row.id,
+      ruleType: row.rule_type,
+      weight: Number(row.weight ?? 0),
+      enabled: row.enabled !== false,
+      params: (row.params ?? null) as Record<string, unknown> | null,
+      tableName: row.table_name,
+      entityId: row.entity_id,
+    })
     rulesByEntity.set(key, list)
   }
 

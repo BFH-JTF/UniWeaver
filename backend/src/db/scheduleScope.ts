@@ -24,7 +24,7 @@ export async function getScheduleScope(pool: Pool, semesterId: string): Promise<
   if (semesterRes.rows.length === 0) {
     throw Object.assign(new Error('Semester not found'), { status: 404 })
   }
-  const semester = semesterRes.rows[0] as any
+  const semester = semesterRes.rows[0] as { name: string; slot_duration_minutes: number | null; slot_start_times: string[] | null }
   const starts = (semester.slot_start_times ?? []) as string[]
   const gridMissing = !semester.slot_duration_minutes || starts.length === 0
 
@@ -43,8 +43,16 @@ export async function getScheduleScope(pool: Pool, semesterId: string): Promise<
       `SELECT id, code, name, timeslots, installments FROM modules WHERE id = ANY($1::text[])`,
       [moduleIds],
     )
-    const modules = new Map<string, { code: string; name: string; timeslots: number | null; installments: number | null }>()
-    for (const row of modulesRes.rows as any[]) {
+interface ScheduleModuleRow {
+  id: string
+  code: string | null
+  name: string
+  timeslots: number | null
+  installments: number | null
+}
+
+    const modules = new Map<string, ScheduleModuleRow>()
+    for (const row of modulesRes.rows as ScheduleModuleRow[]) {
       modules.set(row.id, row)
       if (!row.timeslots) {
         unmappedModules.push(`${row.code || row.name} (no lesson length; scheduled with one slot)`)
@@ -55,7 +63,7 @@ export async function getScheduleScope(pool: Pool, semesterId: string): Promise<
     }
     moduleCount = modules.size
     const mappingRes = await pool.query(`SELECT module_id FROM module_lecturers WHERE module_id = ANY($1::text[]) GROUP BY module_id`, [moduleIds])
-    const mapped = new Set((mappingRes.rows as any[]).map((r) => r.module_id))
+    const mapped = new Set((mappingRes.rows as Array<{ module_id: string }>).map((r) => r.module_id))
     for (const id of moduleIds) {
       if (!mapped.has(id)) {
         unmappedModules.push(`${(modules.get(id)?.code) || (modules.get(id)?.name) || id} (no lecturer mapping; any lecturer may be assigned)`)

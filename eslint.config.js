@@ -37,4 +37,12 @@ export default tseslint.config(
       parser: tseslint.parser,
     },
   },
+  {
+    // Tests intentionally poke at loose payload shapes; exact typing there
+    // costs more than it protects.
+    files: ['**/test/**/*.ts'],
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'off',
+    },
+  },
 )
