@@ -36,5 +36,10 @@ Vieles (Geheimnisse, SQL-Parametrisierung, ACL, CI, README) ist bereits erfüllt
 - ✅ SEC-05: npm audit — `npm audit fix` angewendet (54 → 50, alle runtime-Vulns entfernt;
   `npm audit --omit=dev`: 0). Rest: 1 high (`undici`) **dev-only** in der semantic-release
   CI-Toolchain — kein Runtime-Risiko; Dependabot übernimmt Upgrades. 209 Backend-Tests grün.
+- ✅ OPS-01: Git sauber — verifiziert: `.env`, `dist/`, Datenverzeichnisse ignored;
+  Lockfile committet; keine Build-/Runtime-Artefakte im Repo
+- ✅ CODE-03 (Teil): 6 Format-Warnings via `lint:fix` behoben; `console.log`-Stellen
+  geprüft = bewusste Operations-Meldungen ([Database]/[Server]/[Scheduling]) **beibehalten**;
+  keine unused-vars-Funde; offener Rest: siehe CODE-01 (219 `no-explicit-any`)
 - ⏳ OPS-01, CODE-01, CODE-03, ARCH-01..04, TEST, ERR, DEP, PERF, A11Y, CODE-02, CODE-04, DOC, OPS-02
 - ❓ Erwartet: keine Mensch-Entscheidung, ausser bei „Löschen von Daten“/DLP-Themen

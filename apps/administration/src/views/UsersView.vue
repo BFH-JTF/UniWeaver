@@ -166,9 +166,9 @@
                 </v-btn>
                 <template v-if="canManageFlags(user)">
                   <template v-if="isLastAdmin(user)">
-                      <v-chip color="warning" size="x-small" variant="tonal" class="font-weight-bold">
-                        Last Global Administrator
-                      </v-chip>
+                    <v-chip color="warning" size="x-small" variant="tonal" class="font-weight-bold">
+                      Last Global Administrator
+                    </v-chip>
                   </template>
                   <template v-else>
                     <v-btn

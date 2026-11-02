@@ -29,7 +29,7 @@
 
     <v-navigation-drawer v-model="drawer" temporary>
       <div class="brand">
-        <img src="/Logo.png" class="brand-logo" alt="UniWeaver" >
+        <img src="/Logo.png" class="brand-logo" alt="UniWeaver">
       </div>
 
       <v-list nav>
