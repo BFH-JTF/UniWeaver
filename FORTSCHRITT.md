@@ -33,6 +33,8 @@ Vieles (Geheimnisse, SQL-Parametrisierung, ACL, CI, README) ist bereits erfüllt
   `CORS_ORIGINS`, Fallback localhost-only), Security-Header (nosniff, X-Frame-Options,
   Referrer-Policy, CSP-Report-Only) ergänzt; Verifikation: fremder Origin erhält keine
   ACA-Header mehr, 209 Backend-Tests grün
-- ⏳ SEC-05: npm audit (3 high fixes ohne Breaking Changes möglich)
+- ✅ SEC-05: npm audit — `npm audit fix` angewendet (54 → 50, alle runtime-Vulns entfernt;
+  `npm audit --omit=dev`: 0). Rest: 1 high (`undici`) **dev-only** in der semantic-release
+  CI-Toolchain — kein Runtime-Risiko; Dependabot übernimmt Upgrades. 209 Backend-Tests grün.
 - ⏳ OPS-01, CODE-01, CODE-03, ARCH-01..04, TEST, ERR, DEP, PERF, A11Y, CODE-02, CODE-04, DOC, OPS-02
 - ❓ Erwartet: keine Mensch-Entscheidung, ausser bei „Löschen von Daten“/DLP-Themen
