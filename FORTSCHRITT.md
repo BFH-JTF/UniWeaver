@@ -54,7 +54,10 @@ Vieles (Geheimnisse, SQL-Parametrisierung, ACL, CI, README) ist bereits erfüllt
   (Dialog-State, Referenz-Prüfung, 409-Re-Show), Header-Definitionen + `formatDate`
   → `utils/curriculumTables.ts`, `severityTitle`/`isReferencesBody` → `utils/deleteRefs.ts`;
   Template unverändert (Null-Risiko), Docker-Build ✅. Rest: weitere Splits je Datei
-  (CsvImportDialog 1051, RoomsView 826, MappingEditor 693, entityService.ts 657 …)
+  (CsvImportDialog 1051 → 957, RoomsView 826 → 736 — Referenz-Logik →
+  `useCsvReferences`, Preview/Mapping-Helper → `utils/csvPreview`,
+  Verfügbarkeits-Dialog → `useRoomAvailability`; Docker-Build ✅). Rest:
+  CurriculumView-Template (1573), MappingEditor 693, entityService.ts 657 …
 - ✅ ARCH-04: Duplikate — 3× identische `useAuth`-Composables (administration/
   scheduling/competencies) → `createToolAuth`-Factory in `packages/shared/src/toolAuth.ts`,
   Apps halten nur dünne Wrapper (Store/Router/Config injiziert). Die ×4 identischen

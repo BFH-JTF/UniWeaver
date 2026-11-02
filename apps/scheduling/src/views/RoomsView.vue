@@ -462,9 +462,10 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import type { SchedulerLocation, SchedulerRoom, RoomAvailabilitySlot, Weekday, EntityReferenceFinding } from '@uniweaver/shared'
+import type { SchedulerLocation, SchedulerRoom, Weekday, EntityReferenceFinding } from '@uniweaver/shared'
 import { ApiRequestError, api, errorMessage } from '@uniweaver/shared'
 import { useAuthStore } from '@/stores/auth'
+import { useRoomAvailability } from '@/composables/useRoomAvailability'
 import RoomFormDialog from '@/components/RoomFormDialog.vue'
 import LocationFormDialog from '@/components/LocationFormDialog.vue'
 
@@ -524,58 +525,31 @@ async function loadDeleteReferences(): Promise<void> {
   }
 }
 
-type AvailabilitySlotInput = Array<Omit<RoomAvailabilitySlot, 'id' | 'roomId'>>
 
-const availabilityDialogOpen = ref(false)
-const availabilityRoomId = ref('')
-const availabilityRoomName = ref('')
-/** Local editing copy; loaded slots + newly added ones (no id/roomId yet). */
-const availabilitySlots = ref<AvailabilitySlotInput>([])
-const savedSlots = ref<Map<string, string>>(new Map())
-const savingAvailability = ref(false)
-const newSlotWeekday = ref<Weekday>('monday')
-const newSlotStart = ref('08:00')
-const newSlotEnd = ref('12:00')
 
-const copyAvailabilityFromId = ref<string | null>(null)
-const copyingAvailability = ref(false)
-/** Slots of rooms already loaded in this dialog session (source cache). */
-const availabilitySourceCache = ref<Map<string, AvailabilitySlotInput>>(new Map())
 
-const copyAvailabilitySourceItems = computed(() =>
-  rooms.value
-    .filter(r => r.id !== availabilityRoomId.value && r.availabilityCount > 0)
-    .map(r => ({ title: `${r.name} (${r.availabilityCount} slots)`, value: r.id })),
-)
-
-function copySourceSlotCount(roomId: string): number {
-  return rooms.value.find(r => r.id === roomId)?.availabilityCount ?? 0
-}
-
-async function copyAvailability(): Promise<void> {
-  const sourceRoomId = copyAvailabilityFromId.value
-  if (!sourceRoomId || !canEdit.value || copyingAvailability.value) return
-  copyingAvailability.value = true
-  error.value = ''
-  try {
-    let sourceSlots = availabilitySourceCache.value.get(sourceRoomId)
-    if (!sourceSlots) {
-      sourceSlots = (await api.listRoomAvailability(sourceRoomId)).map(
-        ({ roomId: _roomId, id: _id, ...rest }) => rest,
-      )
-      availabilitySourceCache.value.set(sourceRoomId, sourceSlots)
-    }
-    // Replace semantics (same as copying module lists): the target gets
-    // exactly the source's slots; nothing is merged.
-    availabilitySlots.value = [...sourceSlots]
-    successMsg.value = ''
-    slotValidationError.value = ''
-  } catch (err) {
-    error.value = errorMessage(err) || 'Failed to load source availability'
-  } finally {
-    copyingAvailability.value = false
-  }
-}
+const {
+  availabilityDialogOpen,
+  availabilityRoomName,
+  availabilitySlots,
+  savingAvailability,
+  newSlotWeekday,
+  newSlotStart,
+  newSlotEnd,
+  copyAvailabilityFromId,
+  copyingAvailability,
+  copyAvailabilitySourceItems,
+  copySourceSlotCount,
+  copyAvailability,
+  slotValidationError,
+  openAvailabilityDialog,
+  addLocalSlot,
+  saveAvailability,
+} = useRoomAvailability({
+  onError: (m) => { error.value = m },
+  onMessage: (m) => { successMsg.value = m },
+  rooms: () => rooms.value,
+})
 
 const weekdayOptions: Array<{ title: string; value: Weekday }> = [
   { title: 'Monday', value: 'monday' },
@@ -750,70 +724,6 @@ async function confirmDelete(): Promise<void> {
 }
 
 // ------------------------------------------------------------------ availability
-function openAvailabilityDialog(room: SchedulerRoom): void {
-  availabilityRoomId.value = room.id
-  availabilityRoomName.value = room.name
-  availabilitySlots.value = []
-  savedSlots.value = new Map()
-  copyAvailabilityFromId.value = null
-  availabilitySourceCache.value = new Map()
-  slotValidationError.value = ''
-  availabilityDialogOpen.value = true
-  void (async () => {
-    try {
-      const slots = await api.listRoomAvailability(room.id)
-      savedSlots.value = new Map(slots.map(s => [s.id, s.id]))
-      availabilitySlots.value = slots.map(({ roomId: _roomId, id: _id, ...rest }) => rest)
-    } catch (err) {
-      error.value = errorMessage(err) || 'Failed to load availability'
-      availabilityDialogOpen.value = false
-    }
-  })()
-}
-
-const slotValidationError = ref('')
-
-function computeSlotError(): string {
-  if (!newSlotStart.value || !newSlotEnd.value) return ''
-  if (newSlotEnd.value <= newSlotStart.value) return 'End time must be after start time.'
-  return ''
-}
-
-function addLocalSlot(): void {
-  const err = computeSlotError()
-  slotValidationError.value = err
-  if (err) return
-  const duplicate = availabilitySlots.value.some(
-    s => s.weekday === newSlotWeekday.value && s.startTime === newSlotStart.value && s.endTime === newSlotEnd.value,
-  )
-  if (duplicate) {
-    slotValidationError.value = 'This slot already exists.'
-    return
-  }
-  availabilitySlots.value.push({
-    weekId: null,
-    weekday: newSlotWeekday.value,
-    startTime: newSlotStart.value,
-    endTime: newSlotEnd.value,
-  })
-  slotValidationError.value = ''
-}
-
-async function saveAvailability(): Promise<void> {
-  savingAvailability.value = true
-  error.value = ''
-  try {
-    await api.setRoomAvailability(availabilityRoomId.value, availabilitySlots.value)
-    const room = rooms.value.find(r => r.id === availabilityRoomId.value)
-    if (room) room.availabilityCount = availabilitySlots.value.length
-    successMsg.value = `Availability of "${availabilityRoomName.value}" saved (${availabilitySlots.value.length} slots).`
-    availabilityDialogOpen.value = false
-  } catch (err) {
-    error.value = errorMessage(err) || 'Failed to save availability'
-  } finally {
-    savingAvailability.value = false
-  }
-}
 
 onMounted(() => {
   void fetchRooms()
