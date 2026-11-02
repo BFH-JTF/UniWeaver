@@ -46,6 +46,15 @@ Vieles (Geheimnisse, SQL-Parametrisierung, ACL, CI, README) ist bereits erfüllt
   stillschweigend ignoriert (`scheduler/assemble.ts`); (2) dieselbe Klasse
   Fehlverhalten in `mapRowToUser` verhindert durch typsichere `LocalUserRow`.
   Verifikation: full typecheck ✅ · 209 Backend-Tests ✅ · lint ✅
+- ✅ ARCH-01: Ordnerstruktur verifiziert — pro App `components/composables/plugins/
+  router/stores/types/utils/views`, Backend `auth/db/routes/scheduler/migrations`,
+  geteilter Code in `packages/shared` → passt, kein Umbau nötig
+- ⏳ ARCH-02: Grosse Dateien — **Phase 1 erledigt:** CurriculumView.vue 1709 → 1573
+  Zeilen: Delete-with-References-Flow → `composables/useDeleteWithReferences.ts`
+  (Dialog-State, Referenz-Prüfung, 409-Re-Show), Header-Definitionen + `formatDate`
+  → `utils/curriculumTables.ts`, `severityTitle`/`isReferencesBody` → `utils/deleteRefs.ts`;
+  Template unverändert (Null-Risiko), Docker-Build ✅. Rest: weitere Splits je Datei
+  (CsvImportDialog 1051, RoomsView 826, MappingEditor 693, entityService.ts 657 …)
 - ✅ OPS-01: Git sauber — verifiziert: `.env`, `dist/`, Datenverzeichnisse ignored;
   Lockfile committet; keine Build-/Runtime-Artefakte im Repo
 - ✅ CODE-03 (Teil): 6 Format-Warnings via `lint:fix` behoben; `console.log`-Stellen
