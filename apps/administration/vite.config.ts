@@ -30,5 +30,17 @@ export default defineConfig({
   build: {
     outDir: '../../dist/apps/administration',
     emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        // Split the big framework chunks so they stay browser-cacheable while
+        // the app code keeps shipping in small, cache-miss-friendly pieces.
+        advancedChunks: {
+          groups: [
+            { name: 'vuetify', test: /[\/]node_modules[\/]vuetify[\/]/ },
+            { name: 'vendor', test: /[\/]node_modules[\/](vue|vue-router|pinia|@vue|rolldown-runtime)[\/]/ },
+          ],
+        },
+      },
+    },
   },
 })

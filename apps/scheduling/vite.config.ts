@@ -28,6 +28,18 @@ export default defineConfig({
     },
   },
   build: {
+    // Split the big framework chunks so they stay browser-cacheable while
+    // the app code keeps shipping in small, cache-miss-friendly pieces.
+    rollupOptions: {
+      output: {
+        advancedChunks: {
+          groups: [
+            { name: 'vuetify', test: /[\/]node_modules[\/]vuetify[\/]/ },
+            { name: 'vendor', test: /[\/]node_modules[\/](vue|vue-router|pinia|@vue|rolldown-runtime)[\/]/ },
+          ],
+        },
+      },
+    },
     outDir: '../../dist/apps/scheduling',
     emptyOutDir: true,
   },
