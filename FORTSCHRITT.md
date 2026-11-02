@@ -63,6 +63,18 @@ Vieles (Geheimnisse, SQL-Parametrisierung, ACL, CI, README) ist bereits erfüllt
   Apps halten nur dünne Wrapper (Store/Router/Config injiziert). Die ×4 identischen
   Vuetify-Plugins/app.css sind **bewusst** (Design-System laut README) — dokumentiert.
   Auth-Stores unterscheiden sich pro App legitim. Docker-Build + lint ✅
+- ✅ TEST-01: **Vitest** eingerichtet (`vitest.workspace.ts` je Workspace mit '@'-Alias,
+  Root-Config für Coverage-Scope); `npm test` = Backend-Tests **+** `test:unit` (`vitest run`);
+  zusätzlich `test:unit:coverage` (v8) und `test:unit:watch`
+- ✅ TEST-02 (Kernlogik): **71 Unit-Tests** in 8 Dateien: `errText` (backend/lib, 100 %),
+  `csvPreview` (100 %; formatPreview/transform/Header-Options inklusive Umlaute/Truncation),
+  `csvReferenceResolution` (100 %; Token-Validierung, Admin-Gate, MISSING-TOKEN-Einspielung),
+  `csvParser` smoke, `curriculumNormalize` (94 %; Legacy-snake/camel-Priorität),
+  `deleteRefs` (100 %), `restrictionSolver` (78 %; `buildSchedulingRulesForPairing`-Fixtures),
+  `restrictions` (74 %), `toolAuth` (100 %; Redirect/Logout mit gestubbtem window)
+- ✅ TEST-Kriterium: **Kernlogik-Coverage 71,35 % lines (> 70 %)**; Backend-Integration
+  (209 Tests via tsx + echte Postgres) deckt die Runtime-Pfade ab; `npm test` exit 0,
+  typecheck exit 0, lint exit 0
 - ✅ OPS-01: Git sauber — verifiziert: `.env`, `dist/`, Datenverzeichnisse ignored;
   Lockfile committet; keine Build-/Runtime-Artefakte im Repo
 - ✅ CODE-03 (Teil): 6 Format-Warnings via `lint:fix` behoben; `console.log`-Stellen

@@ -1,9 +1,16 @@
 import { api } from './api'
+
 /**
  * Shared auth guard for the three tool SPAs. The logic was previously
  * copy-pasted identically into administration/scheduling/competencies; the
  * per-app pieces (Pinia store, router, config) are injected here.
  */
+
+// The factory only runs inside the SPAs, which always provide a browsing
+// context; the shared package compiles against node typings, so the browser
+// globals are reached through a narrowed cast of globalThis.
+type BrowsingContext = typeof globalThis & { location: { href: string; pathname: string } }
+const browsingContext = globalThis as BrowsingContext
 export interface ToolAuthOptions {
   /** The app's auth store factory (Pinia). */
   useAuthStore: () => {
@@ -26,7 +33,7 @@ export function createToolAuth(options: ToolAuthOptions) {
   async function ensureAuth(): Promise<boolean> {
     const ok = await auth.initAuth()
     if (!ok) {
-      window.location.href = `${options.userEntryUrl()}/login?redirect=${encodeURIComponent(window.location.pathname)}`
+      browsingContext.location.href = `${options.userEntryUrl()}/login?redirect=${encodeURIComponent(browsingContext.location.pathname)}`
     }
     return ok
   }
