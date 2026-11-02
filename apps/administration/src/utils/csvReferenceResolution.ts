@@ -32,7 +32,7 @@ export function referenceFields(type: ImportType): ImportFieldDefinition[] {
 export function isValidReferenceToken(
   target: ReferenceTargetSpec,
   token: string,
-  targets: Record<string, any[]>,
+  targets: Record<string, Record<string, unknown>[]>,
   isGlobalAdmin: boolean,
 ): boolean {
   const list = targets[target.entityTable] ?? []
@@ -57,7 +57,7 @@ function normalizeResolution(value: string | string[] | undefined | null): strin
 export function collectReferenceIssues(
   type: ImportType,
   mappedRows: Record<string, unknown>[],
-  targets: Record<string, any[]>,
+  targets: Record<string, Record<string, unknown>[]>,
   isGlobalAdmin: boolean,
   resolutions: ReferenceResolutions = {},
 ): ReferenceIssue[] {
@@ -113,7 +113,7 @@ export function collectReferenceIssues(
 export function resolveMappedRows(
   type: ImportType,
   mappedRows: Record<string, unknown>[],
-  targets: Record<string, any[]>,
+  targets: Record<string, Record<string, unknown>[]>,
   isGlobalAdmin: boolean,
   resolutions: ReferenceResolutions = {},
 ): Record<string, unknown>[] {

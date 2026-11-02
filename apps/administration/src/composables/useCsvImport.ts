@@ -1,4 +1,5 @@
 import { ref } from 'vue'
+import { ApiRequestError, errorMessage } from '@uniweaver/shared'
 import { usePostgres, EntityTables, type EntityTableName } from '@/composables/usePostgres'
 import type { ImportType } from '@/types/csvImport'
 
@@ -25,7 +26,7 @@ export function useCsvImport() {
    */
   async function saveImportedData(
     type: ImportType,
-    items: any[],
+    items: Record<string, unknown>[],
     context?: { curriculumId?: string; curriculumVersionId?: string },
   ): Promise<number> {
     isImporting.value = true
@@ -47,13 +48,15 @@ export function useCsvImport() {
       })
       const saved = await importEntities(tableName, rows)
       return saved.length
-    } catch (e: any) {
-      const details: any[] | undefined = e?.body?.details
-      let message = e?.message || 'Failed to save imported records'
+    } catch (e) {
+      const details = e instanceof ApiRequestError
+        ? (e.body as { details?: { row?: number; message?: string }[] } | undefined)?.details
+        : undefined
+      let message = errorMessage(e) || 'Failed to save imported records'
       if (Array.isArray(details) && details.length > 0) {
         const shown = details
           .slice(0, 5)
-          .map((d: any) => `Row ${(d.row ?? 0) + 1}: ${d.message}`)
+          .map((d) => `Row ${(d.row ?? 0) + 1}: ${d.message}`)
         if (details.length > 5) {
           shown.push(`… and ${details.length - 5} more error${details.length - 5 === 1 ? '' : 's'}`)
         }

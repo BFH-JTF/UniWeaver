@@ -630,7 +630,7 @@ const props = withDefaults(
 
 const emit = defineEmits<{
   (e: 'update:modelValue', value: boolean): void
-  (e: 'imported', payload: { type: ImportType; count: number; items: any[] }): void
+  (e: 'imported', payload: { type: ImportType; count: number; items: Record<string, unknown>[] }): void
 }>()
 
 const { isImporting, saveImportedData } = useCsvImport()
@@ -650,7 +650,7 @@ const previewMode = ref<'mapped' | 'raw'>('mapped')
 const fieldsOverviewMode = ref<'compact' | 'detailed'>('compact')
 const errorMessage = ref<string | null>(null)
 const fileInputRef = ref<HTMLInputElement>()
-const targetEntities = ref<Record<string, any[]>>({})
+const targetEntities = ref<Record<string, Record<string, unknown>[]>>({})
 const targetEntitiesLoaded = ref<Record<string, boolean>>({})
 const referenceResolutions = ref<ReferenceResolutions>({})
 
@@ -713,13 +713,13 @@ async function ensureTargetEntities(): Promise<void> {
     const table = field.reference!.entityTable
     if (targetEntitiesLoaded.value[table]) continue
     targetEntitiesLoaded.value[table] = true
-    fetchEntities<any>(TARGET_TABLES[table])
+    fetchEntities<Record<string, unknown>>(TARGET_TABLES[table])
       .then(items => {
         targetEntities.value = { ...targetEntities.value, [table]: items }
       })
-      .catch((err: any) => {
+      .catch((err) => {
         targetEntitiesLoaded.value[table] = false
-        errorMessage.value = err.message || `Failed to load ${table} for reference validation`
+        errorMessage.value = err instanceof Error ? err.message : `Failed to load ${table} for reference validation`
       })
   }
 }
@@ -729,7 +729,7 @@ function referencePickerItems(target: ReferenceTargetSpec) {
   const selectable = target.requireAdmin && !authStore.isAdmin
     ? list.filter(e => e._isAdmin === true)
     : list
-  return selectable.map((e: any) => ({
+  return selectable.map((e: Record<string, unknown> & { name?: string; id?: string }) => ({
     title: e.name || e.id || 'Unnamed',
     subtitle: e.id,
     value: e.id,
@@ -788,7 +788,7 @@ const mandatoryStatusText = computed(() => {
 
 const csvHeaderSelectOptions = computed(() => {
   if (!parsedCsv.value) return []
-  const options = [{ title: '(None / Do not import)', value: null as any, preview: 'Will be skipped' }]
+  const options = [{ title: '(None / Do not import)', value: null as string | null, preview: 'Will be skipped' }]
   for (const header of parsedCsv.value.headers) {
     const sampleVal = parsedCsv.value.rows[0]?.[header] ?? ''
     const preview = sampleVal ? `Sample: "${sampleVal.length > 30 ? sampleVal.substring(0, 30) + '...' : sampleVal}"` : 'Empty in row 1'
@@ -811,7 +811,7 @@ const previewTableFields = computed(() => {
   return currentConfig.value.fields.filter(f => f.required || !!columnMapping.value[f.key])
 })
 
-const previewMappedEntities = computed(() => {
+const previewMappedEntities = computed<Record<string, unknown>[]>(() => {
   if (!parsedCsv.value || previewRows.value.length === 0) return []
   const resolvedRows = resolveMappedRows(
     selectedType.value,
@@ -820,7 +820,7 @@ const previewMappedEntities = computed(() => {
     authStore.isAdmin,
     referenceResolutions.value
   )
-  return currentConfig.value.transform(resolvedRows)
+  return currentConfig.value.transform(resolvedRows) as Record<string, unknown>[]
 })
 
 /** Mapped rows of the full CSV — used to validate every row, not just the preview. */
@@ -928,8 +928,8 @@ function parseAndApply(text: string) {
     }
     parsedCsv.value = result
     runAutoMap()
-  } catch (err: any) {
-    errorMessage.value = err.message || 'Failed to parse CSV'
+  } catch (err) {
+    errorMessage.value = err instanceof Error ? err.message : 'Failed to parse CSV'
     parsedCsv.value = null
   }
 }
@@ -975,9 +975,9 @@ function closeDialog() {
   emit('update:modelValue', false)
 }
 
-function transformCsvRowsWithMapping(rows: Record<string, string>[]): Record<string, any>[] {
+function transformCsvRowsWithMapping(rows: Record<string, string>[]): Record<string, unknown>[] {
   return rows.map(csvRow => {
-    const obj: Record<string, any> = {}
+    const obj: Record<string, unknown> = {}
     for (const field of currentConfig.value.fields) {
       const csvHeader = columnMapping.value[field.key]
       if (csvHeader && csvRow[csvHeader] !== undefined) {
@@ -990,16 +990,18 @@ function transformCsvRowsWithMapping(rows: Record<string, string>[]): Record<str
   })
 }
 
-function formatPreviewCell(row: any, key: string): string {
+type CsvRow = Record<string, unknown>
+
+function formatPreviewCell(row: CsvRow, key: string): string {
   if (!row) return ''
   // Support nested lookups e.g. accessibility.step_free_access
   const parts = key.split('_')
-  let val = row[key]
+  let val: unknown = row[key]
   if (val === undefined) {
-    if (key === 'accessibility_step_free_access') val = row.accessibility?.step_free_access
-    else if (key.startsWith('layout_')) val = row.layout?.[parts.slice(1).join('_')]
-    else if (key.startsWith('equipment_')) val = row.equipment?.[parts.slice(1).join('_')]
-    else if (key.startsWith('connectivity_')) val = row.connectivity?.[parts.slice(1).join('_')]
+    if (key === 'accessibility_step_free_access') val = (row.accessibility as CsvRow | undefined)?.step_free_access
+    else if (key.startsWith('layout_')) val = (row.layout as CsvRow | undefined)?.[parts.slice(1).join('_')]
+    else if (key.startsWith('equipment_')) val = (row.equipment as CsvRow | undefined)?.[parts.slice(1).join('_')]
+    else if (key.startsWith('connectivity_')) val = (row.connectivity as CsvRow | undefined)?.[parts.slice(1).join('_')]
   }
 
   if (typeof val === 'boolean') return val ? 'Yes (true)' : 'No (false)'
@@ -1022,7 +1024,7 @@ async function executeImport() {
       referenceResolutions.value
     )
     // 2. Convert to typed domain entities
-    const entities = currentConfig.value.transform(mappedRows)
+    const entities = currentConfig.value.transform(mappedRows) as Record<string, unknown>[]
     // 3. Save to database / local store
     const count = await saveImportedData(selectedType.value, entities, props.curriculumContext ?? undefined)
 
@@ -1033,8 +1035,8 @@ async function executeImport() {
     })
 
     closeDialog()
-  } catch (err: any) {
-    errorMessage.value = err.message || 'An error occurred during import'
+  } catch (err) {
+    errorMessage.value = err instanceof Error ? err.message : 'An error occurred during import'
   }
 }
 </script>

@@ -1,3 +1,4 @@
+import { errorMessage } from '@uniweaver/shared'
 import { ref } from 'vue'
 import { usePostgres, EntityTables } from '@/composables/usePostgres'
 import type { Degree } from '@/types/curriculum'
@@ -23,8 +24,8 @@ export function useDegrees() {
     error.value = null
     try {
       degrees.value = await fetchEntities<Degree>(EntityTables.DEGREE)
-    } catch (e: any) {
-      error.value = e.message
+    } catch (e) {
+      error.value = errorMessage(e)
     } finally {
       loading.value = false
     }
@@ -36,8 +37,8 @@ export function useDegrees() {
       const normalized = normalizeDegree(degree)
       await createEntity<Degree>(EntityTables.DEGREE, normalized)
       degrees.value = await fetchEntities<Degree>(EntityTables.DEGREE)
-    } catch (e: any) {
-      error.value = e.message
+    } catch (e) {
+      error.value = errorMessage(e)
       throw e
     }
   }
@@ -51,8 +52,8 @@ export function useDegrees() {
       await updateDbEntity(EntityTables.DEGREE, id, normalized)
       const idx = degrees.value.findIndex(d => d.id === id)
       if (idx !== -1) degrees.value[idx] = normalized
-    } catch (e: any) {
-      error.value = e.message
+    } catch (e) {
+      error.value = errorMessage(e)
       throw e
     }
   }
@@ -62,8 +63,8 @@ export function useDegrees() {
     try {
       await removeDbEntity(EntityTables.DEGREE, id, confirmRef)
       degrees.value = degrees.value.filter(d => d.id !== id)
-    } catch (e: any) {
-      error.value = e.message
+    } catch (e) {
+      error.value = errorMessage(e)
       throw e
     }
   }

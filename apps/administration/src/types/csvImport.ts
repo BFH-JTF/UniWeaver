@@ -27,7 +27,7 @@ export interface ImportFieldDefinition {
   description?: string
   aliases: string[]
   options?: string[]
-  defaultValue?: any
+  defaultValue?: unknown
   reference?: ReferenceTargetSpec
 }
 
@@ -38,7 +38,7 @@ export interface ImportTypeConfig {
   description: string
   entityName: string
   fields: ImportFieldDefinition[]
-  transform: (mappedRows: Record<string, any>[]) => any[]
+  transform: (mappedRows: Record<string, unknown>[]) => unknown[]
 }
 
 export type ColumnMapping = Record<string, string | null> // entityFieldKey -> csvHeader (or null if unmapped)

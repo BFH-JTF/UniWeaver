@@ -27,6 +27,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { errorMessage } from '@uniweaver/shared'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 
@@ -50,8 +51,8 @@ async function run() {
     } else {
       await router.replace({ name: 'login' })
     }
-  } catch (err: any) {
-    localError.value = err?.message || 'Login could not be completed'
+  } catch (err) {
+    localError.value = errorMessage(err) || 'Login could not be completed'
   } finally {
     processing.value = false
   }

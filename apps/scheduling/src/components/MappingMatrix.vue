@@ -107,7 +107,8 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import type { MappingData, MappingPairPatch, MappingLecturer, MappingModule } from '@uniweaver/shared'
-import { api } from '@uniweaver/shared'
+import { errorMessage,
+api } from '@uniweaver/shared'
 
 const props = defineProps<{ mapping: MappingData }>()
 
@@ -444,9 +445,9 @@ async function applyDiff(label: string, diff: MappingPairPatch[]): Promise<void>
         () => undoLast({ label, pairs: diff }),
       )
     }
-  } catch (err: any) {
+  } catch (err) {
     setPairsLocal(snapshot)
-    showSnackbar(err.message || 'Failed to save changes', 'error')
+    showSnackbar(errorMessage(err) || 'Failed to save changes', 'error')
   }
 }
 
@@ -468,9 +469,9 @@ async function undoLast(entry: { label: string; pairs: MappingPairPatch[] }): Pr
     await api.setMappingPairs(inverse)
     undoStack.value = undoStack.value.filter(e => e !== entry)
     showSnackbar(`Undone: ${entry.label}`, 'info')
-  } catch (err: any) {
+  } catch (err) {
     setPairsLocal(snapshot)
-    showSnackbar(err.message || 'Undo failed', 'error')
+    showSnackbar(errorMessage(err) || 'Undo failed', 'error')
   }
 }
 

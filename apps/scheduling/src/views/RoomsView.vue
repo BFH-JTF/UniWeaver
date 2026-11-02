@@ -463,7 +463,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import type { SchedulerLocation, SchedulerRoom, RoomAvailabilitySlot, Weekday, EntityReferenceFinding } from '@uniweaver/shared'
-import { ApiRequestError, api } from '@uniweaver/shared'
+import { ApiRequestError, api, errorMessage } from '@uniweaver/shared'
 import { useAuthStore } from '@/stores/auth'
 import RoomFormDialog from '@/components/RoomFormDialog.vue'
 import LocationFormDialog from '@/components/LocationFormDialog.vue'
@@ -570,8 +570,8 @@ async function copyAvailability(): Promise<void> {
     availabilitySlots.value = [...sourceSlots]
     successMsg.value = ''
     slotValidationError.value = ''
-  } catch (err: any) {
-    error.value = err.message || 'Failed to load source availability'
+  } catch (err) {
+    error.value = errorMessage(err) || 'Failed to load source availability'
   } finally {
     copyingAvailability.value = false
   }
@@ -638,8 +638,8 @@ async function fetchRooms(): Promise<void> {
     const [roomsResult, locationsResult] = await Promise.all([api.listRooms(), api.listLocations()])
     rooms.value = roomsResult
     locations.value = locationsResult
-  } catch (err: any) {
-    error.value = err.message || 'Failed to load rooms'
+  } catch (err) {
+    error.value = errorMessage(err) || 'Failed to load rooms'
   } finally {
     loading.value = false
   }
@@ -665,8 +665,8 @@ async function saveRoom(room: SchedulerRoom): Promise<void> {
       successMsg.value = `Room "${room.name}" created.`
     }
     await fetchRooms()
-  } catch (err: any) {
-    error.value = err.message || 'Failed to save room'
+  } catch (err) {
+    error.value = errorMessage(err) || 'Failed to save room'
   } finally {
     savingRoom.value = false
   }
@@ -699,8 +699,8 @@ async function createInlineLocation(location: SchedulerLocation): Promise<void> 
   try {
     const created = await api.createLocation(location)
     locations.value = [...locations.value, created].sort((a, b) => a.name.localeCompare(b.name))
-  } catch (err: any) {
-    error.value = err.message || 'Failed to create location'
+  } catch (err) {
+    error.value = errorMessage(err) || 'Failed to create location'
   }
 }
 
@@ -714,8 +714,8 @@ async function saveLocation(location: SchedulerLocation): Promise<void> {
       locations.value = [...locations.value, created].sort((a, b) => a.name.localeCompare(b.name))
     }
     await fetchRooms()
-  } catch (err: any) {
-    error.value = err.message || 'Failed to save location'
+  } catch (err) {
+    error.value = errorMessage(err) || 'Failed to save location'
   }
 }
 
@@ -735,13 +735,13 @@ async function confirmDelete(): Promise<void> {
     }
     await fetchRooms()
     deleteDialogOpen.value = false
-  } catch (err: any) {
+  } catch (err) {
     if (err instanceof ApiRequestError && err.status === 409 && isReferencesBody(err.body)) {
       deleteReferences.value = err.body.references
       deleteConfirmChecked.value = false
       error.value = 'Deletion blocked: new references were found. Please review and confirm again.'
     } else {
-      error.value = err.message || 'Failed to delete'
+      error.value = err instanceof Error ? err.message : 'Failed to delete'
       deleteDialogOpen.value = false
     }
   } finally {
@@ -764,8 +764,8 @@ function openAvailabilityDialog(room: SchedulerRoom): void {
       const slots = await api.listRoomAvailability(room.id)
       savedSlots.value = new Map(slots.map(s => [s.id, s.id]))
       availabilitySlots.value = slots.map(({ roomId: _roomId, id: _id, ...rest }) => rest)
-    } catch (err: any) {
-      error.value = err.message || 'Failed to load availability'
+    } catch (err) {
+      error.value = errorMessage(err) || 'Failed to load availability'
       availabilityDialogOpen.value = false
     }
   })()
@@ -808,8 +808,8 @@ async function saveAvailability(): Promise<void> {
     if (room) room.availabilityCount = availabilitySlots.value.length
     successMsg.value = `Availability of "${availabilityRoomName.value}" saved (${availabilitySlots.value.length} slots).`
     availabilityDialogOpen.value = false
-  } catch (err: any) {
-    error.value = err.message || 'Failed to save availability'
+  } catch (err) {
+    error.value = errorMessage(err) || 'Failed to save availability'
   } finally {
     savingAvailability.value = false
   }

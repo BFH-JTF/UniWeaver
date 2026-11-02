@@ -1,3 +1,4 @@
+import { errorMessage } from '@uniweaver/shared'
 import { ref } from 'vue'
 import { usePostgres, EntityTables } from '@/composables/usePostgres'
 import type { Module } from '@/types/curriculum'
@@ -23,8 +24,8 @@ export function useModules() {
     error.value = null
     try {
       modules.value = await fetchEntities<Module>(EntityTables.MODULE)
-    } catch (e: any) {
-      error.value = e.message
+    } catch (e) {
+      error.value = errorMessage(e)
     } finally {
       loading.value = false
     }
@@ -37,8 +38,8 @@ export function useModules() {
       const saved = await createEntity<Module>(EntityTables.MODULE, normalized)
       modules.value = await fetchEntities<Module>(EntityTables.MODULE)
       return saved
-    } catch (e: any) {
-      error.value = e.message
+    } catch (e) {
+      error.value = errorMessage(e)
       throw e
     }
   }
@@ -52,8 +53,8 @@ export function useModules() {
       await updateDbEntity(EntityTables.MODULE, id, normalized)
       const idx = modules.value.findIndex(m => m.id === id)
       if (idx !== -1) modules.value[idx] = normalized
-    } catch (e: any) {
-      error.value = e.message
+    } catch (e) {
+      error.value = errorMessage(e)
       throw e
     }
   }
@@ -63,8 +64,8 @@ export function useModules() {
     try {
       await removeDbEntity(EntityTables.MODULE, id, confirmRef)
       modules.value = modules.value.filter(m => m.id !== id)
-    } catch (e: any) {
-      error.value = e.message
+    } catch (e) {
+      error.value = errorMessage(e)
       throw e
     }
   }

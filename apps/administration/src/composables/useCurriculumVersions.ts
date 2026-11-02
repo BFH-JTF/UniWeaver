@@ -1,5 +1,6 @@
 import { ref } from 'vue'
-import { getApiBaseUrl } from '@uniweaver/shared'
+import { errorMessage,
+ getApiBaseUrl } from '@uniweaver/shared'
 import { usePostgres, EntityTables } from '@/composables/usePostgres'
 import type { Curriculum, CurriculumVersion } from '@/types/curriculum'
 
@@ -21,8 +22,8 @@ export function useCurriculumVersions() {
     error.value = null
     try {
       curriculumVersions.value = await fetchEntities<CurriculumVersion>(EntityTables.CURRICULUM_VERSION)
-    } catch (e: any) {
-      error.value = e.message
+    } catch (e) {
+      error.value = errorMessage(e)
     } finally {
       loading.value = false
     }
@@ -33,8 +34,8 @@ export function useCurriculumVersions() {
     try {
       await createEntity<CurriculumVersion>(EntityTables.CURRICULUM_VERSION, version)
       curriculumVersions.value = await fetchEntities<CurriculumVersion>(EntityTables.CURRICULUM_VERSION)
-    } catch (e: any) {
-      error.value = e.message
+    } catch (e) {
+      error.value = errorMessage(e)
       throw e
     }
   }
@@ -47,8 +48,8 @@ export function useCurriculumVersions() {
       await updateDbEntity(EntityTables.CURRICULUM_VERSION, id, version)
       const idx = curriculumVersions.value.findIndex(v => (v._id || v.id) === id)
       if (idx !== -1) curriculumVersions.value[idx] = version
-    } catch (e: any) {
-      error.value = e.message
+    } catch (e) {
+      error.value = errorMessage(e)
       throw e
     }
   }
@@ -58,8 +59,8 @@ export function useCurriculumVersions() {
     try {
       await removeDbEntity(EntityTables.CURRICULUM_VERSION, id, confirmRef)
       curriculumVersions.value = curriculumVersions.value.filter(v => (v._id || v.id) !== id)
-    } catch (e: any) {
-      error.value = e.message
+    } catch (e) {
+      error.value = errorMessage(e)
       throw e
     }
   }
@@ -87,8 +88,8 @@ export function useCurriculums() {
     error.value = null
     try {
       curriculums.value = await fetchEntities<Curriculum>(EntityTables.CURRICULUM)
-    } catch (e: any) {
-      error.value = e.message
+    } catch (e) {
+      error.value = errorMessage(e)
     } finally {
       loading.value = false
     }
@@ -105,13 +106,13 @@ export function useCurriculums() {
       })
       if (!res.ok) {
         const body = await res.json().catch(() => ({}))
-        throw new Error((body as any).error || `API error ${res.status}`)
+        throw new Error((body as { error?: string }).error || `API error ${res.status}`)
       }
       const created = await res.json()
       curriculums.value = await fetchEntities<Curriculum>(EntityTables.CURRICULUM)
       return created
-    } catch (e: any) {
-      error.value = e.message
+    } catch (e) {
+      error.value = errorMessage(e)
       throw e
     }
   }
@@ -126,13 +127,13 @@ export function useCurriculums() {
       })
       if (!res.ok) {
         const body = await res.json().catch(() => ({}))
-        throw new Error((body as any).error || `API error ${res.status}`)
+        throw new Error((body as { error?: string }).error || `API error ${res.status}`)
       }
       const newVersion = await res.json()
       curriculums.value = await fetchEntities<Curriculum>(EntityTables.CURRICULUM)
       return newVersion
-    } catch (e: any) {
-      error.value = e.message
+    } catch (e) {
+      error.value = errorMessage(e)
       throw e
     }
   }
@@ -140,14 +141,14 @@ export function useCurriculums() {
   async function setActiveVersion(curriculumId: string, versionId: string) {
     error.value = null
     try {
-      await updateDbEntity(EntityTables.CURRICULUM, curriculumId, { activeVersionId: versionId } as any)
+      await updateDbEntity<{ _id?: string; id?: string; activeVersionId: string }>(EntityTables.CURRICULUM, curriculumId, { activeVersionId: versionId })
       const idx = curriculums.value.findIndex(c => (c._id || c.id) === curriculumId)
       if (idx !== -1) {
         const c = curriculums.value[idx]
         if (c) c.activeVersionId = versionId
       }
-    } catch (e: any) {
-      error.value = e.message
+    } catch (e) {
+      error.value = errorMessage(e)
       throw e
     }
   }
@@ -160,8 +161,8 @@ export function useCurriculums() {
       await updateDbEntity(EntityTables.CURRICULUM, id, curriculum)
       const idx = curriculums.value.findIndex(c => (c._id || c.id) === id)
       if (idx !== -1) curriculums.value[idx] = curriculum
-    } catch (e: any) {
-      error.value = e.message
+    } catch (e) {
+      error.value = errorMessage(e)
       throw e
     }
   }
@@ -171,8 +172,8 @@ export function useCurriculums() {
     try {
       await removeDbEntity(EntityTables.CURRICULUM, id, confirmRef)
       curriculums.value = curriculums.value.filter(c => (c._id || c.id) !== id)
-    } catch (e: any) {
-      error.value = e.message
+    } catch (e) {
+      error.value = errorMessage(e)
       throw e
     }
   }

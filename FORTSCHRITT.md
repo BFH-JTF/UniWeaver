@@ -36,12 +36,16 @@ Vieles (Geheimnisse, SQL-Parametrisierung, ACL, CI, README) ist bereits erfüllt
 - ✅ SEC-05: npm audit — `npm audit fix` angewendet (54 → 50, alle runtime-Vulns entfernt;
   `npm audit --omit=dev`: 0). Rest: 1 high (`undici`) **dev-only** in der semantic-release
   CI-Toolchain — kein Runtime-Risiko; Dependabot übernimmt Upgrades. 209 Backend-Tests grün.
-- ⏳ CODE-01 (Teil): backend/src **0 warnings** — typed pg-Rows + `errText`-Helfer statt
-  `catch (x: any)`; Tests via ESLint-Override befreit (bewusste loose Payloads).
-  **Dabei latenter Bug gefunden:** Solver-Restrictions kamen snake_case aus der DB und
-  wurden als camelCase-`RawRule` gelesen → `ruleType` war `undefined`, Regeln wurden
-  stillschweigend ignoriert (`scheduler/assemble.ts`). Jetzt explizit gemappt.
-  Offen: `no-explicit-any` in den 4 Frontend-Apps (~110)
+- ✅ CODE-01: Linter — **`npm run lint`: 0 Fehler, 0 Warnungen** (vorher 225+
+  warnings). backend/src komplett getippt (pg-Rows, `errText`-Helfer statt
+  `catch (x: any)`), Frontend-Apps: gemeinsame `errorMessage`-Helfer aus
+  `packages/shared`, typsichere CSV-Pipelines und typed `as`-Casts statt `any`;
+  Tests von `no-explicit-any` befreit (bewusste loose Payloads, kommentiert).
+  **Unterwegs latente Bugs entdeckt und gefixt:** (1) Solver-Restrictions kamen
+  snake_case und wurden als camelCase gelesen → `ruleType undefined`, Regeln
+  stillschweigend ignoriert (`scheduler/assemble.ts`); (2) dieselbe Klasse
+  Fehlverhalten in `mapRowToUser` verhindert durch typsichere `LocalUserRow`.
+  Verifikation: full typecheck ✅ · 209 Backend-Tests ✅ · lint ✅
 - ✅ OPS-01: Git sauber — verifiziert: `.env`, `dist/`, Datenverzeichnisse ignored;
   Lockfile committet; keine Build-/Runtime-Artefakte im Repo
 - ✅ CODE-03 (Teil): 6 Format-Warnings via `lint:fix` behoben; `console.log`-Stellen

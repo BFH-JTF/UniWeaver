@@ -1667,7 +1667,7 @@ function openCsvImport(type: ImportType) {
   csvImportDialogOpen.value = true
 }
 
-async function handleCsvImported(payload: { type: ImportType; count: number; items: any[] }) {
+async function handleCsvImported(payload: { type: ImportType; count: number; items: Record<string, unknown>[] }) {
   const labelMap: Record<string, string> = {
     departments: 'department',
     programs: 'program',

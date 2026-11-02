@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
-import { api, ApiRequestError } from '@uniweaver/shared'
+import { errorMessage,
+api, ApiRequestError } from '@uniweaver/shared'
 import type { LocalUserProfile } from '@uniweaver/shared'
 import { useOidc } from '@/composables/useOidc'
 
@@ -25,11 +26,11 @@ export const useAuthStore = defineStore('auth', () => {
       localUser.value = res.user
       bootstrapRequired.value = !!res.bootstrapRequired
       return !!res.user
-    } catch (err: any) {
+    } catch (err) {
       localUser.value = null
       bootstrapRequired.value = false
       if (err instanceof ApiRequestError && err.status !== 401) {
-        console.warn('Session check failed:', err.message)
+        console.warn('Session check failed:', errorMessage(err))
       }
       return false
     }
@@ -54,8 +55,8 @@ export const useAuthStore = defineStore('auth', () => {
       bootstrapRequired.value = !!res.bootstrapRequired
       localUser.value = res.user
       return !!res.user
-    } catch (err: any) {
-      authError.value = err.message || 'Failed to establish session'
+    } catch (err) {
+      authError.value = errorMessage(err) || 'Failed to establish session'
       return false
     }
   }
@@ -80,8 +81,8 @@ export const useAuthStore = defineStore('auth', () => {
       bootstrapRequired.value = false
       localUser.value = res.user
       return true
-    } catch (err: any) {
-      authError.value = err.message || 'Bootstrap failed'
+    } catch (err) {
+      authError.value = errorMessage(err) || 'Bootstrap failed'
       return false
     }
   }

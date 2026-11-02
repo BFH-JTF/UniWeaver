@@ -50,7 +50,8 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { useOidc } from '@/composables/useOidc'
 import { useAuthStore } from '@/stores/auth'
-import { api } from '@uniweaver/shared'
+import { errorMessage,
+api } from '@uniweaver/shared'
 
 const route = useRoute()
 const oidc = useOidc()
@@ -73,8 +74,8 @@ async function handleLogin() {
   auth.completeLoginFailure('')
   try {
     await oidc.login()
-  } catch (err: any) {
-    auth.completeLoginFailure(err?.message || 'Redirect to login failed')
+  } catch (err) {
+    auth.completeLoginFailure(errorMessage(err) || 'Redirect to login failed')
   } finally {
     isLoggingIn.value = false
   }
@@ -85,8 +86,8 @@ onMounted(async () => {
     const config = await api.getAuthConfig()
     providerName.value = config.providerName || 'OIDC'
     authConfigLoaded.value = true
-  } catch (err: any) {
-    serverError.value = err.message || 'Backend is not reachable. Please try again later.'
+  } catch (err) {
+    serverError.value = errorMessage(err) || 'Backend is not reachable. Please try again later.'
   }
 })
 </script>

@@ -48,7 +48,8 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import type { MappingData } from '@uniweaver/shared'
-import { api } from '@uniweaver/shared'
+import { errorMessage,
+api } from '@uniweaver/shared'
 import { useAuthStore } from '@/stores/auth'
 import MappingEditor from '@/components/MappingEditor.vue'
 import MappingMatrix from '@/components/MappingMatrix.vue'
@@ -64,8 +65,8 @@ async function reload(): Promise<void> {
   loadError.value = ''
   try {
     mapping.value = await api.getMapping()
-  } catch (err: any) {
-    loadError.value = err.message || 'Failed to load mapping data'
+  } catch (err) {
+    loadError.value = errorMessage(err) || 'Failed to load mapping data'
   } finally {
     loading.value = false
   }

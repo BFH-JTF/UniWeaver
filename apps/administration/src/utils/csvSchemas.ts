@@ -6,7 +6,7 @@ export function normalizeHeader(str: string): string {
   return str.toLowerCase().replace(/[^a-z0-9]/g, '')
 }
 
-export function parseStringArray(val: any): string[] {
+export function parseStringArray(val: unknown): string[] {
   if (!val) return []
   if (Array.isArray(val)) return val.map(String).map(s => s.trim()).filter(Boolean)
   if (typeof val === 'string') {
@@ -115,7 +115,7 @@ export const IMPORT_CONFIGS: Record<ImportType, ImportTypeConfig> = {
         aliases: ['url', 'URL', 'link', 'website', 'webseite', 'uri', 'homepage'],
       },
     ],
-    transform: (mappedRows: Record<string, any>[]): Department[] => {
+    transform: (mappedRows: Record<string, unknown>[]): Department[] => {
       return mappedRows.map(obj => {
         const dept: Department = {
           name: String(obj.name || ''),
@@ -206,7 +206,7 @@ export const IMPORT_CONFIGS: Record<ImportType, ImportTypeConfig> = {
         aliases: ['url', 'URL', 'link', 'website', 'webseite', 'uri', 'homepage'],
       },
     ],
-    transform: (mappedRows: Record<string, any>[]): Program[] => {
+    transform: (mappedRows: Record<string, unknown>[]): Program[] => {
       return mappedRows.map(obj => {
         const prog: Program = {
           name: String(obj.name || ''),
@@ -302,7 +302,7 @@ export const IMPORT_CONFIGS: Record<ImportType, ImportTypeConfig> = {
         aliases: ['url', 'URL', 'link', 'website', 'webseite', 'uri', 'homepage'],
       },
     ],
-    transform: (mappedRows: Record<string, any>[]): Degree[] => {
+    transform: (mappedRows: Record<string, unknown>[]): Degree[] => {
       return mappedRows.map(obj => {
         const deg: Degree = {
           name: String(obj.name || ''),
@@ -424,7 +424,7 @@ export const IMPORT_CONFIGS: Record<ImportType, ImportTypeConfig> = {
         aliases: ['installments', 'installmentcount', 'installment_count', 'installmentspersemester', 'sessionspersemester', 'sessions_per_semester'],
       },
     ],
-    transform: (mappedRows: Record<string, any>[]): Module[] => {
+    transform: (mappedRows: Record<string, unknown>[]): Module[] => {
       return mappedRows.map(obj => {
         const mod: Module = {
           name: String(obj.name || ''),
@@ -557,7 +557,7 @@ export const IMPORT_CONFIGS: Record<ImportType, ImportTypeConfig> = {
         aliases: ['url', 'URL', 'link', 'website', 'webseite', 'uri', 'homepage'],
       },
     ],
-    transform: (mappedRows: Record<string, any>[]): ClassEntity[] => {
+    transform: (mappedRows: Record<string, unknown>[]): ClassEntity[] => {
       return mappedRows.map(obj => {
         const cls: ClassEntity = {
           name: String(obj.name || ''),

@@ -1,5 +1,6 @@
 import { ref } from 'vue'
-import { getApiBaseUrl } from '@uniweaver/shared'
+import { errorMessage,
+getApiBaseUrl } from '@uniweaver/shared'
 
 export type AccessRole = 'read' | 'write' | 'admin'
 
@@ -44,8 +45,8 @@ export function useAcl() {
         throw new Error(data.error || res.statusText)
       }
       entries.value = await res.json()
-    } catch (err: any) {
-      error.value = err.message
+    } catch (err) {
+      error.value = errorMessage(err)
     } finally {
       loading.value = false
     }
@@ -65,8 +66,8 @@ export function useAcl() {
       }
       entries.value = await res.json()
       return true
-    } catch (err: any) {
-      error.value = err.message
+    } catch (err) {
+      error.value = errorMessage(err)
       return false
     }
   }
@@ -85,8 +86,8 @@ export function useAcl() {
       }
       entries.value = await res.json()
       return true
-    } catch (err: any) {
-      error.value = err.message
+    } catch (err) {
+      error.value = errorMessage(err)
       return false
     }
   }
@@ -104,8 +105,8 @@ export function useAcl() {
       }
       entries.value = await res.json()
       return true
-    } catch (err: any) {
-      error.value = err.message
+    } catch (err) {
+      error.value = errorMessage(err)
       return false
     }
   }

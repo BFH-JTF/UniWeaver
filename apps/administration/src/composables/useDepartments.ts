@@ -1,3 +1,4 @@
+import { errorMessage } from '@uniweaver/shared'
 import { ref } from 'vue'
 import { usePostgres, EntityTables } from '@/composables/usePostgres'
 import type { Department } from '@/types/curriculum'
@@ -19,8 +20,8 @@ export function useDepartments() {
     error.value = null
     try {
       departments.value = await fetchEntities<Department>(EntityTables.DEPARTMENT)
-    } catch (e: any) {
-      error.value = e.message
+    } catch (e) {
+      error.value = errorMessage(e)
     } finally {
       loading.value = false
     }
@@ -31,8 +32,8 @@ export function useDepartments() {
     try {
       await createEntity<Department>(EntityTables.DEPARTMENT, department)
       departments.value = await fetchEntities<Department>(EntityTables.DEPARTMENT)
-    } catch (e: any) {
-      error.value = e.message
+    } catch (e) {
+      error.value = errorMessage(e)
       throw e
     }
   }
@@ -45,8 +46,8 @@ export function useDepartments() {
       await updateDbEntity(EntityTables.DEPARTMENT, id, department)
       const idx = departments.value.findIndex(d => d.id === id)
       if (idx !== -1) departments.value[idx] = department
-    } catch (e: any) {
-      error.value = e.message
+    } catch (e) {
+      error.value = errorMessage(e)
       throw e
     }
   }
@@ -56,8 +57,8 @@ export function useDepartments() {
     try {
       await removeDbEntity(EntityTables.DEPARTMENT, id, confirmRef)
       departments.value = departments.value.filter(d => d.id !== id)
-    } catch (e: any) {
-      error.value = e.message
+    } catch (e) {
+      error.value = errorMessage(e)
       throw e
     }
   }

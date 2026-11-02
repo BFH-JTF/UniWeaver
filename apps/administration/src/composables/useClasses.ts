@@ -1,3 +1,4 @@
+import { errorMessage } from '@uniweaver/shared'
 import { ref } from 'vue'
 import { usePostgres, EntityTables } from '@/composables/usePostgres'
 import type { ClassEntity } from '@/types/curriculumClass'
@@ -19,8 +20,8 @@ export function useClasses() {
     error.value = null
     try {
       classes.value = await fetchEntities<ClassEntity>(EntityTables.CLASS)
-    } catch (e: any) {
-      error.value = e.message
+    } catch (e) {
+      error.value = errorMessage(e)
     } finally {
       loading.value = false
     }
@@ -32,8 +33,8 @@ export function useClasses() {
       const saved = await createEntity<ClassEntity>(EntityTables.CLASS, cls)
       classes.value = await fetchEntities<ClassEntity>(EntityTables.CLASS)
       return saved
-    } catch (e: any) {
-      error.value = e.message
+    } catch (e) {
+      error.value = errorMessage(e)
       throw e
     }
   }
@@ -46,8 +47,8 @@ export function useClasses() {
       await updateDbEntity(EntityTables.CLASS, id, cls)
       const idx = classes.value.findIndex(c => c.id === id)
       if (idx !== -1) classes.value[idx] = cls
-    } catch (e: any) {
-      error.value = e.message
+    } catch (e) {
+      error.value = errorMessage(e)
       throw e
     }
   }
@@ -57,8 +58,8 @@ export function useClasses() {
     try {
       await removeDbEntity(EntityTables.CLASS, id, confirmRef)
       classes.value = classes.value.filter(c => c.id !== id)
-    } catch (e: any) {
-      error.value = e.message
+    } catch (e) {
+      error.value = errorMessage(e)
       throw e
     }
   }

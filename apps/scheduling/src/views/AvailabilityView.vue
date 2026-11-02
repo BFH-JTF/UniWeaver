@@ -121,7 +121,8 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import type { SchedulingLecturer } from '@uniweaver/shared'
-import { api } from '@uniweaver/shared'
+import { errorMessage,
+api } from '@uniweaver/shared'
 import { useAuthStore } from '@/stores/auth'
 import UnavailabilityEditor from '@/components/UnavailabilityEditor.vue'
 
@@ -175,8 +176,8 @@ async function reloadLecturers(): Promise<void> {
     } else if (!selectedId.value) {
       selectedId.value = lecturers.value[0]?.id ?? ''
     }
-  } catch (err: any) {
-    error.value = err.message || 'Failed to load lecturers'
+  } catch (err) {
+    error.value = errorMessage(err) || 'Failed to load lecturers'
   }
 }
 

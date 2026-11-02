@@ -183,10 +183,12 @@ const degreeItems = computed(() =>
 )
 
 /** Modules of the displayed version that belong to the class's chosen degree. */
+type ModuleLegacyAliases = { degreeIDs?: string[]; DegreeIDs?: string[]; _id?: string }
+
 const moduleItems = computed(() =>
   (props.modules || [])
-    .filter(m => (m.degreeIds ?? (m as any).degreeIDs ?? (m as any).DegreeIDs ?? []).includes(form.value.degreeId ?? ''))
-    .map(m => ({ title: m.code ? `${m.code} — ${m.name || m.id}` : (m.name || m.id || ''), value: m.id || (m as any)._id }))
+    .filter(m => (m.degreeIds ?? (m as ModuleLegacyAliases).degreeIDs ?? (m as ModuleLegacyAliases).DegreeIDs ?? []).includes(form.value.degreeId ?? ''))
+    .map(m => ({ title: m.code ? `${m.code} — ${m.name || m.id}` : (m.name || m.id || ''), value: m.id || (m as ModuleLegacyAliases)._id }))
     .filter(i => i.value)
 )
 

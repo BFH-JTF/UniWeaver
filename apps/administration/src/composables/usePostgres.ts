@@ -39,7 +39,7 @@ export function usePostgres() {
   async function fetchEntities<T extends { _id?: string; id?: string }>(tableName: EntityTableName): Promise<T[]> {
     const json = await apiRequest<unknown>(`${getApiBaseUrl()}/${tableName}`)
     const items = Array.isArray(json) ? json : (json as { data?: unknown[] }).data || []
-    return (items as any[]).map((item: { id?: string; _id?: string }) => {
+    return (items as { id?: string; _id?: string }[]).map((item) => {
       const id = item.id || item._id
       return { ...item, _id: id, id }
     }) as T[]
@@ -57,7 +57,7 @@ export function usePostgres() {
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     }
-    const saved = await apiRequest<any>(`${getApiBaseUrl()}/${tableName}`, {
+    const saved = await apiRequest<Record<string, unknown>>(`${getApiBaseUrl()}/${tableName}`, {
       method: 'POST',
       body: JSON.stringify(record),
     })

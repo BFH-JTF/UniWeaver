@@ -1,5 +1,6 @@
 import { ref } from 'vue'
-import { ApiRequestError, getApiBaseUrl } from '@uniweaver/shared'
+import { errorMessage,
+ ApiRequestError, getApiBaseUrl } from '@uniweaver/shared'
 import type { EntityRestriction, EffectiveRestriction } from '@uniweaver/shared'
 
 /** The JSON API authenticates via the iron-session cookie (`credentials:
@@ -38,8 +39,8 @@ export function useRestrictions() {
       return await authedFetch<EntityRestriction[]>(restrictionsEndpoint(owner.table, owner.id), {
         headers: { 'Content-Type': 'application/json' },
       })
-    } catch (e: any) {
-      error.value = e.message
+    } catch (e) {
+      error.value = errorMessage(e)
       return []
     } finally {
       loading.value = false
@@ -56,8 +57,8 @@ export function useRestrictions() {
           headers: { 'Content-Type': 'application/json' },
         },
       )
-    } catch (e: any) {
-      error.value = e.message
+    } catch (e) {
+      error.value = errorMessage(e)
       return []
     } finally {
       loading.value = false
@@ -73,8 +74,8 @@ export function useRestrictions() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(restriction),
       })
-    } catch (e: any) {
-      error.value = e.message
+    } catch (e) {
+      error.value = errorMessage(e)
       return null
     } finally {
       loading.value = false
@@ -93,8 +94,8 @@ export function useRestrictions() {
           body: JSON.stringify(restriction),
         },
       )
-    } catch (e: any) {
-      error.value = e.message
+    } catch (e) {
+      error.value = errorMessage(e)
       return null
     } finally {
       loading.value = false
@@ -110,8 +111,8 @@ export function useRestrictions() {
         headers: { 'Content-Type': 'application/json' },
       })
       return true
-    } catch (e: any) {
-      error.value = e.message
+    } catch (e) {
+      error.value = errorMessage(e)
       return false
     } finally {
       loading.value = false
