@@ -88,6 +88,15 @@ Vieles (Geheimnisse, SQL-Parametrisierung, ACL, CI, README) ist bereits erfüllt
   beschädigte Daten ausgeschlossen; Deep-Copy JSON.parse(Muster) ist sicher
 - Verifikation: Docker-Build ✅, `npm test` exit 0 (209 Backend + 71 Unit), lint 0/0,
   Voll-Typecheck grün
+- ✅ DEP-01: Abhängigkeiten — **1 ungenutztes Paket entfernt**
+  (`eslint-plugin-vuejs-accessibility`, in der Lint-Config nie referenziert);
+  non-breaking Updates via `npm update` (jose, vite, vue-tsc, vuetify 4.3,
+  @types/node); semantic-release-Plugins = CI-only (Workflow nutzt `npx
+  semantic-release`) und `@vitest/coverage-v8` = CLI-only → beide legitim
+  behalten; Lockfile committet
+  ❓ Major-Updates nur mit Entscheidung (breaking): TypeScript 5.7→7 (tsgo-Neuauflage),
+  vitest 3→4 (+coverage-v8 5), semantic-release 24→25-Pin. Kein Runtime-Risiko —
+  bewusst NICHT automatisch angewendet
 - ✅ OPS-01: Git sauber — verifiziert: `.env`, `dist/`, Datenverzeichnisse ignored;
   Lockfile committet; keine Build-/Runtime-Artefakte im Repo
 - ✅ CODE-03 (Teil): 6 Format-Warnings via `lint:fix` behoben; `console.log`-Stellen
