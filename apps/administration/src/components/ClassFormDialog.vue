@@ -135,7 +135,11 @@
       <v-card-actions class="pa-4">
         <v-spacer />
         <v-btn variant="text" @click="close">Cancel</v-btn>
-        <v-btn color="primary" variant="flat" @click="submit">
+        <v-btn
+          color="primary" variant="flat" :loading="submitting"
+          :disabled="submitting"
+          @click="submit"
+        >
           {{ isEdit ? 'Save' : 'Create' }}
         </v-btn>
       </v-card-actions>
@@ -215,7 +219,14 @@ function close() {
   emit('update:modelValue', false)
 }
 
+const submitting = ref(false)
+watch(() => props.modelValue, (open) => { if (!open) submitting.value = false })
+
 async function submit() {
+  if (submitting.value) return
+  submitting.value = true
+  try {
+
   const { valid } = await formRef.value?.validate() ?? { valid: false }
   if (!valid) return
   const result = JSON.parse(JSON.stringify(form.value))
@@ -229,5 +240,9 @@ async function submit() {
   }
   emit('save', result)
   close()
+
+  } finally {
+    submitting.value = false
+  }
 }
 </script>

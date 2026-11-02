@@ -41,6 +41,9 @@
           <MappingMatrix :mapping="mapping" @reload="reload" />
         </v-window-item>
       </v-window>
+      <v-alert v-else type="info" variant="tonal" class="mt-4">
+        No module/lecturer mapping exists yet. Create the first mapping entry in the Editor tab once mappings are available.
+      </v-alert>
     </template>
   </v-container>
 </template>

@@ -162,7 +162,13 @@
     <v-card-actions class="pa-4" v-if="canEdit">
       <v-spacer />
       <v-btn variant="text" :disabled="saving" @click="emit('cancel')">Cancel</v-btn>
-      <v-btn color="primary" variant="flat" :loading="saving" @click="save">Save</v-btn>
+      <v-btn
+        color="primary" variant="flat" :loading="saving"
+        :disabled="saving"
+        @click="save"
+      >
+        Save
+      </v-btn>
     </v-card-actions>
   </v-card>
 </template>

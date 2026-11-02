@@ -75,6 +75,19 @@ Vieles (Geheimnisse, SQL-Parametrisierung, ACL, CI, README) ist bereits erfüllt
 - ✅ TEST-Kriterium: **Kernlogik-Coverage 71,35 % lines (> 70 %)**; Backend-Integration
   (209 Tests via tsx + echte Postgres) deckt die Runtime-Pfade ab; `npm test` exit 0,
   typecheck exit 0, lint exit 0
+- ✅ ERR-01: Fehler abfangen — **verifiziert, kein Code-Change nötig**: alle fetch-Aufrufe
+  haben res.ok-Prüfung + try/catch + sichtbarer Fehlerzustand (useAcl, useCurriculumVersions,
+  useOidc/ProviderUnreachableError, MapPicker-Nominatim, backend verify.ts mit
+  AbortSignal-Timeout, solverClient mit Timeout-Abort)
+- ✅ ERR-02: Rückmeldungen — MappingView: leerer „No mapping yet"-Zustand ergänzt (war
+  blanker Bereich); AvailabilityView: falscher Lade-Text korrigiert + Spinner bei
+  loading; übrige Views hatten Lade-/Fehler-/Leer-Zustände (verifiziert via Matrix)
+- ✅ ERR-03: Doppel-Send gesperrt — 8 Form-Dialoge + CSV-Import + UnavailabilityEditor:
+  `submitting`-Guard (frühzeitiger Return, Button :loading+:disabled, Reset beim
+  Schliessen); localStorage-Betroffenheit: nur Nicht-JSON-Strings (useOidc-Keys) →
+  beschädigte Daten ausgeschlossen; Deep-Copy JSON.parse(Muster) ist sicher
+- Verifikation: Docker-Build ✅, `npm test` exit 0 (209 Backend + 71 Unit), lint 0/0,
+  Voll-Typecheck grün
 - ✅ OPS-01: Git sauber — verifiziert: `.env`, `dist/`, Datenverzeichnisse ignored;
   Lockfile committet; keine Build-/Runtime-Artefakte im Repo
 - ✅ CODE-03 (Teil): 6 Format-Warnings via `lint:fix` behoben; `console.log`-Stellen

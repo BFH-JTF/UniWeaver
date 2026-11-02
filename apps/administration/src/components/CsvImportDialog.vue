@@ -587,7 +587,7 @@
           variant="flat"
           prepend-icon="mdi-file-import"
           :loading="isImporting"
-          :disabled="!canImport"
+          :disabled="isImporting || !canImport"
           @click="executeImport"
         >
           Import {{ parsedCsv?.rows.length ? `(${parsedCsv.rows.length} ${currentConfig.entityName}s)` : '' }}

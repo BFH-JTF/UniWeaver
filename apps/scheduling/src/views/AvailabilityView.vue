@@ -32,6 +32,10 @@
         @changed="onSelfSaved"
       />
       <div v-else-if="!loading" class="text-medium-emphasis">
+        You have no lecturer record yet. Ask an administrator to add you as a lecturer.
+      </div>
+      <div v-else class="d-flex align-center py-6">
+        <v-progress-circular indeterminate color="primary" size="28" class="mr-3" />
         Loading your availability...
       </div>
     </template>
