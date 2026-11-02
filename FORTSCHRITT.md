@@ -55,6 +55,11 @@ Vieles (Geheimnisse, SQL-Parametrisierung, ACL, CI, README) ist bereits erfüllt
   → `utils/curriculumTables.ts`, `severityTitle`/`isReferencesBody` → `utils/deleteRefs.ts`;
   Template unverändert (Null-Risiko), Docker-Build ✅. Rest: weitere Splits je Datei
   (CsvImportDialog 1051, RoomsView 826, MappingEditor 693, entityService.ts 657 …)
+- ✅ ARCH-04: Duplikate — 3× identische `useAuth`-Composables (administration/
+  scheduling/competencies) → `createToolAuth`-Factory in `packages/shared/src/toolAuth.ts`,
+  Apps halten nur dünne Wrapper (Store/Router/Config injiziert). Die ×4 identischen
+  Vuetify-Plugins/app.css sind **bewusst** (Design-System laut README) — dokumentiert.
+  Auth-Stores unterscheiden sich pro App legitim. Docker-Build + lint ✅
 - ✅ OPS-01: Git sauber — verifiziert: `.env`, `dist/`, Datenverzeichnisse ignored;
   Lockfile committet; keine Build-/Runtime-Artefakte im Repo
 - ✅ CODE-03 (Teil): 6 Format-Warnings via `lint:fix` behoben; `console.log`-Stellen
