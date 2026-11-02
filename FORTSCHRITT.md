@@ -25,7 +25,10 @@ Vieles (Geheimnisse, SQL-Parametrisierung, ACL, CI, README) ist bereits erfüllt
   Historie sauber; **neu:** Server startet nun mit klarer Fehlermeldung ohne `SESSION_SECRET`)
 - ✅ SEC-02: Geheimnisse nicht im Browser — Nachweis per Production-Build (Docker-Image):
   `dist/` enthält keine Secret-Werte/Var-Namen; nur öffentliche URLs
-- ⏳ SEC-03: Eingaben prüfen (inkl. Solver-Payload, CSV-Import) — Prüfung läuft
+- ✅ SEC-03: Eingaben prüfen — verifiziert: `schedules` (ranges 5–600 s, semesterExistenz,
+  Namenskürzung), `users` (Feld-Whitelist + Boolean-Coercion), `entities` (TABLE_SPECS +
+  Pflichtspalten + Referenzprüfung + atomarer Bulk-Import), `restrictions` (Tabell whitelist),
+  kein `v-html` im Code; JSON-Limit 10 MB bewusst belassen (Import-Volumen), dokumentiert
 - ✅ SEC-04: Daten und Zugriffe schützen — CORS refl. entfernt (Whitelist via
   `CORS_ORIGINS`, Fallback localhost-only), Security-Header (nosniff, X-Frame-Options,
   Referrer-Policy, CSP-Report-Only) ergänzt; Verifikation: fremder Origin erhält keine
