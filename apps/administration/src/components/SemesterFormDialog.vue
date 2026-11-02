@@ -109,7 +109,7 @@
       <v-card-actions class="pa-4">
         <v-spacer />
         <v-btn variant="text" @click="close">Cancel</v-btn>
-        <v-btn color="primary" variant="flat" @click="submit">
+        <v-btn color="primary" variant="flat" :loading="submitting" :disabled="submitting" @click="submit">
           {{ isEdit ? 'Save' : 'Create' }}
         </v-btn>
       </v-card-actions>
@@ -159,6 +159,7 @@ function addSlotStart() {
 }
 
 function close() {
+  submitting.value = false
   emit('update:modelValue', false)
 }
 
@@ -180,44 +181,52 @@ function toMinutes(time: string): number {
   return h * 60 + m
 }
 
+const submitting = ref(false)
+
 function submit() {
-  const duration = form.value.slotDurationMinutes
-  const normalizedDuration =
-    duration === undefined || duration === null || (duration as unknown) === '' ? undefined : Number(duration)
+  if (submitting.value) return
+  submitting.value = true
+  try {
+    const duration = form.value.slotDurationMinutes
+    const normalizedDuration =
+      duration === undefined || duration === null || (duration as unknown) === '' ? undefined : Number(duration)
 
-  const starts = (form.value.slotStartTimes ?? [])
-    .map(t => normalizeTime(String(t)))
-    .filter((t): t is string => t !== null)
-  starts.sort()
+    const starts = (form.value.slotStartTimes ?? [])
+      .map(t => normalizeTime(String(t)))
+      .filter((t): t is string => t !== null)
+    starts.sort()
 
-  // Structural validation (blocking): duration required, at least one start
-  if ((normalizedDuration === undefined || normalizedDuration === null || normalizedDuration <= 0) && starts.length > 0) {
-    timeslotError.value = 'Please define the timeslot length in minutes.'
-    return
-  }
-  if (normalizedDuration !== undefined && normalizedDuration !== null && normalizedDuration > 0 && starts.length === 0) {
-    timeslotError.value = 'Please add at least one timeslot start point.'
-    return
-  }
+    // Structural validation (blocking): duration required, at least one start
+    if ((normalizedDuration === undefined || normalizedDuration === null || normalizedDuration <= 0) && starts.length > 0) {
+      timeslotError.value = 'Please define the timeslot length in minutes.'
+      return
+    }
+    if (normalizedDuration !== undefined && normalizedDuration !== null && normalizedDuration > 0 && starts.length === 0) {
+      timeslotError.value = 'Please add at least one timeslot start point.'
+      return
+    }
 
-  // Reject overlapping slots: consecutive starts must be at least one slot apart
-  if (normalizedDuration !== undefined && normalizedDuration !== null && normalizedDuration > 0) {
-    const minGap = Number(normalizedDuration)
-    for (let i = 1; i < starts.length; i++) {
-      const prev = starts[i - 1]
-      const curr = starts[i]
-      if (!prev || !curr) continue
-      if (toMinutes(curr) - toMinutes(prev) < minGap) {
-        timeslotError.value = `Start points ${prev} and ${curr} are closer together than the timeslot length (${minGap} min). The timeslots would overlap.`
-        return
+    // Reject overlapping slots: consecutive starts must be at least one slot apart
+    if (normalizedDuration !== undefined && normalizedDuration !== null && normalizedDuration > 0) {
+      const minGap = Number(normalizedDuration)
+      for (let i = 1; i < starts.length; i++) {
+        const prev = starts[i - 1]
+        const curr = starts[i]
+        if (!prev || !curr) continue
+        if (toMinutes(curr) - toMinutes(prev) < minGap) {
+          timeslotError.value = `Start points ${prev} and ${curr} are closer together than the timeslot length (${minGap} min). The timeslots would overlap.`
+          return
+        }
       }
     }
-  }
 
-  timeslotError.value = null
-  form.value.slotDurationMinutes = normalizedDuration
-  form.value.slotStartTimes = starts
-  emit('save', JSON.parse(JSON.stringify(form.value)))
+    timeslotError.value = null
+    form.value.slotDurationMinutes = normalizedDuration
+    form.value.slotStartTimes = starts
+    emit('save', JSON.parse(JSON.stringify(form.value)))
+  } finally {
+    submitting.value = false
+  }
   close()
 }
 </script>
