@@ -142,6 +142,13 @@ app.get('/', (_req: Request, res: Response) => {
 })
 
 export async function startServer(port: number | string = PORT) {
+  // Fail fast on a missing/insecure session secret: the backend cannot issue
+  // signed session cookies without one, and a clear startup error beats a
+  // confusing failure on the first login attempt.
+  const sessionSecret = process.env.SESSION_SECRET || ''
+  if (sessionSecret.length < 32) {
+    throw new Error('SESSION_SECRET must be set to a random string of at least 32 characters')
+  }
   await initDb()
   return new Promise(resolve => {
     const server = app.listen(port, () => {
