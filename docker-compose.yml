@@ -37,6 +37,8 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-uniweaver}
       SESSION_SECRET: ${SESSION_SECRET:-please-set-a-proper-session-secret-with-at-least-32-chars}
       BOOTSTRAP_ADMIN_SECRET: ${BOOTSTRAP_ADMIN_SECRET:-}
+      # Origins allowed for credentialed cross-origin API calls (see backend).
+      CORS_ORIGINS: ${CORS_ORIGINS:-}
       OIDC_ISSUER: ${OIDC_ISSUER:-http://localhost:3000/oidc}
       # Issuer URL as reachable from inside the docker network (backend -> provider).
       # Deliberately NOT read from OIDC_INTERNAL_ISSUER: that variable in .env

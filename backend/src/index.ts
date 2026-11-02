@@ -17,8 +17,45 @@ import { restrictionsRouter } from './routes/restrictions'
 export const app = express()
 const PORT = process.env.PORT || 3000
 
+// CORS reflection of *any* origin with credentials would let every foreign
+// website read session-authenticated API responses from a user's browser.
+// Allowed origins come from CORS_ORIGINS (comma-separated). Without the
+// variable, only localhost origins pass — enough for the Vite dev servers —
+// while production deployments must configure their real origin.
+const allowedOrigins = (process.env.CORS_ORIGINS || '')
+  .split(',')
+  .map(origin => origin.trim())
+  .filter(Boolean)
+
+const isAllowedOrigin = (origin: string): boolean =>
+  allowedOrigins.includes(origin) ||
+  /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)
+
 app.set('trust proxy', 1)
-app.use(cors({ credentials: true, origin: true }))
+app.use(cors({
+  credentials: true,
+  origin: (origin: string | undefined, callback) => {
+    // Requests without an Origin header (curl, same-origin GET) are not
+    // subject to CORS and pass; browsers receive no headers otherwise.
+    if (!origin || isAllowedOrigin(origin)) return callback(null, true)
+    return callback(null, false)
+  },
+}))
+
+// Minimal security headers (kept dependency-free): nosniff prevents MIME
+// sniffing, DENY blocks clickjacking via iframes, and a report-only CSP
+// observes violations without risking a broken frontend (inline styles are
+// unavoidable for Vuetify).
+app.use((_req: Request, res: Response, next: NextFunction) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff')
+  res.setHeader('X-Frame-Options', 'DENY')
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin')
+  res.setHeader(
+    'Content-Security-Policy-Report-Only',
+    "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; font-src 'self'; connect-src 'self'",
+  )
+  next()
+})
 // Body parsers are scoped to the API routes; the OIDC proxy below must
 // receive the raw urlencoded bodies of the provider's login/logout forms.
 app.use('/api', express.json({ limit: '10mb' }))

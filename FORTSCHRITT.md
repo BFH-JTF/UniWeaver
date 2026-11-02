@@ -26,7 +26,10 @@ Vieles (Geheimnisse, SQL-Parametrisierung, ACL, CI, README) ist bereits erfüllt
 - ✅ SEC-02: Geheimnisse nicht im Browser — Nachweis per Production-Build (Docker-Image):
   `dist/` enthält keine Secret-Werte/Var-Namen; nur öffentliche URLs
 - ⏳ SEC-03: Eingaben prüfen (inkl. Solver-Payload, CSV-Import) — Prüfung läuft
-- ⏳ SEC-04: CORS-Whitelist + Security-Header — Umsetzung folgt
+- ✅ SEC-04: Daten und Zugriffe schützen — CORS refl. entfernt (Whitelist via
+  `CORS_ORIGINS`, Fallback localhost-only), Security-Header (nosniff, X-Frame-Options,
+  Referrer-Policy, CSP-Report-Only) ergänzt; Verifikation: fremder Origin erhält keine
+  ACA-Header mehr, 209 Backend-Tests grün
 - ⏳ SEC-05: npm audit (3 high fixes ohne Breaking Changes möglich)
 - ⏳ OPS-01, CODE-01, CODE-03, ARCH-01..04, TEST, ERR, DEP, PERF, A11Y, CODE-02, CODE-04, DOC, OPS-02
 - ❓ Erwartet: keine Mensch-Entscheidung, ausser bei „Löschen von Daten“/DLP-Themen
