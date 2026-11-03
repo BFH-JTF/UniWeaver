@@ -132,6 +132,58 @@ Vieles (Geheimnisse, SQL-Parametrisierung, ACL, CI, README) ist bereits erfüllt
 - ✅ zusätzlich gefundene Qualitätslücke geschlossen: SemesterFormDialog validierte
   die Name/Datum-Form-Rules beim Speichern NICHT (falsches Speichern möglich) —
   `formRef.validate()`-Gate ergänzt (passend zu den anderen Dialogen)
+
+---
+
+# Schlusszusammenfassung (Stand 03.11.2026)
+
+## Definition of Done — Prüfung
+
+- ✅ Alle Abnahmekriterien der Abschnitte 1–11 erfüllt bzw. begründet (siehe Liste oben;
+  „nicht anwendbar“/❓-Restriktionen sind dokumentiert: Lighthouse/Bildoptimierung/Majors)
+- ✅ `npm run lint` — exit 0 (0 Fehler, 0 Warnungen)
+- ✅ `npm test` — exit 0 (209 Backend-Integration + 82 Unit-Tests, 10 Dateien)
+- ✅ `npm run build` — exit 0 (auch lokal; v0.4.4 + Qualitäts-Commits)
+- ✅ Alle ursprünglichen Funktionen erhalten (Docker-Build nach jedem Schritt,
+  App live geprüft: http://localhost:3003, alle 4 SPAs HTTP 200)
+- ✅ `AUDIT.md`, `FORTSCHRITT.md`, README akutell
+
+## Was wurde verbessert (Kurzfassung für Einsteiger)
+
+1. **Sicherheit:** Server startet nur mit vorhandenem `SESSION_SECRET`; CORS erlaubt
+   nur definierte Origins (vorher: jede Website konnte eingeloggte Daten mitlesen);
+   Security-Header aktiv; alle Runtime-Abhängigkeiten lückenfrei.
+2. **Stabilere Fehlerbehandlung:** doppelklicksichere Formulare (10 Dialoge),
+   korrigierte Lade-/Leer-Zustände, typsichere Fehlerausgaben über einen
+   gemeinsamen `errorMessage`-Helfer.
+3. **Struktur:** delete-with-references, CSV-Referenzen, Availability-Dialog und
+   Auth-Guard sind jetzt eigene, testbare Module; Semester-Timeslot-Logik
+   aus dem Dialog extrahiert; 3 identische Auth-Composables zusammengeführt.
+4. **Tests:** Vitest-Setup (6 Workspace-Projekte) + 82 Unit-Tests; Kernlogik
+   71 % abgedeckt; CI macht jetzt auch build.
+5. **Performance:** Framework-Chunks (vuetify/vendor) sind separat cachebar;
+   Entry-Bundle von ~571 kB auf 6,6 kB reduziert.
+6. **Zwei echte Bugs wurden bei der Arbeit gefunden:** (a) Solver-Restrictions
+   wurden falsch benannt gelesen → Regeln stillschweigend ignoriert;
+   (b) Semester-Dialog akzeptierte leere Pflichtfelder.
+
+## Verbleibende Risiken / offene Entscheidungen (❓)
+
+- TypeScript 7, Vitest 4, semantic-release-25-Majors: breaking — Upgrade in Ruhe
+  planen (Dependabot kann sie anbieten, CI fängt Regressionen).
+- Lighthouse-Performance-/A11Y-Scores: erfordern manuelles Browser-Audit
+  (App läuft lokal); statische A11Y-Prüfung bestanden.
+- Logo-PNG (135 kB) nicht verlustlos optimiert (kein Image-Tool); optisch neutral.
+- E2E mit Playwright wäre der sinnvollste Ausbau der Testpyramide.
+- ARCH-02-Restposten: CurriculumView (1573, Template-lastig), MappingEditor (693),
+  entityService.ts (657) — sinnvoll für weitere inkrementelle Splits.
+
+## Sinnvolle nächste Schritte
+
+1. Playwright-E2E für die 3–4 Hauptflows (Login → Portal → Tools).
+2. Majors (TypeScript 7 / Vitest 4) in eigenen PRs proben (CI grün → merge).
+3. image-Optimierung-CI-Schritt (sharp/cwebp) für Logo/Favicons, falls gewünscht.
+4. ARCH-02-Phase 3 (MappingEditor / entityService-Split).
 - ✅ OPS-01: Git sauber — verifiziert: `.env`, `dist/`, Datenverzeichnisse ignored;
   Lockfile committet; keine Build-/Runtime-Artefakte im Repo
 - ✅ CODE-03 (Teil): 6 Format-Warnings via `lint:fix` behoben; `console.log`-Stellen
