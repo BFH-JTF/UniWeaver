@@ -7,12 +7,12 @@ import {
   fetchEntity,
   createEntity,
   updateEntity,
-  importEntities,
-  copyCurriculumVersion,
   EntityHttpError,
-  TABLE_SPECS,
 } from '../db/entityService'
-import type { ImportRowError } from '../db/entityService'
+import { TABLE_SPECS } from '../db/entityCommon'
+import type { ImportRowError } from '../db/entityImport'
+import { importEntities } from '../db/entityImport'
+import { copyCurriculumVersion } from '../db/entityVersioning'
 import { genEntityId } from '../db/entities'
 import {
   findEntityReferences,
