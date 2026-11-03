@@ -120,6 +120,18 @@ Vieles (Geheimnisse, SQL-Parametrisierung, ACL, CI, README) ist bereits erfüllt
   mit `aria-haspopup`/`aria-expanded` + Button-Reset-Styles; Vuetify-Formulare via
   labels/Outlined-Defaults; A11Y-02: responsive (Vuetify-Grid: `cols=12 md=…`-Muster
   durchgängig) — Lighthouse-Zahlen ❓ manuell (kein Browser-Audit in dieser Umgebung)
+- ✅ TEST-03: Ablauf-Tests — **doppelt abgesichert:**
+  (1) Backend-Integrationssuiten (209 Tests, echte Postgres) decken die zentralen
+  Abläufe API-seitig ab: Login→Session→Bootstrap, Entity CRUD, Bulk-Import (atomar),
+  Schedule-Generierung inkl. Restrictions;
+  (2) **Semester-Dialog-Ablauf** (eingeben → validieren → save): die Submitslogik
+  ist in `useSemesterTimeslots` extrahiert (ARCH-03) und mit 13 Tests gedeckt;
+  der SFC ruft sie vor dem save-emit. UI-Komponenten-Mount gegen teleportierende
+  Vuetify-Overlays in jsdom zu spröde → bewusst auf Logik-Tests gesetzt (dokumentiert).
+  Unit-Suite: **82 Tests / 9 Dateien, exit 0**. Optionaler Playwright-E2E ❓ (später)
+- ✅ zusätzlich gefundene Qualitätslücke geschlossen: SemesterFormDialog validierte
+  die Name/Datum-Form-Rules beim Speichern NICHT (falsches Speichern möglich) —
+  `formRef.validate()`-Gate ergänzt (passend zu den anderen Dialogen)
 - ✅ OPS-01: Git sauber — verifiziert: `.env`, `dist/`, Datenverzeichnisse ignored;
   Lockfile committet; keine Build-/Runtime-Artefakte im Repo
 - ✅ CODE-03 (Teil): 6 Format-Warnings via `lint:fix` behoben; `console.log`-Stellen

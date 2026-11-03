@@ -18,7 +18,7 @@
       </v-card-item>
 
       <v-card-text class="pa-4 pa-sm-6">
-        <v-form @submit.prevent="submit">
+        <v-form ref="formRef" @submit.prevent="submit">
           <v-text-field
             v-model="form.name"
             label="Name *"
@@ -119,6 +119,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
+import { validateTimeslots } from '@/composables/useSemesterTimeslots'
 import CopyIdButton from '@/components/CopyIdButton.vue'
 import type { Semester } from '@/stores/curriculum'
 import { emptySemester } from '@/composables/useSemesters'
@@ -163,66 +164,21 @@ function close() {
   emit('update:modelValue', false)
 }
 
-/** Normalizes a time input to HH:MM; returns null when empty/invalid. */
-function normalizeTime(value: string): string | null {
-  const match = /^(\d{1,2}):(\d{2})(?::\d{2})?$/.exec(value?.trim() ?? '')
-  if (!match) return null
-  const h = Number(match[1])
-  const m = Number(match[2])
-  if (h > 23 || m > 59) return null
-  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
-}
-
-/** Minutes since midnight for a HH:MM string. */
-function toMinutes(time: string): number {
-  const parts = time.split(':')
-  const h = Number(parts[0] ?? 0)
-  const m = Number(parts[1] ?? 0)
-  return h * 60 + m
-}
-
 const submitting = ref(false)
+const formRef = ref()
 
-function submit() {
+async function submit() {
   if (submitting.value) return
   submitting.value = true
   try {
-    const duration = form.value.slotDurationMinutes
-    const normalizedDuration =
-      duration === undefined || duration === null || (duration as unknown) === '' ? undefined : Number(duration)
-
-    const starts = (form.value.slotStartTimes ?? [])
-      .map(t => normalizeTime(String(t)))
-      .filter((t): t is string => t !== null)
-    starts.sort()
-
-    // Structural validation (blocking): duration required, at least one start
-    if ((normalizedDuration === undefined || normalizedDuration === null || normalizedDuration <= 0) && starts.length > 0) {
-      timeslotError.value = 'Please define the timeslot length in minutes.'
-      return
-    }
-    if (normalizedDuration !== undefined && normalizedDuration !== null && normalizedDuration > 0 && starts.length === 0) {
-      timeslotError.value = 'Please add at least one timeslot start point.'
-      return
-    }
-
-    // Reject overlapping slots: consecutive starts must be at least one slot apart
-    if (normalizedDuration !== undefined && normalizedDuration !== null && normalizedDuration > 0) {
-      const minGap = Number(normalizedDuration)
-      for (let i = 1; i < starts.length; i++) {
-        const prev = starts[i - 1]
-        const curr = starts[i]
-        if (!prev || !curr) continue
-        if (toMinutes(curr) - toMinutes(prev) < minGap) {
-          timeslotError.value = `Start points ${prev} and ${curr} are closer together than the timeslot length (${minGap} min). The timeslots would overlap.`
-          return
-        }
-      }
-    }
-
-    timeslotError.value = null
-    form.value.slotDurationMinutes = normalizedDuration
-    form.value.slotStartTimes = starts
+    // form-field rules (name/dates) gate the submit like in the other dialogs
+    const { valid } = await formRef.value?.validate() ?? { valid: false }
+    if (!valid) return
+    const result = validateTimeslots(form.value.slotDurationMinutes, form.value.slotStartTimes)
+    timeslotError.value = result.error
+    if (result.error) return
+    form.value.slotDurationMinutes = result.normalizedDuration
+    form.value.slotStartTimes = result.starts
     emit('save', JSON.parse(JSON.stringify(form.value)))
   } finally {
     submitting.value = false
