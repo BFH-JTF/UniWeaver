@@ -166,9 +166,9 @@
                 </v-btn>
                 <template v-if="canManageFlags(user)">
                   <template v-if="isLastAdmin(user)">
-                      <v-chip color="warning" size="x-small" variant="tonal" class="font-weight-bold">
-                        Last Global Administrator
-                      </v-chip>
+                    <v-chip color="warning" size="x-small" variant="tonal" class="font-weight-bold">
+                      Last Global Administrator
+                    </v-chip>
                   </template>
                   <template v-else>
                     <v-btn
@@ -372,7 +372,8 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import CopyIdButton from '@/components/CopyIdButton.vue'
-import { api, ApiRequestError } from '@uniweaver/shared'
+import { errorMessage,
+api, ApiRequestError } from '@uniweaver/shared'
 import { useAuthStore } from '@/stores/auth'
 import type { LocalUserProfile } from '@uniweaver/shared'
 import { useAuth } from '@/composables/useAuth'
@@ -432,11 +433,11 @@ async function fetchUsers() {
   error.value = ''
   try {
     users.value = await api.listUsers()
-  } catch (err: any) {
+  } catch (err) {
     if (err instanceof ApiRequestError && err.status === 403) {
       error.value = 'Administrator access required'
     } else {
-      error.value = err.message || 'Error fetching users'
+      error.value = err instanceof Error ? err.message : 'Error fetching users'
     }
   } finally {
     loading.value = false
@@ -531,8 +532,8 @@ async function saveUser() {
     }
     successMsg.value = `User "${updated.name}" was successfully updated.`
     closeEditDialog()
-  } catch (err: any) {
-    dialogError.value = err.message || 'Failed to update user account'
+  } catch (err) {
+    dialogError.value = errorMessage(err) || 'Failed to update user account'
   } finally {
     savingUser.value = false
   }
@@ -558,8 +559,8 @@ async function toggleAdminRole(user: LocalUserProfile) {
       auth.localUser = updated
     }
     successMsg.value = `User ${user.name || user.id} updated successfully.`
-  } catch (err: any) {
-    error.value = err.message || 'Failed to update user role'
+  } catch (err) {
+    error.value = errorMessage(err) || 'Failed to update user role'
   } finally {
     updatingId.value = null
   }
@@ -580,8 +581,8 @@ async function toggleSchedulerRole(user: LocalUserProfile) {
       auth.localUser = updated
     }
     successMsg.value = `User ${user.name || user.id} updated successfully.`
-  } catch (err: any) {
-    error.value = err.message || 'Failed to update user role'
+  } catch (err) {
+    error.value = errorMessage(err) || 'Failed to update user role'
   } finally {
     updatingId.value = null
   }

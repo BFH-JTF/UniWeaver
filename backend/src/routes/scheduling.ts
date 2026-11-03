@@ -1,10 +1,17 @@
 import { Router, Response } from 'express'
+import { errText } from '../lib/errText'
 import { getPool } from '../db'
 import type { AuthenticatedRequest } from '../auth/middleware'
 import { requireScheduler } from '../auth/middleware'
 import { provisionLecturersFromUsers } from '../db/schedulingDb'
 
 export const schedulingRouter = Router()
+interface LecturerSchedulingRow { id: string; name: string; department_id: string | null; department_name: string | null; user_display_name: string | null; user_name: string | null; contact: string | null; user_email: string | null }
+interface NodeWithProgramIdsRow { id: string; name: string; program_ids: string[] | null }
+interface ProgramSchedulingRow { id: string; name: string; department_ids: string[] | null; curriculum_id: string | null }
+interface ModuleSchedulingRow { id: string; code: string | null; name: string; degree_ids: string[] | null; curriculum_version_id: string | null }
+interface VersionWithProgramRow { id: string; name: string; program_id: string | null }
+interface MapPairRow { lecturer_id: string; module_id: string }
 
 /**
  * Module <-> Lecturer mapping. These endpoints bypass the per-entity ACL of
@@ -81,7 +88,7 @@ schedulingRouter.get(
       )
 
       res.json({
-        lecturers: lecturersRes.rows.map((r: any) => ({
+        lecturers: lecturersRes.rows.map((r: LecturerSchedulingRow) => ({
           id: r.id,
           name: r.name,
           departmentId: r.department_id || '',
@@ -91,41 +98,41 @@ schedulingRouter.get(
           /** True for lecturer rows auto-provisioned from a user account. */
           isAccountBased: !!r.user_name || !!r.user_display_name,
         })),
-        departments: departmentsRes.rows.map((r: any) => ({
+        departments: departmentsRes.rows.map((r: NodeWithProgramIdsRow) => ({
           id: r.id,
           name: r.name,
           programIds: r.program_ids || [],
         })),
-        programs: programsRes.rows.map((r: any) => ({
+        programs: programsRes.rows.map((r: ProgramSchedulingRow) => ({
           id: r.id,
           name: r.name,
           departmentIds: r.department_ids || [],
           curriculumId: r.curriculum_id || '',
         })),
-        degrees: degreesRes.rows.map((r: any) => ({
+        degrees: degreesRes.rows.map((r: NodeWithProgramIdsRow) => ({
           id: r.id,
           name: r.name,
           programIds: r.program_ids || [],
         })),
-        modules: modulesRes.rows.map((r: any) => ({
+        modules: modulesRes.rows.map((r: ModuleSchedulingRow) => ({
           id: r.id,
           code: r.code || '',
           name: r.name,
           degreeIds: r.degree_ids || [],
           curriculumVersionId: r.curriculum_version_id || '',
         })),
-        curriculumVersions: versionsRes.rows.map((r: any) => ({
+        curriculumVersions: versionsRes.rows.map((r: VersionWithProgramRow) => ({
           id: r.id,
           name: r.name,
           programId: r.program_id || '',
         })),
-        pairs: pairsRes.rows.map((r: any) => ({
+        pairs: pairsRes.rows.map((r: MapPairRow) => ({
           lecturerId: r.lecturer_id,
           moduleId: r.module_id,
         })),
       })
-    } catch (error: any) {
-      res.status(500).json({ error: error.message || 'Failed to load mapping' })
+    } catch (error) {
+      res.status(500).json({ error: errText(error) || 'Failed to load mapping' })
     }
   },
 )
@@ -210,8 +217,8 @@ schedulingRouter.post(
       }
 
       res.json({ applied: pairs.map(p => ({ lecturerId: p.lecturerId, moduleId: p.moduleId, value: p.value })) })
-    } catch (error: any) {
-      res.status(500).json({ error: error.message || 'Failed to apply mapping changes' })
+    } catch (error) {
+      res.status(500).json({ error: errText(error) || 'Failed to apply mapping changes' })
     }
   },
 )

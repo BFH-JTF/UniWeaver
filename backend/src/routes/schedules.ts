@@ -6,6 +6,8 @@
  */
 
 import { Router, Response } from 'express'
+import { errText } from '../lib/errText'
+import { EntityHttpError } from '../db/entities'
 import type { Pool } from 'pg'
 import type { AuthenticatedRequest } from '../auth/middleware'
 import { requireScheduler } from '../auth/middleware'
@@ -16,6 +18,28 @@ import { getScheduleScope } from '../db/scheduleScope'
 
 export const schedulesRouter = Router()
 
+interface SemesterTimeslotRow {
+  slot_duration_minutes: number | null
+  slot_start_times: string[] | null
+}
+
+interface ScheduleEntryRow {
+  id: string
+  run_id: string
+  week_id: string | null
+  weekday: string
+  start_time: string
+  end_time: string
+  module_ids: string[] | null
+  room_ids: string[] | null
+  class_ids: string[] | null
+  lecturer_ids: string[] | null
+  module_names: string[] | null
+  room_names: string[] | null
+  class_names: string[] | null
+  lecturer_names: string[] | null
+}
+
 const RUN_STATUS_WITH_ENTRIES = new Set(['draft', 'published'])
 
 schedulesRouter.get('/scheduler/health', requireScheduler, async (_req: AuthenticatedRequest, res: Response) => {
@@ -23,7 +47,23 @@ schedulesRouter.get('/scheduler/health', requireScheduler, async (_req: Authenti
   res.json({ online })
 })
 
-function mapRun(row: any) {
+interface ScheduleRunRow {
+  id: string
+  semester_id: string
+  semester_name: string | null
+  name: string
+  status: string
+  score: Record<string, unknown> | null
+  stats: Record<string, unknown> | null
+  meta: Record<string, unknown> | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
+  completed_at: string | null
+  entry_count: number | string | null
+}
+
+function mapRun(row: ScheduleRunRow) {
   return {
     id: row.id,
     semesterId: row.semester_id,
@@ -54,7 +94,7 @@ schedulesRouter.get('/semesters', requireScheduler, async (_req: AuthenticatedRe
      FROM semesters s
      ORDER BY s.start_date DESC NULLS LAST, s.name ASC`,
   )
-  res.json(result.rows.map((r: any) => ({
+  res.json(result.rows.map((r: SemesterListRow) => ({
     id: r.id,
     name: r.name,
     code: r.code || '',
@@ -67,14 +107,28 @@ schedulesRouter.get('/semesters', requireScheduler, async (_req: AuthenticatedRe
   })))
 })
 
+interface SemesterListRow {
+  id: string
+  name: string
+  code: string | null
+  start_date: string | null
+  end_date: string | null
+  slot_duration_minutes: number | null
+  slot_start_times: string[] | null
+  week_count: number | string | null
+  class_count: number | string | null
+}
+
 schedulesRouter.get('/schedules/scope/:semesterId', requireScheduler, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const pool: Pool = getPool()
     const scope = await getScheduleScope(pool, String(req.params.semesterId))
     res.json(scope)
-  } catch (error: any) {
-    const status = error?.status || 500
-    res.status(status).json({ error: error.message || 'Failed to determine schedule scope' })
+  } catch (error) {
+    // getScheduleScope signals validation problems with EntityHttpError; keep
+    // its status, everything else maps to a plain 500.
+    const status = error instanceof EntityHttpError ? error.status : 500
+    res.status(status).json({ error: errText(error) || 'Failed to determine schedule scope' })
   }
 })
 
@@ -115,7 +169,7 @@ schedulesRouter.post('/schedules/generate', requireScheduler, async (req: Authen
       res.status(404).json({ error: 'Semester not found' })
       return
     }
-    const row = semesterCheck.rows[0] as any
+    const row = semesterCheck.rows[0] as SemesterTimeslotRow
     const starts = (row.slot_start_times ?? []) as string[]
     if (!row.slot_duration_minutes || starts.length === 0) {
       res.status(400).json({
@@ -128,8 +182,8 @@ schedulesRouter.post('/schedules/generate', requireScheduler, async (req: Authen
     // Fire-and-forget: the UI polls the run status.
     void runScheduleGeneration(pool, id, { semesterId, name, spentLimitSeconds: Math.round(spentLimit), createdBy: user.id })
     res.status(201).json({ runId: id })
-  } catch (error: any) {
-    res.status(500).json({ error: error.message || 'Failed to start schedule generation' })
+  } catch (error) {
+    res.status(500).json({ error: errText(error) || 'Failed to start schedule generation' })
   }
 })
 
@@ -158,8 +212,9 @@ schedulesRouter.get('/schedules/:runId/entries', requireScheduler, async (req: A
     res.status(404).json({ error: 'Schedule run not found' })
     return
   }
-  if (!RUN_STATUS_WITH_ENTRIES.has((run.rows[0] as any).status)) {
-    res.status(409).json({ error: `Schedule is in status "${(run.rows[0] as any).status}"; entries are available once generation finishes.` })
+  const runStatus = (run.rows[0] as { id: string; status: string }).status
+  if (!RUN_STATUS_WITH_ENTRIES.has(runStatus)) {
+    res.status(409).json({ error: `Schedule is in status "${runStatus}"; entries are available once generation finishes.` })
     return
   }
   const result = await pool.query(
@@ -182,7 +237,7 @@ schedulesRouter.get('/schedules/:runId/entries', requireScheduler, async (req: A
      ORDER BY e.weekday, e.start_time`,
     [runId],
   )
-  res.json(result.rows.map((r: any) => ({
+res.json(result.rows.map((r: ScheduleEntryRow) => ({
     id: r.id,
     runId: r.run_id,
     weekId: r.week_id || null,

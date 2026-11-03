@@ -587,7 +587,7 @@
           variant="flat"
           prepend-icon="mdi-file-import"
           :loading="isImporting"
-          :disabled="!canImport"
+          :disabled="isImporting || !canImport"
           @click="executeImport"
         >
           Import {{ parsedCsv?.rows.length ? `(${parsedCsv.rows.length} ${currentConfig.entityName}s)` : '' }}
@@ -599,18 +599,17 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import type { ImportType, ColumnMapping, ReferenceTargetSpec } from '@/types/csvImport'
+import type { ImportType, ColumnMapping } from '@/types/csvImport'
 import { IMPORT_CONFIGS, autoMapColumns } from '@/utils/csvSchemas'
 import {
   MISSING_TOKEN,
   referenceFields,
-  collectReferenceIssues,
   resolveMappedRows,
-  type ReferenceResolutions,
 } from '@/utils/csvReferenceResolution'
 import { parseCsv, type ParsedCsv } from '@/utils/csvParser'
+import { useCsvReferences } from '@/composables/useCsvReferences'
+import { transformCsvRowsWithMapping, formatPreviewCell, csvHeaderSelectOptionsFor } from '@/utils/csvPreview'
 import { useCsvImport } from '@/composables/useCsvImport'
-import { usePostgres, EntityTables, type EntityTableName } from '@/composables/usePostgres'
 import { useAuthStore } from '@/stores/auth'
 
 const props = withDefaults(
@@ -630,11 +629,10 @@ const props = withDefaults(
 
 const emit = defineEmits<{
   (e: 'update:modelValue', value: boolean): void
-  (e: 'imported', payload: { type: ImportType; count: number; items: any[] }): void
+  (e: 'imported', payload: { type: ImportType; count: number; items: Record<string, unknown>[] }): void
 }>()
 
 const { isImporting, saveImportedData } = useCsvImport()
-const { fetchEntities } = usePostgres()
 const authStore = useAuthStore()
 
 const selectedType = ref<ImportType>(props.initialType)
@@ -649,10 +647,33 @@ const optionalPanel = ref<string | null>(null)
 const previewMode = ref<'mapped' | 'raw'>('mapped')
 const fieldsOverviewMode = ref<'compact' | 'detailed'>('compact')
 const errorMessage = ref<string | null>(null)
+
+/** Reference-resolution logic (state + issue computation) lives in the
+ * useCsvReferences composable; the dialog keeps the template names. */
+const csvHeaderSelectOptions = computed(() => csvHeaderSelectOptionsFor(parsedCsv.value))
+
+const {
+  targetEntities,
+  targetEntitiesLoaded,
+  referenceResolutions,
+  ensureTargetEntities,
+  referencePickerItems,
+  missingResolution,
+  setMissingResolution,
+  referenceIssues,
+  referenceStatusText,
+  previewInvalidCellKeys,
+} = useCsvReferences({
+  selectedType: () => selectedType.value,
+  referenceFields: () => referenceFieldsForType.value,
+  parsedCsv: () => parsedCsv.value,
+  allMappedRows: () => allMappedRows.value,
+  previewRowCount: () => previewRows.value.length,
+  isAdmin: () => authStore.isAdmin,
+  setError: (message) => { errorMessage.value = message },
+})
+
 const fileInputRef = ref<HTMLInputElement>()
-const targetEntities = ref<Record<string, any[]>>({})
-const targetEntitiesLoaded = ref<Record<string, boolean>>({})
-const referenceResolutions = ref<ReferenceResolutions>({})
 
 // Watch initialType prop when dialog opens
 watch(
@@ -699,50 +720,7 @@ const currentConfig = computed(() => {
 
 const referenceFieldsForType = computed(() => referenceFields(selectedType.value))
 
-const TARGET_TABLES: Record<ReferenceTargetSpec['entityTable'], EntityTableName> = {
-  departments: EntityTables.DEPARTMENT,
-  programs: EntityTables.PROGRAM,
-  degrees: EntityTables.DEGREE,
-  semesters: EntityTables.SEMESTER,
-  modules: EntityTables.MODULE,
-}
-
 /** Loads the target entity lists a pending import needs to validate IDs against. */
-async function ensureTargetEntities(): Promise<void> {
-  for (const field of referenceFieldsForType.value) {
-    const table = field.reference!.entityTable
-    if (targetEntitiesLoaded.value[table]) continue
-    targetEntitiesLoaded.value[table] = true
-    fetchEntities<any>(TARGET_TABLES[table])
-      .then(items => {
-        targetEntities.value = { ...targetEntities.value, [table]: items }
-      })
-      .catch((err: any) => {
-        targetEntitiesLoaded.value[table] = false
-        errorMessage.value = err.message || `Failed to load ${table} for reference validation`
-      })
-  }
-}
-
-function referencePickerItems(target: ReferenceTargetSpec) {
-  const list = targetEntities.value[target.entityTable] ?? []
-  const selectable = target.requireAdmin && !authStore.isAdmin
-    ? list.filter(e => e._isAdmin === true)
-    : list
-  return selectable.map((e: any) => ({
-    title: e.name || e.id || 'Unnamed',
-    subtitle: e.id,
-    value: e.id,
-  }))
-}
-
-function missingResolution(key: string): string[] | undefined | null {
-  return referenceResolutions.value[key] as string[] | undefined | null
-}
-
-function setMissingResolution(key: string, value: string[] | null | undefined): void {
-  referenceResolutions.value[key] = value ?? undefined
-}
 
 const availableTypeOptions = computed(() => {
   const all = Object.values(IMPORT_CONFIGS)
@@ -786,21 +764,6 @@ const mandatoryStatusText = computed(() => {
   return `${missing} mandatory variable${missing > 1 ? 's' : ''} unmapped`
 })
 
-const csvHeaderSelectOptions = computed(() => {
-  if (!parsedCsv.value) return []
-  const options = [{ title: '(None / Do not import)', value: null as any, preview: 'Will be skipped' }]
-  for (const header of parsedCsv.value.headers) {
-    const sampleVal = parsedCsv.value.rows[0]?.[header] ?? ''
-    const preview = sampleVal ? `Sample: "${sampleVal.length > 30 ? sampleVal.substring(0, 30) + '...' : sampleVal}"` : 'Empty in row 1'
-    options.push({
-      title: header,
-      value: header,
-      preview,
-    })
-  }
-  return options
-})
-
 const previewRows = computed(() => {
   if (!parsedCsv.value) return []
   return parsedCsv.value.rows.slice(0, 5)
@@ -811,52 +774,27 @@ const previewTableFields = computed(() => {
   return currentConfig.value.fields.filter(f => f.required || !!columnMapping.value[f.key])
 })
 
-const previewMappedEntities = computed(() => {
+const previewMappedEntities = computed<Record<string, unknown>[]>(() => {
   if (!parsedCsv.value || previewRows.value.length === 0) return []
   const resolvedRows = resolveMappedRows(
     selectedType.value,
-    transformCsvRowsWithMapping(previewRows.value),
+    transformCsvRowsWithMapping(previewRows.value, currentConfig.value.fields, columnMapping.value as Record<string, string>),
     targetEntities.value,
     authStore.isAdmin,
     referenceResolutions.value
   )
-  return currentConfig.value.transform(resolvedRows)
+  return currentConfig.value.transform(resolvedRows) as Record<string, unknown>[]
 })
 
 /** Mapped rows of the full CSV — used to validate every row, not just the preview. */
 const allMappedRows = computed<Record<string, unknown>[]>(() => {
   if (!parsedCsv.value) return []
-  return transformCsvRowsWithMapping(parsedCsv.value.rows)
-})
-
-const referenceIssues = computed(() => {
-  if (!parsedCsv.value || referenceFieldsForType.value.length === 0) return []
-  return collectReferenceIssues(
-    selectedType.value,
-    allMappedRows.value,
-    targetEntities.value,
-    authStore.isAdmin,
-    referenceResolutions.value
-  )
+  return transformCsvRowsWithMapping(parsedCsv.value.rows, currentConfig.value.fields, columnMapping.value as Record<string, string>)
 })
 
 const referencesValid = computed(() => referenceIssues.value.length === 0)
 
-const referenceStatusText = computed(() => {
-  const count = referenceIssues.value.length
-  return `${count} unresolved reference${count === 1 ? '' : 's'}`
-})
-
 /** Preview cells (rowIdx:fieldKey) that still contain unresolved references. */
-const previewInvalidCellKeys = computed(() => {
-  const keys = new Set<string>()
-  for (const issue of referenceIssues.value) {
-    for (const idx of issue.rowIndices) {
-      if (idx < previewRows.value.length) keys.add(`${idx}:${issue.fieldKey}`)
-    }
-  }
-  return keys
-})
 
 const canImport = computed(() => {
   return (
@@ -928,8 +866,8 @@ function parseAndApply(text: string) {
     }
     parsedCsv.value = result
     runAutoMap()
-  } catch (err: any) {
-    errorMessage.value = err.message || 'Failed to parse CSV'
+  } catch (err) {
+    errorMessage.value = err instanceof Error ? err.message : 'Failed to parse CSV'
     parsedCsv.value = null
   }
 }
@@ -975,38 +913,6 @@ function closeDialog() {
   emit('update:modelValue', false)
 }
 
-function transformCsvRowsWithMapping(rows: Record<string, string>[]): Record<string, any>[] {
-  return rows.map(csvRow => {
-    const obj: Record<string, any> = {}
-    for (const field of currentConfig.value.fields) {
-      const csvHeader = columnMapping.value[field.key]
-      if (csvHeader && csvRow[csvHeader] !== undefined) {
-        obj[field.key] = csvRow[csvHeader]
-      } else if (field.defaultValue !== undefined) {
-        obj[field.key] = field.defaultValue
-      }
-    }
-    return obj
-  })
-}
-
-function formatPreviewCell(row: any, key: string): string {
-  if (!row) return ''
-  // Support nested lookups e.g. accessibility.step_free_access
-  const parts = key.split('_')
-  let val = row[key]
-  if (val === undefined) {
-    if (key === 'accessibility_step_free_access') val = row.accessibility?.step_free_access
-    else if (key.startsWith('layout_')) val = row.layout?.[parts.slice(1).join('_')]
-    else if (key.startsWith('equipment_')) val = row.equipment?.[parts.slice(1).join('_')]
-    else if (key.startsWith('connectivity_')) val = row.connectivity?.[parts.slice(1).join('_')]
-  }
-
-  if (typeof val === 'boolean') return val ? 'Yes (true)' : 'No (false)'
-  if (val === null || val === undefined || val === '') return ''
-  if (typeof val === 'object') return JSON.stringify(val)
-  return String(val)
-}
 
 async function executeImport() {
   if (!parsedCsv.value || !canImport.value) return
@@ -1016,13 +922,13 @@ async function executeImport() {
     // 1. Transform all CSV rows using user's column mapping, with resolved references
     const mappedRows = resolveMappedRows(
       selectedType.value,
-      transformCsvRowsWithMapping(parsedCsv.value.rows),
+      transformCsvRowsWithMapping(parsedCsv.value.rows, currentConfig.value.fields, columnMapping.value as Record<string, string>),
       targetEntities.value,
       authStore.isAdmin,
       referenceResolutions.value
     )
     // 2. Convert to typed domain entities
-    const entities = currentConfig.value.transform(mappedRows)
+    const entities = currentConfig.value.transform(mappedRows) as Record<string, unknown>[]
     // 3. Save to database / local store
     const count = await saveImportedData(selectedType.value, entities, props.curriculumContext ?? undefined)
 
@@ -1033,8 +939,8 @@ async function executeImport() {
     })
 
     closeDialog()
-  } catch (err: any) {
-    errorMessage.value = err.message || 'An error occurred during import'
+  } catch (err) {
+    errorMessage.value = err instanceof Error ? err.message : 'An error occurred during import'
   }
 }
 </script>

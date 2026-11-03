@@ -1,3 +1,4 @@
+import { errorMessage } from '@uniweaver/shared'
 import { ref } from 'vue'
 import { usePostgres, EntityTables } from '@/composables/usePostgres'
 import type { Semester } from '@/stores/curriculum'
@@ -21,8 +22,8 @@ export function useSemesters() {
     error.value = null
     try {
       semesters.value = await fetchEntities<Semester>(EntityTables.SEMESTER)
-    } catch (e: any) {
-      error.value = e.message
+    } catch (e) {
+      error.value = errorMessage(e)
     } finally {
       loading.value = false
     }
@@ -33,8 +34,8 @@ export function useSemesters() {
     try {
       await createEntity<Semester>(EntityTables.SEMESTER, semester)
       semesters.value = await fetchEntities<Semester>(EntityTables.SEMESTER)
-    } catch (e: any) {
-      error.value = e.message
+    } catch (e) {
+      error.value = errorMessage(e)
       throw e
     }
   }
@@ -47,8 +48,8 @@ export function useSemesters() {
       await updateDbEntity(EntityTables.SEMESTER, id, semester)
       const idx = semesters.value.findIndex(s => (s._id || s.id) === id)
       if (idx !== -1) semesters.value[idx] = semester
-    } catch (e: any) {
-      error.value = e.message
+    } catch (e) {
+      error.value = errorMessage(e)
       throw e
     }
   }
@@ -58,8 +59,8 @@ export function useSemesters() {
     try {
       await removeDbEntity(EntityTables.SEMESTER, id, confirmRef)
       semesters.value = semesters.value.filter(s => (s._id || s.id) !== id)
-    } catch (e: any) {
-      error.value = e.message
+    } catch (e) {
+      error.value = errorMessage(e)
       throw e
     }
   }

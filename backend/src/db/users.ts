@@ -1,5 +1,6 @@
 import type { Pool } from 'pg'
 import type { LocalUserProfile } from '@uniweaver/shared'
+import { errText } from '../lib/errText'
 
 export type { LocalUserProfile }
 
@@ -45,7 +46,27 @@ export function deriveRoles(isAdmin: boolean, isUserAdmin: boolean, isScheduler:
   return roles
 }
 
-export function mapRowToUser(row: any): LocalUserProfile {
+/** Shape of a `local_users` row as returned by pg (snake_case columns). */
+export interface LocalUserRow {
+  id: string
+  oidc_issuer: string
+  oidc_subject: string
+  name: string | null
+  email: string | null
+  local_name: string | null
+  display_name: string | null
+  is_active: boolean
+  timezone: string | null
+  roles: unknown
+  is_admin: boolean
+  is_user_admin: boolean
+  is_scheduler: boolean
+  is_not_lecturer: boolean
+  created_at: Date | string
+  updated_at: Date | string
+}
+
+export function mapRowToUser(row: LocalUserRow): LocalUserProfile {
   return {
     id: row.id,
     oidc_issuer: row.oidc_issuer,
@@ -56,7 +77,7 @@ export function mapRowToUser(row: any): LocalUserProfile {
     display_name: row.display_name || '',
     is_active: row.is_active !== false,
     timezone: row.timezone || '',
-    roles: Array.isArray(row.roles) ? row.roles : [],
+    roles: Array.isArray(row.roles) ? (row.roles as string[]) : [],
     is_admin: !!row.is_admin,
     is_user_admin: !!row.is_user_admin,
     is_scheduler: !!row.is_scheduler,
@@ -204,9 +225,9 @@ export async function bootstrapAdminUser(
 
     await client.query('COMMIT')
     return { success: true, user: mapRowToUser(insertRes.rows[0]) }
-  } catch (err: any) {
+  } catch (err) {
     await client.query('ROLLBACK').catch(() => {})
-    return { success: false, error: err.message || 'Database error during bootstrap' }
+    return { success: false, error: errText(err) || 'Database error during bootstrap' }
   } finally {
     client.release()
   }

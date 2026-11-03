@@ -135,7 +135,11 @@
       <v-card-actions class="pa-4">
         <v-spacer />
         <v-btn variant="text" @click="close">Cancel</v-btn>
-        <v-btn color="primary" variant="flat" @click="submit">
+        <v-btn
+          color="primary" variant="flat" :loading="submitting"
+          :disabled="submitting"
+          @click="submit"
+        >
           {{ isEdit ? 'Save' : 'Create' }}
         </v-btn>
       </v-card-actions>
@@ -183,10 +187,12 @@ const degreeItems = computed(() =>
 )
 
 /** Modules of the displayed version that belong to the class's chosen degree. */
+type ModuleLegacyAliases = { degreeIDs?: string[]; DegreeIDs?: string[]; _id?: string }
+
 const moduleItems = computed(() =>
   (props.modules || [])
-    .filter(m => (m.degreeIds ?? (m as any).degreeIDs ?? (m as any).DegreeIDs ?? []).includes(form.value.degreeId ?? ''))
-    .map(m => ({ title: m.code ? `${m.code} — ${m.name || m.id}` : (m.name || m.id || ''), value: m.id || (m as any)._id }))
+    .filter(m => (m.degreeIds ?? (m as ModuleLegacyAliases).degreeIDs ?? (m as ModuleLegacyAliases).DegreeIDs ?? []).includes(form.value.degreeId ?? ''))
+    .map(m => ({ title: m.code ? `${m.code} — ${m.name || m.id}` : (m.name || m.id || ''), value: m.id || (m as ModuleLegacyAliases)._id }))
     .filter(i => i.value)
 )
 
@@ -213,7 +219,14 @@ function close() {
   emit('update:modelValue', false)
 }
 
+const submitting = ref(false)
+watch(() => props.modelValue, (open) => { if (!open) submitting.value = false })
+
 async function submit() {
+  if (submitting.value) return
+  submitting.value = true
+  try {
+
   const { valid } = await formRef.value?.validate() ?? { valid: false }
   if (!valid) return
   const result = JSON.parse(JSON.stringify(form.value))
@@ -227,5 +240,9 @@ async function submit() {
   }
   emit('save', result)
   close()
+
+  } finally {
+    submitting.value = false
+  }
 }
 </script>

@@ -803,9 +803,8 @@ import type { Curriculum, Department, Program, Degree, Module } from '@/types/cu
 import type { ClassEntity } from '@/types/curriculumClass'
 import type { Semester, CurriculumVersion } from '@/stores/curriculum'
 import type { ImportType } from '@/types/csvImport'
-import type { EntityReferenceFinding } from '@uniweaver/shared'
-import { ApiRequestError } from '@uniweaver/shared'
-import { usePostgres } from '@/composables/usePostgres'
+import { deptHeaders, progHeaders, degHeaders, modHeaders, clsHeaders, semHeaders, currHeaders, formatDate } from '@/utils/curriculumTables'
+import { useDeleteWithReferences } from '@/composables/useDeleteWithReferences'
 
 const auth = useAuthStore()
 
@@ -964,129 +963,48 @@ async function handleAccessChanged() {
   else await fetchClasses()
 }
 
-const deleteDialogOpen = ref(false)
-const deleteTargetName = ref('')
-const deleteReferences = ref<EntityReferenceFinding[]>([])
-const deleteRefsLoading = ref(false)
-const deleteConfirmChecked = ref(false)
-let deleteKind: 'curriculum' | 'department' | 'program' | 'degree' | 'module' | 'class' | 'semester' | 'version' = 'department'
-let deleteId = ''
-
-const { fetchReferences } = usePostgres()
-
-const DELETE_COLLECTIONS: Record<string, string> = {
-  curriculum: 'curriculums',
-  department: 'departments',
-  program: 'programs',
-  degree: 'degrees',
-  module: 'modules',
-  class: 'classes',
-  semester: 'semesters',
-  version: 'curriculum_versions',
-}
-
-const deleteBlockingRefs = computed(() => deleteReferences.value.filter(r => r.severity !== 'cleanup'))
-const deleteNeedsConfirm = computed(() => deleteBlockingRefs.value.length > 0)
-
-function severityTitle(ref: EntityReferenceFinding): string {
-  if (ref.severity === 'cascade') return `Will also be deleted: ${ref.label}`
-  if (ref.severity === 'breaks') return `Referenced by: ${ref.label} — references will be cleaned`
-  return `Will be cleaned up: ${ref.label}`
-}
-
-async function openDeleteDialog(
-  kind: 'curriculum' | 'department' | 'program' | 'degree' | 'module' | 'class' | 'semester' | 'version',
-  id: string,
-  name: string,
-) {
-  deleteKind = kind
-  deleteId = id
-  deleteTargetName.value = name
-  deleteReferences.value = []
-  deleteConfirmChecked.value = false
-  deleteDialogOpen.value = true
-  const collection = DELETE_COLLECTIONS[kind]
-  if (!collection || !id) return
-  deleteRefsLoading.value = true
-  try {
-    const refs = await fetchReferences(collection as Parameters<typeof fetchReferences>[0], id)
-    deleteReferences.value = refs.references
-  } catch {
-    deleteReferences.value = []
-  } finally {
-    deleteRefsLoading.value = false
-  }
-}
-
 const snackbar = ref(false)
 const snackbarText = ref('')
 const snackbarColor = ref('success')
 
-const deptHeaders = [
-  { title: 'Name', key: 'name', sortable: true },
-  { title: 'Description', key: 'description', sortable: true },
-  { title: 'Contact', key: 'contact', sortable: true },
-  { title: 'URL', key: 'url', sortable: true },
-  { title: '', key: 'actions', sortable: false, width: '150px' },
-]
-
-const progHeaders = [
-  { title: 'Name', key: 'name', sortable: true },
-  { title: 'Departments', key: 'departmentIDs', sortable: false },
-  { title: 'Description', key: 'description', sortable: true },
-  { title: 'Contact', key: 'contact', sortable: true },
-  { title: 'URL', key: 'url', sortable: true },
-  { title: '', key: 'actions', sortable: false, width: '150px' },
-]
-
-const degHeaders = [
-  { title: 'Name', key: 'name', sortable: true },
-  { title: 'Programs', key: 'ProgramIDs', sortable: false },
-  { title: 'Description', key: 'description', sortable: true },
-  { title: 'Contact', key: 'contact', sortable: true },
-  { title: 'URL', key: 'url', sortable: true },
-  { title: '', key: 'actions', sortable: false, width: '150px' },
-]
-
-const modHeaders = [
-  { title: 'Code', key: 'code', sortable: true },
-  { title: 'Name', key: 'name', sortable: true },
-  { title: 'Degrees', key: 'DegreeIDs', sortable: false },
-  { title: 'Classes', key: 'classCount', sortable: true },
-  { title: 'ECTS', key: 'creditPoints', sortable: true },
-  { title: 'Timeslots', key: 'timeslots', sortable: true },
-  { title: 'Installments', key: 'installments', sortable: true },
-  { title: '', key: 'actions', sortable: false, width: '150px' },
-]
-
-const clsHeaders = [
-  { title: 'Code', key: 'code', sortable: true },
-  { title: 'Name', key: 'name', sortable: true },
-  { title: 'Degree', key: 'degreeId', sortable: false },
-  { title: 'Size', key: 'size', sortable: true },
-  { title: 'Semester', key: 'semesterId', sortable: false },
-  { title: 'Description', key: 'description', sortable: true },
-  { title: 'Contact', key: 'contact', sortable: true },
-  { title: '', key: 'actions', sortable: false, width: '150px' },
-]
-
-const semHeaders = [
-  { title: 'Name', key: 'name', sortable: true },
-  { title: 'Code', key: 'code', sortable: true },
-  { title: 'Start', key: 'startDate', sortable: true },
-  { title: 'End', key: 'endDate', sortable: true },
-  { title: 'Timeslots', key: 'slotStartTimes', sortable: false },
-  { title: '', key: 'actions', sortable: false, width: '150px' },
-]
-
-const currHeaders = [
-  { title: 'Name', key: 'name', sortable: true },
-  { title: 'Versions', key: 'versionCount', sortable: true },
-  { title: 'Active', key: 'activeVersion', sortable: false },
-  { title: 'Programs', key: 'programCount', sortable: true },
-  { title: 'Modules', key: 'moduleCount', sortable: true },
-  { title: '', key: 'actions', sortable: false, width: '150px' },
-]
+/** Deletion UX handled by the shared composable; the view supplies the
+ * per-kind removal functions and snackbars. */
+const {
+  deleteDialogOpen,
+  deleteTargetName,
+  deleteReferences,
+  deleteRefsLoading,
+  deleteConfirmChecked,
+  deleteNeedsConfirm,
+  severityTitle,
+  openDeleteDialog,
+  handleDelete,
+} = useDeleteWithReferences({
+  executeDelete: async (kind, id, confirmRef) => {
+    if (kind === 'curriculum') await removeCurriculum(id, confirmRef)
+    else if (kind === 'department') await removeDepartment(id, confirmRef)
+    else if (kind === 'program') await removeProgram(id, confirmRef)
+    else if (kind === 'degree') await removeDegree(id, confirmRef)
+    else if (kind === 'class') await removeClass(id, confirmRef)
+    else if (kind === 'semester') await removeSemester(id, confirmRef)
+    else if (kind === 'version') await removeCurriculumVersion(id, confirmRef)
+    else await removeModule(id, confirmRef)
+  },
+  notifyDeleted: (kind) => {
+    const labels = {
+      curriculum: 'Curriculum deleted',
+      department: 'Department deleted',
+      program: 'Program deleted',
+      degree: 'Degree deleted',
+      module: 'Module deleted',
+      class: 'Class deleted',
+      semester: 'Semester deleted',
+      version: 'Curriculum version deleted',
+    } as const
+    showSnackbar(labels[kind])
+  },
+  notify: (message, color) => showSnackbar(message, color ?? 'error'),
+})
 
 function getDepartmentNames(prog: Program): string[] {
   const ids = prog.departmentIDs ?? prog.departmentIds ?? []
@@ -1300,14 +1218,6 @@ const modulesOfDisplayedVersionClasses = computed(() =>
   classes.value.filter(c => displayedVersionId.value && c.curriculumVersionId === displayedVersionId.value)
 )
 
-function formatDate(dateStr: string): string {
-  if (!dateStr) return '-'
-  try {
-    return new Date(dateStr).toLocaleDateString()
-  } catch {
-    return dateStr
-  }
-}
 
 function openAddCurriculum() {
   editCurriculum.value = null
@@ -1604,52 +1514,6 @@ function confirmDeleteVersion(version: CurriculumVersion) {
   openDeleteDialog('version', version._id || version.id || '', version.name || `Version ${version.versionNumber}`)
 }
 
-async function handleDelete() {
-  const confirmRef = deleteBlockingRefs.value.length > 0
-  try {
-    if (deleteKind === 'curriculum') {
-      await removeCurriculum(deleteId, confirmRef)
-      showSnackbar('Curriculum deleted')
-    } else if (deleteKind === 'department') {
-      await removeDepartment(deleteId, confirmRef)
-      showSnackbar('Department deleted')
-    } else if (deleteKind === 'program') {
-      await removeProgram(deleteId, confirmRef)
-      showSnackbar('Program deleted')
-    } else if (deleteKind === 'degree') {
-      await removeDegree(deleteId, confirmRef)
-      showSnackbar('Degree deleted')
-    } else if (deleteKind === 'class') {
-      await removeClass(deleteId, confirmRef)
-      showSnackbar('Class deleted')
-    } else if (deleteKind === 'semester') {
-      await removeSemester(deleteId, confirmRef)
-      showSnackbar('Semester deleted')
-    } else if (deleteKind === 'version') {
-      await removeCurriculumVersion(deleteId, confirmRef)
-      showSnackbar('Curriculum version deleted')
-    } else {
-      await removeModule(deleteId, confirmRef)
-      showSnackbar('Module deleted')
-    }
-    deleteDialogOpen.value = false
-  } catch (err) {
-    if (err instanceof ApiRequestError && err.status === 409 && isReferencesBody(err.body)) {
-      // A reference appeared between opening the dialog and deleting; show it.
-      deleteReferences.value = err.body.references
-      deleteConfirmChecked.value = false
-      showSnackbar('Deletion blocked: new references were found. Please review and confirm again.', 'error')
-    } else {
-      showSnackbar('Deletion failed', 'error')
-      deleteDialogOpen.value = false
-    }
-  }
-}
-
-function isReferencesBody(body: unknown): body is { references: EntityReferenceFinding[] } {
-  return !!body && typeof body === 'object' && Array.isArray((body as { references?: unknown }).references)
-}
-
 function openCsvImport(type: ImportType) {
   if (type === 'programs' && !displayedCurriculumId.value) {
     showSnackbar('Select a curriculum first: programs cannot exist without one', 'error')
@@ -1667,7 +1531,7 @@ function openCsvImport(type: ImportType) {
   csvImportDialogOpen.value = true
 }
 
-async function handleCsvImported(payload: { type: ImportType; count: number; items: any[] }) {
+async function handleCsvImported(payload: { type: ImportType; count: number; items: Record<string, unknown>[] }) {
   const labelMap: Record<string, string> = {
     departments: 'department',
     programs: 'program',

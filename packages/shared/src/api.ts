@@ -207,3 +207,8 @@ export const api = {
   deleteScheduleRun: (runId: string) =>
     request<{ ok: boolean }>(`/scheduling/schedules/${encodeURIComponent(runId)}`, { method: 'DELETE' }),
 }
+/** Normalise unknown thrown values (especially ApiRequestError-like) into a displayable message. */
+export function errorMessage(e: unknown): string {
+  if (e instanceof Error) return e.message
+  if (typeof e === 'string' && e) return e
+  return ''}

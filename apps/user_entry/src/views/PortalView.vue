@@ -137,7 +137,8 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useAuthStore } from '@/stores/auth'
-import { api } from '@uniweaver/shared'
+import { errorMessage,
+api } from '@uniweaver/shared'
 import { DEFAULT_TOOL_LINKS } from '@uniweaver/shared'
 import { toolUrl } from '@/config'
 import type { ToolRoute } from '@uniweaver/shared'
@@ -168,8 +169,8 @@ async function toggleLecturerOptOut(): Promise<void> {
       : 'You are now listed as a lecturer again.'
     flagSnackbarColor.value = 'success'
     flagSnackbar.value = true
-  } catch (err: any) {
-    flagSnackbarText.value = err.message || 'Failed to update your lecturer status'
+  } catch (err) {
+    flagSnackbarText.value = errorMessage(err) || 'Failed to update your lecturer status'
     flagSnackbarColor.value = 'error'
     flagSnackbar.value = true
   } finally {

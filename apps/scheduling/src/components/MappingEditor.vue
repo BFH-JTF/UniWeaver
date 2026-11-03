@@ -236,7 +236,8 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import type { MappingData, MappingPairPatch } from '@uniweaver/shared'
-import { api } from '@uniweaver/shared'
+import { errorMessage,
+api } from '@uniweaver/shared'
 
 const props = defineProps<{ mapping: MappingData }>()
 
@@ -499,10 +500,10 @@ async function applyDiff(label: string, diff: MappingPairPatch[]): Promise<boole
     await api.setMappingPairs(diff)
     pushUndo({ label, pairs: diff })
     return true
-  } catch (err: any) {
+  } catch (err) {
     // Roll back the optimistic change
     setPairs(snapshot)
-    showSnackbar(err.message || 'Failed to save changes', 'error')
+    showSnackbar(errorMessage(err) || 'Failed to save changes', 'error')
     return false
   } finally {
     applying.value = false
@@ -671,8 +672,8 @@ function undo(): void {
       setPairs(next)
       showSnackbar(`Undone: ${entry.label}`, 'info')
     })
-    .catch((err: any) => {
-      showSnackbar(err.message || 'Undo failed', 'error')
+    .catch((err) => {
+      showSnackbar(err instanceof Error ? err.message : 'Undo failed', 'error')
     })
 }
 </script>

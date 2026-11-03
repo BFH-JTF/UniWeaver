@@ -9,3 +9,5 @@ docpouch-log/
 docker-compose.override.yml
 scheduler/target/
 *.class
+# vitest coverage output
+coverage/

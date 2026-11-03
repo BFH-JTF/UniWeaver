@@ -36,14 +36,20 @@ export function normalizeModule(mod: Module): Module {
  * object; the ERD now defines camelCase keys and a flat numeric capacity.
  * Legacy snake_case rows are migrated on read; camelCase keys win.
  */
-export function normalizeRoom(room: any): Room {
+type RoomLegacyRow = Record<string, unknown> & {
+  room_type?: unknown
+  location_id?: unknown
+  room_number?: unknown
+}
+
+export function normalizeRoom(room: RoomLegacyRow): Room {
   const r = { ...room }
   const roomType = (r.roomType ?? r.room_type ?? 'other') as RoomType
   const locationId = r.locationId ?? r.location_id
   const roomNumber = r.roomNumber ?? r.room_number ?? ''
   let capacity = r.capacity
   if (typeof capacity === 'object' && capacity !== null) {
-    capacity = Number((capacity as any).seats) || 0
+    capacity = Number((capacity as { seats?: unknown }).seats) || 0
   }
   capacity = Number(capacity) || 0
   delete r.room_type

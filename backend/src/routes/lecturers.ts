@@ -1,10 +1,14 @@
 import { Router, Response } from 'express'
+import { errText } from '../lib/errText'
 import { getPool } from '../db'
 import type { AuthenticatedRequest } from '../auth/middleware'
 import { getSession } from '../auth/session'
 import { provisionLecturersFromUsers } from '../db/schedulingDb'
 
 export const lecturersRouter = Router()
+
+interface LecturerListRow { id: string; name: string; department_id: string | null; department_name: string | null; contact: string | null; account_id: string | null; user_display_name: string | null; user_name: string | null; unavailability_count: number | string | null }
+interface LecturerUnavailabilityRow { id: string; kind: string; weekday: string | null; date: string | null; start_time: string | null; end_time: string | null; note: string | null }
 
 /**
  * Lecturer list + per-lecturer unavailability for the Scheduling tool.
@@ -63,7 +67,7 @@ lecturersRouter.get('/lecturers', async (_req: AuthenticatedRequest, res: Respon
        WHERE l.user_id IS NULL OR NOT COALESCE(u.is_not_lecturer, false)
        ORDER BY l.name ASC`,
     )
-    res.json(result.rows.map((r: any) => ({
+    res.json(result.rows.map((r: LecturerListRow) => ({
       id: r.id,
       name: r.name,
       departmentId: r.department_id || '',
@@ -76,8 +80,8 @@ lecturersRouter.get('/lecturers', async (_req: AuthenticatedRequest, res: Respon
       /** Whether the requesting user may edit this lecturer's availability. */
       canEdit: false,
     })))
-  } catch (error: any) {
-    res.status(500).json({ error: error.message || 'Failed to load lecturers' })
+  } catch (error) {
+    res.status(500).json({ error: errText(error) || 'Failed to load lecturers' })
   }
 })
 
@@ -186,7 +190,7 @@ lecturersRouter.get('/lecturers/:id/unavailability', async (req: AuthenticatedRe
        ORDER BY kind ASC, weekday NULLS LAST, date NULLS LAST, start_time NULLS FIRST`,
       [lecturerId],
     )
-    res.json(result.rows.map((r: any) => ({
+    res.json(result.rows.map((r: LecturerUnavailabilityRow) => ({
       id: r.id,
       kind: r.kind,
       weekday: r.weekday || null,
@@ -195,8 +199,8 @@ lecturersRouter.get('/lecturers/:id/unavailability', async (req: AuthenticatedRe
       endTime: r.end_time || null,
       note: r.note || '',
     })))
-  } catch (error: any) {
-    res.status(500).json({ error: error.message || 'Failed to load unavailability' })
+  } catch (error) {
+    res.status(500).json({ error: errText(error) || 'Failed to load unavailability' })
   }
 })
 
@@ -252,7 +256,7 @@ lecturersRouter.put('/lecturers/:id/unavailability', async (req: AuthenticatedRe
     } finally {
       client.release()
     }
-  } catch (error: any) {
-    res.status(500).json({ error: error.message || 'Failed to save unavailability' })
+  } catch (error) {
+    res.status(500).json({ error: errText(error) || 'Failed to save unavailability' })
   }
 })

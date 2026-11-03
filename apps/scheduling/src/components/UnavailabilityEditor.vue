@@ -162,7 +162,13 @@
     <v-card-actions class="pa-4" v-if="canEdit">
       <v-spacer />
       <v-btn variant="text" :disabled="saving" @click="emit('cancel')">Cancel</v-btn>
-      <v-btn color="primary" variant="flat" :loading="saving" @click="save">Save</v-btn>
+      <v-btn
+        color="primary" variant="flat" :loading="saving"
+        :disabled="saving"
+        @click="save"
+      >
+        Save
+      </v-btn>
     </v-card-actions>
   </v-card>
 </template>
@@ -170,7 +176,8 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import type { SchedulingLecturer, UnavailabilityEntry, UnavailabilityKind } from '@uniweaver/shared'
-import { api } from '@uniweaver/shared'
+import { errorMessage,
+api } from '@uniweaver/shared'
 
 const props = defineProps<{
   lecturer: SchedulingLecturer | null
@@ -288,8 +295,8 @@ watch(
     try {
       const loaded = await api.listUnavailability(id)
       entries.value = loaded.map(e => ({ ...e, kind: e.kind as UnavailabilityKind }))
-    } catch (err: any) {
-      setError(err.message || 'Failed to load unavailability')
+    } catch (err) {
+      setError(errorMessage(err) || 'Failed to load unavailability')
     }
   },
   { immediate: true },
@@ -351,8 +358,8 @@ async function copyFrom(): Promise<void> {
   try {
     const sourceEntries = await api.listUnavailability(sourceId)
     entries.value = sourceEntries.map(e => ({ ...e, kind: e.kind as UnavailabilityKind }))
-  } catch (err: any) {
-    setError(err.message || 'Failed to load source unavailability')
+  } catch (err) {
+    setError(errorMessage(err) || 'Failed to load source unavailability')
   } finally {
     copying.value = false
   }
@@ -365,8 +372,8 @@ async function save(): Promise<void> {
   try {
     await api.setUnavailability(props.lecturer.id, entries.value)
     emit('changed')
-  } catch (err: any) {
-    setError(err.message || 'Failed to save unavailability')
+  } catch (err) {
+    setError(errorMessage(err) || 'Failed to save unavailability')
   } finally {
     saving.value = false
   }

@@ -41,6 +41,9 @@
           <MappingMatrix :mapping="mapping" @reload="reload" />
         </v-window-item>
       </v-window>
+      <v-alert v-else type="info" variant="tonal" class="mt-4">
+        No module/lecturer mapping exists yet. Create the first mapping entry in the Editor tab once mappings are available.
+      </v-alert>
     </template>
   </v-container>
 </template>
@@ -48,7 +51,8 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import type { MappingData } from '@uniweaver/shared'
-import { api } from '@uniweaver/shared'
+import { errorMessage,
+api } from '@uniweaver/shared'
 import { useAuthStore } from '@/stores/auth'
 import MappingEditor from '@/components/MappingEditor.vue'
 import MappingMatrix from '@/components/MappingMatrix.vue'
@@ -64,8 +68,8 @@ async function reload(): Promise<void> {
   loadError.value = ''
   try {
     mapping.value = await api.getMapping()
-  } catch (err: any) {
-    loadError.value = err.message || 'Failed to load mapping data'
+  } catch (err) {
+    loadError.value = errorMessage(err) || 'Failed to load mapping data'
   } finally {
     loading.value = false
   }

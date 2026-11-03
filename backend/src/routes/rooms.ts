@@ -1,10 +1,50 @@
 import { Router, Response } from 'express'
+import { errText } from '../lib/errText'
 import { getPool } from '../db'
 import type { AuthenticatedRequest } from '../auth/middleware'
 import { requireScheduler } from '../auth/middleware'
 import { getSession } from '../auth/session'
 import { findEntityReferences, deleteEntityWithCleanup } from '../db/referenceChecks'
 import type { ReferenceFinding } from '../db/referenceChecks'
+
+
+interface LocationListRow {
+  id: string
+  name: string | null
+  campus: string | null
+  building: string | null
+  address: string | null
+  latitude: number | null
+  longitude: number | null
+}
+
+interface RoomListRow {
+  id: string
+  name: string | null
+  room_type: string | null
+  owner: string | null
+  location_id: string | null
+  location_name: string | null
+  location_building: string | null
+  floor: number | string | null
+  room_number: string | null
+  capacity: number | null
+  layout: unknown
+  equipment: unknown
+  connectivity: unknown
+  accessibility: unknown
+  maintenance: unknown
+  availability_count: number | string | null
+}
+
+interface RoomAvailabilityRow {
+  id: string
+  room_id: string
+  week_id: string | null
+  weekday: string
+  start_time: string
+  end_time: string
+}
 
 export const roomsRouter = Router()
 
@@ -40,7 +80,7 @@ roomsRouter.get('/locations', async (_req: AuthenticatedRequest, res: Response) 
       `SELECT id, name, campus, building, address, latitude, longitude
        FROM locations ORDER BY name ASC`,
     )
-    res.json(result.rows.map((r: any) => ({
+    res.json(result.rows.map((r: LocationListRow) => ({
       id: r.id,
       name: r.name || '',
       campus: r.campus || '',
@@ -49,8 +89,8 @@ roomsRouter.get('/locations', async (_req: AuthenticatedRequest, res: Response) 
       latitude: r.latitude ?? undefined,
       longitude: r.longitude ?? undefined,
     })))
-  } catch (error: any) {
-    res.status(500).json({ error: error.message || 'Failed to load locations' })
+  } catch (error) {
+    res.status(500).json({ error: errText(error) || 'Failed to load locations' })
   }
 })
 
@@ -78,8 +118,8 @@ roomsRouter.post('/locations', requireScheduler, async (_req: AuthenticatedReque
       ],
     )
     res.status(201).json(result.rows[0])
-  } catch (error: any) {
-    res.status(500).json({ error: error.message || 'Failed to create location' })
+  } catch (error) {
+    res.status(500).json({ error: errText(error) || 'Failed to create location' })
   }
 })
 
@@ -111,8 +151,8 @@ roomsRouter.put('/locations/:id', requireScheduler, async (req: AuthenticatedReq
       return
     }
     res.json(result.rows[0])
-  } catch (error: any) {
-    res.status(500).json({ error: error.message || 'Failed to update location' })
+  } catch (error) {
+    res.status(500).json({ error: errText(error) || 'Failed to update location' })
   }
 })
 
@@ -120,8 +160,8 @@ roomsRouter.get('/locations/:id/references', requireScheduler, async (req: Authe
   try {
     const references = await findEntityReferences(getPool(), 'locations', String(req.params.id))
     res.json({ table: 'locations', id: req.params.id, references })
-  } catch (error: any) {
-    res.status(500).json({ error: error.message || 'Failed to inspect location references' })
+  } catch (error) {
+    res.status(500).json({ error: errText(error) || 'Failed to inspect location references' })
   }
 })
 
@@ -129,8 +169,8 @@ roomsRouter.get('/rooms/:id/references', requireScheduler, async (req: Authentic
   try {
     const references = await findEntityReferences(getPool(), 'rooms', String(req.params.id))
     res.json({ table: 'rooms', id: req.params.id, references })
-  } catch (error: any) {
-    res.status(500).json({ error: error.message || 'Failed to inspect room references' })
+  } catch (error) {
+    res.status(500).json({ error: errText(error) || 'Failed to inspect room references' })
   }
 })
 
@@ -153,8 +193,8 @@ roomsRouter.delete('/locations/:id', requireScheduler, async (req: Authenticated
       return
     }
     res.json({ ok: true, references })
-  } catch (error: any) {
-    res.status(500).json({ error: error.message || 'Failed to delete location' })
+  } catch (error) {
+    res.status(500).json({ error: errText(error) || 'Failed to delete location' })
   }
 })
 
@@ -168,7 +208,7 @@ roomsRouter.get('/rooms', async (_req: AuthenticatedRequest, res: Response) => {
        LEFT JOIN locations l ON l.id = r.location_id
        ORDER BY r.name ASC`,
     )
-    res.json(result.rows.map((r: any) => ({
+    res.json(result.rows.map((r: RoomListRow) => ({
       id: r.id,
       name: r.name || '',
       roomType: r.room_type || 'other',
@@ -186,8 +226,8 @@ roomsRouter.get('/rooms', async (_req: AuthenticatedRequest, res: Response) => {
       maintenance: r.maintenance ?? undefined,
       availabilityCount: r.availability_count ?? 0,
     })))
-  } catch (error: any) {
-    res.status(500).json({ error: error.message || 'Failed to load rooms' })
+  } catch (error) {
+    res.status(500).json({ error: errText(error) || 'Failed to load rooms' })
   }
 })
 
@@ -222,8 +262,8 @@ roomsRouter.post('/rooms', requireScheduler, async (req: AuthenticatedRequest, r
       ],
     )
     res.status(201).json({ id: result.rows[0]!.id })
-  } catch (error: any) {
-    res.status(500).json({ error: error.message || 'Failed to create room' })
+  } catch (error) {
+    res.status(500).json({ error: errText(error) || 'Failed to create room' })
   }
 })
 
@@ -262,8 +302,8 @@ roomsRouter.put('/rooms/:id', requireScheduler, async (req: AuthenticatedRequest
       return
     }
     res.json({ ok: true })
-  } catch (error: any) {
-    res.status(500).json({ error: error.message || 'Failed to update room' })
+  } catch (error) {
+    res.status(500).json({ error: errText(error) || 'Failed to update room' })
   }
 })
 
@@ -286,8 +326,8 @@ roomsRouter.delete('/rooms/:id', requireScheduler, async (req: AuthenticatedRequ
       return
     }
     res.json({ ok: true, references })
-  } catch (error: any) {
-    res.status(500).json({ error: error.message || 'Failed to delete room' })
+  } catch (error) {
+    res.status(500).json({ error: errText(error) || 'Failed to delete room' })
   }
 })
 
@@ -338,7 +378,7 @@ roomsRouter.get('/rooms/:id/availability', async (req: AuthenticatedRequest, res
        ORDER BY week_id NULLS FIRST, weekday ASC, start_time ASC`,
       [req.params.id],
     )
-    res.json(result.rows.map((r: any) => ({
+    res.json(result.rows.map((r: RoomAvailabilityRow) => ({
       id: r.id,
       roomId: r.room_id,
       weekId: r.week_id || null,
@@ -346,8 +386,8 @@ roomsRouter.get('/rooms/:id/availability', async (req: AuthenticatedRequest, res
       startTime: r.start_time,
       endTime: r.end_time,
     })))
-  } catch (error: any) {
-    res.status(500).json({ error: error.message || 'Failed to load room availability' })
+  } catch (error) {
+    res.status(500).json({ error: errText(error) || 'Failed to load room availability' })
   }
 })
 
@@ -393,7 +433,7 @@ roomsRouter.put('/rooms/:id/availability', requireScheduler, async (req: Authent
     } finally {
       client.release()
     }
-  } catch (error: any) {
-    res.status(500).json({ error: error.message || 'Failed to save room availability' })
+  } catch (error) {
+    res.status(500).json({ error: errText(error) || 'Failed to save room availability' })
   }
 })

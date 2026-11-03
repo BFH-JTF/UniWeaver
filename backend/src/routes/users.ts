@@ -1,4 +1,5 @@
 import { Router, Response } from 'express'
+import { errText } from '../lib/errText'
 import { getAllUsers, getUserById, searchUsers, updateUser, LastAdminError, UpdateUserData } from '../db/users'
 import { getPool } from '../db'
 import type { AuthenticatedRequest } from '../auth/middleware'
@@ -25,16 +26,16 @@ usersRouter.get('/search', requireAuth, async (req: AuthenticatedRequest, res: R
         is_admin: u.is_admin,
         is_active: u.is_active,
       })))
-  } catch (error: any) {
-    res.status(500).json({ error: error.message || 'Failed to search users' })
+  } catch (error) {
+    res.status(500).json({ error: errText(error) || 'Failed to search users' })
   }
 })
 
 usersRouter.get('/', requireUserAdmin, async (_req: AuthenticatedRequest, res: Response) => {
   try {
     res.json(await getAllUsers(getPool()))
-  } catch (error: any) {
-    res.status(500).json({ error: error.message || 'Failed to fetch users' })
+  } catch (error) {
+    res.status(500).json({ error: errText(error) || 'Failed to fetch users' })
   }
 })
 
@@ -54,8 +55,8 @@ usersRouter.patch('/me', requireAuth, async (req: AuthenticatedRequest, res: Res
       return
     }
     res.json(updated)
-  } catch (error: any) {
-    res.status(500).json({ error: error.message || 'Failed to update profile' })
+  } catch (error) {
+    res.status(500).json({ error: errText(error) || 'Failed to update profile' })
   }
 })
 
@@ -67,8 +68,8 @@ usersRouter.get('/:id', requireUserAdmin, async (req: AuthenticatedRequest, res:
       return
     }
     res.json(user)
-  } catch (error: any) {
-    res.status(500).json({ error: error.message || 'Failed to fetch user' })
+  } catch (error) {
+    res.status(500).json({ error: errText(error) || 'Failed to fetch user' })
   }
 })
 
@@ -121,11 +122,11 @@ usersRouter.patch('/:id', requireUserAdmin, async (req: AuthenticatedRequest, re
       return
     }
     res.json(updated)
-  } catch (error: any) {
+  } catch (error) {
     if (error instanceof LastAdminError) {
       res.status(409).json({ error: error.message })
       return
     }
-    res.status(500).json({ error: error.message || 'Failed to update user' })
+    res.status(500).json({ error: errText(error) || 'Failed to update user' })
   }
 })

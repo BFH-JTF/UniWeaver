@@ -3,7 +3,7 @@ import { ref } from 'vue'
 import { getApiBaseUrl } from '@uniweaver/shared'
 import { usePostgres, EntityTables } from '@/composables/usePostgres'
 import type { Module } from '@/types/curriculum'
-import type { Room } from '@/types/room'
+import type { Room, RoomAccessibility, RoomType } from '@/types/room'
 import type { Location } from '@/types/location'
 
 export interface CurriculumVersion {
@@ -54,8 +54,20 @@ export const useCurriculumStore = defineStore('curriculum', () => {
     semesters.value = await fetchEntities<Semester>(EntityTables.SEMESTER)
   }
 
+  /** Shape of a /scheduling/rooms row used by toRoom below. */
+  interface SchedulerRoomRow {
+    id?: string
+    name?: string
+    roomType?: RoomType
+    locationId?: string
+    floor?: number | string
+    roomNumber?: string
+    capacity?: number
+    accessibility?: RoomAccessibility
+  }
+
   /** Map a /scheduling/rooms row onto the local Room type. */
-  function toRoom(row: any): Room {
+  function toRoom(row: SchedulerRoomRow): Room {
     return {
       id: row.id,
       name: row.name || '',
@@ -71,7 +83,7 @@ export const useCurriculumStore = defineStore('curriculum', () => {
   async function fetchRooms() {
     try {
       const res = await fetch(`${getApiBaseUrl()}/scheduling/rooms`, { credentials: 'include' })
-      rooms.value = res.ok ? ((await res.json()) as any[]).map(toRoom) : []
+      rooms.value = res.ok ? ((await res.json()) as SchedulerRoomRow[]).map(toRoom) : []
     } catch {
       // Scheduling API unreachable — rooms only decorate restriction params.
     }

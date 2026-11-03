@@ -1,3 +1,4 @@
+import { errorMessage } from '@uniweaver/shared'
 import { ref } from 'vue'
 import { usePostgres, EntityTables } from '@/composables/usePostgres'
 import type { Program } from '@/types/curriculum'
@@ -22,8 +23,8 @@ export function usePrograms() {
     error.value = null
     try {
       programs.value = await fetchEntities<Program>(EntityTables.PROGRAM)
-    } catch (e: any) {
-      error.value = e.message
+    } catch (e) {
+      error.value = errorMessage(e)
     } finally {
       loading.value = false
     }
@@ -35,8 +36,8 @@ export function usePrograms() {
       const normalized = normalizeProgram(program)
       await createEntity<Program>(EntityTables.PROGRAM, normalized)
       programs.value = await fetchEntities<Program>(EntityTables.PROGRAM)
-    } catch (e: any) {
-      error.value = e.message
+    } catch (e) {
+      error.value = errorMessage(e)
       throw e
     }
   }
@@ -50,8 +51,8 @@ export function usePrograms() {
       await updateDbEntity(EntityTables.PROGRAM, id, normalized)
       const idx = programs.value.findIndex(p => p.id === id)
       if (idx !== -1) programs.value[idx] = normalized
-    } catch (e: any) {
-      error.value = e.message
+    } catch (e) {
+      error.value = errorMessage(e)
       throw e
     }
   }
@@ -61,8 +62,8 @@ export function usePrograms() {
     try {
       await removeDbEntity(EntityTables.PROGRAM, id, confirmRef)
       programs.value = programs.value.filter(p => p.id !== id)
-    } catch (e: any) {
-      error.value = e.message
+    } catch (e) {
+      error.value = errorMessage(e)
       throw e
     }
   }
