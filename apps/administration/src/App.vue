@@ -39,14 +39,14 @@
       </v-list>
 
       <template #append>
-        <div class="user-card" @click="userMenuOpen = !userMenuOpen">
+        <button type="button" class="user-card" :aria-expanded="userMenuOpen ? 'true' : 'false'" aria-haspopup="menu" @click="userMenuOpen = !userMenuOpen">
           <span class="avatar">{{ initials }}</span>
           <div class="user-info">
             <div class="user-name">{{ auth.userName || 'Unbekannt' }}</div>
             <div class="user-sub">{{ auth.isAdmin ? 'Administration' : 'BFH' }}</div>
           </div>
           <v-icon size="small" color="grey">mdi-chevron-down</v-icon>
-        </div>
+        </button>
         <div v-if="userMenuOpen" class="user-menu">
           <div class="user-role-label">
             Rolle: {{ auth.isAdmin ? 'Administrator' : 'Benutzer' }}
@@ -111,6 +111,10 @@ async function handleLogout(): Promise<void> {
   background: rgba(25, 118, 210, 0.08);
 }
 .user-card {
+  text-align: inherit;
+  color: inherit;
+  font: inherit;
+  border: 0;
   display: flex;
   align-items: center;
   gap: 10px;

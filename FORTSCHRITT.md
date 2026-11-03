@@ -97,6 +97,29 @@ Vieles (Geheimnisse, SQL-Parametrisierung, ACL, CI, README) ist bereits erfüllt
   ❓ Major-Updates nur mit Entscheidung (breaking): TypeScript 5.7→7 (tsgo-Neuauflage),
   vitest 3→4 (+coverage-v8 5), semantic-release 24→25-Pin. Kein Runtime-Risiko —
   bewusst NICHT automatisch angewendet
+- ✅ PERF-01: Router-Lazy-Loading war bereits vorhanden ✓; **Framework-Chunks via
+  Rolldown `advancedChunks` gesplittet** (vuetify/vendor) in allen 4 Apps:
+  Entry-Chunk 571 kB → **6,6 kB**, Vuetify (756 kB) + Vendor (29 kB) als separat
+  cachebare Chunks; Logo-PNG (135 kB × App) bewusst unangetastet (Marken-Asset,
+  kein Image-Tool vorhanden) ❓; Lighthouse-Score erfordert laufenden Browser →
+  ❓ manuell zu prüfen (App läuft: http://localhost:3003)
+- ✅ OPS-02: CI ergänzt — `test.yml` führen jetzt zusätzlich den **Build-Job** aus
+  (lint + typecheck + tests + build je Push/PR; Release/Docker-Workflows bestehen)
+- ✅ DOC-02: erfüllt über bestehende Doku — `docs/tool_architecture.md` (Zusammenspiel,
+  Rollen, ACL), `docs/data_model.md`, `docs/development.md` + README-Architekturteil;
+  keine redundanten ARCHITEKTUR.md-Kopie angelegt
+- ✅ CODE-02: Namen verifiziert — sprechende Funktions-/Variablen-Namen überall
+  (`resolveMappedRows`, `getScheduleScope`, …); lokal kurze Namen (`data`) nur als
+  direkt getypte JSON-Payloads (idiomatisch, nicht problematisch)
+- ✅ CODE-04: Kommentare verifiziert — erklären konsequent das Warum (z. B.
+  Volume-Ownership-Kommentar in docker-compose.yml, Trust-Proxy-Note), JSDoc-Kopf
+  für geteilte Helfer; neue Dateien aus dieser Arbeit (composables/utils) haben
+  Kopf-Dokumentation
+- ✅ A11Y-01 (statisch): keine `<img>` ohne `alt` ✓; 3 klickbare `<div class="user-card">`
+  (Administration/Competencies/Scheduling Navigation) → semantic `button type="button"`
+  mit `aria-haspopup`/`aria-expanded` + Button-Reset-Styles; Vuetify-Formulare via
+  labels/Outlined-Defaults; A11Y-02: responsive (Vuetify-Grid: `cols=12 md=…`-Muster
+  durchgängig) — Lighthouse-Zahlen ❓ manuell (kein Browser-Audit in dieser Umgebung)
 - ✅ OPS-01: Git sauber — verifiziert: `.env`, `dist/`, Datenverzeichnisse ignored;
   Lockfile committet; keine Build-/Runtime-Artefakte im Repo
 - ✅ CODE-03 (Teil): 6 Format-Warnings via `lint:fix` behoben; `console.log`-Stellen
