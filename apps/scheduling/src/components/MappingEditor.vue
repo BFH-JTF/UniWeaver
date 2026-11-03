@@ -236,6 +236,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import type { MappingData, MappingPairPatch } from '@uniweaver/shared'
+import { useMappingCopy } from '@/composables/useMappingCopy'
 import { errorMessage,
 api } from '@uniweaver/shared'
 
@@ -261,9 +262,6 @@ const snackbarText = ref('')
 const snackbarColor = ref('success')
 const snackbarAction = ref<(() => void) | null>(null)
 
-const copyFromId = ref<string | null>(null)
-const copying = ref(false)
-const copyConfirmOpen = ref(false)
 
 const quickEntryCodes = ref<string[]>([])
 const lastQuickEntry = ref<string[]>([])
@@ -440,26 +438,33 @@ const copyLabel = computed(() =>
   mode.value === 'lecturer' ? 'Copy modules from lecturer' : 'Copy lecturers from module',
 )
 
-const copySourceName = computed(() => {
-  const id = copyFromId.value
-  if (!id) return ''
-  return (mode.value === 'lecturer' ? lecturerById.value.get(id)?.name : null)
-    ?? (mode.value === 'module'
-      ? (moduleById.value.get(id)?.code
-        ? `${moduleById.value.get(id)!.code} — ${moduleById.value.get(id)!.name}`
-        : moduleById.value.get(id)?.name)
-      : '')
+const {
+  copyFromId,
+  copying,
+  copyConfirmOpen,
+  copySourceName,
+  copySourceCount,
+  confirmCopy,
+  executeCopy,
+} = useMappingCopy({
+  mode: () => mode.value,
+  targetId: () => selectedId.value,
+  sourceName: () => {
+    const id = copyFromId.value
+    if (!id) return ''
+    return (mode.value === 'lecturer' ? lecturerById.value.get(id)?.name : null)
+      ?? (mode.value === 'module'
+        ? (moduleById.value.get(id)?.code
+          ? `${moduleById.value.get(id)!.code} — ${moduleById.value.get(id)!.name}`
+          : moduleById.value.get(id)?.name)
+        : '') ?? ''
+  },
+  byLecturer: () => byLecturer.value,
+  byModule: () => byModule.value,
+  applyDiff,
+  notify: showSnackbar,
 })
 
-const copySourceCount = computed(() => {
-  const id = copyFromId.value
-  if (!id) return 0
-  return mode.value === 'lecturer'
-    ? (byLecturer.value.get(id) ?? []).length
-    : (byModule.value.get(id) ?? []).length
-})
-
-// ------------------------------------------------------------------ quick entry
 const quickEntryLabel = computed(() =>
   mode.value === 'lecturer' ? 'Add module codes (paste or type)' : 'Add lecturer names',
 )
@@ -544,48 +549,6 @@ function clearAllDetail(isUndo: boolean): void {
   applyDiff('Remove all', mapped.map(lecturerId => ({ lecturerId, moduleId, value: 0 as const })))
 }
 
-function confirmCopy(): void {
-  if (!copyFromId.value || !selectedId.value) return
-  copyConfirmOpen.value = true
-}
-
-async function executeCopy(): Promise<void> {
-  if (!selectedId.value || !copyFromId.value) return
-  copying.value = true
-  try {
-    const sourceKey = mode.value === 'lecturer' ? copyFromId.value : copyFromId.value
-    const targetId = selectedId.value
-
-    const currentKeys =
-      mode.value === 'lecturer'
-        ? (byLecturer.value.get(targetId) ?? []).map(moduleId => ({ lecturerId: targetId, moduleId }))
-        : (byModule.value.get(targetId) ?? []).map(lecturerId => ({ lecturerId, moduleId: targetId }))
-
-    const sourceKeys =
-      mode.value === 'lecturer'
-        ? (byLecturer.value.get(sourceKey) ?? []).map(moduleId => ({ lecturerId: targetId, moduleId }))
-        : (byModule.value.get(sourceKey) ?? []).map(lecturerId => ({ lecturerId, moduleId: targetId }))
-
-    // Replace semantics: clear target (only where the source lacks the pair),
-    // then set everything from the source.
-    const sourceKeySet = new Set(sourceKeys.map(k => `${k.lecturerId}\n${k.moduleId}`))
-    const diff: MappingPairPatch[] = [
-      ...currentKeys
-        .filter(k => !sourceKeySet.has(`${k.lecturerId}\n${k.moduleId}`))
-        .map(k => ({ ...k, value: 0 as const })),
-      ...sourceKeys.map(k => ({ ...k, value: 1 as const })),
-    ]
-
-    const ok = await applyDiff(`Copy from ${copySourceName.value}`, diff)
-    copyConfirmOpen.value = false
-    if (ok) {
-      showSnackbar(`Replaced with ${sourceKeys.length} entries from ${copySourceName.value}`, 'success')
-      copyFromId.value = null
-    }
-  } finally {
-    copying.value = false
-  }
-}
 
 function onQuickEntryChanged(values: unknown): void {
   const entries = Array.isArray(values) ? values.map(v => String(v)).filter(Boolean) : []
