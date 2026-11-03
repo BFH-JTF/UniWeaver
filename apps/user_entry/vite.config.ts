@@ -34,8 +34,8 @@ export default defineConfig({
       output: {
         advancedChunks: {
           groups: [
-            { name: 'vuetify', test: /[\/]node_modules[\/]vuetify[\/]/ },
-            { name: 'vendor', test: /[\/]node_modules[\/](vue|vue-router|pinia|@vue|rolldown-runtime)[\/]/ },
+            { name: 'vuetify', test: /[\\/]node_modules[\\/]vuetify[\\/]/ },
+            { name: 'vendor', test: /[\\/]node_modules[\\/](vue|vue-router|pinia|@vue|rolldown-runtime)[\\/]/ },
           ],
         },
       },
