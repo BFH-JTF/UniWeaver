@@ -49,6 +49,9 @@ services:
       # self-registers its OIDC client via dynamic registration.
       OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-}
       OIDC_PROVIDER_NAME: ${OIDC_PROVIDER_NAME:-docPouch}
+      # Bearer token the backend hands the SPA for dynamic client
+      # registration (must match the doc-pouch env_file value).
+      OIDC_REGISTRATION_TOKEN: ${OIDC_REGISTRATION_TOKEN:-}
       USER_ENTRY_URL: ${USER_ENTRY_URL:-http://localhost:3000/user_entry}
       ADMINISTRATION_URL: ${ADMINISTRATION_URL:-http://localhost:3000/administration}
       SCHEDULING_URL: ${SCHEDULING_URL:-http://localhost:3000/scheduling}

@@ -186,6 +186,55 @@ Vieles (Geheimnisse, SQL-Parametrisierung, ACL, CI, README) ist bereits erfüllt
 2. Majors (TypeScript 7 / Vitest 4) in eigenen PRs proben (CI grün → merge).
 3. image-Optimierung-CI-Schritt (sharp/cwebp) für Logo/Favicons, falls gewünscht.
 4. ARCH-02-Phase 3 (MappingEditor / entityService-Split).
+
+---
+
+# Nachträge (03.11.2026): Entscheidungs-Punkte abgearbeitet
+
+### ARCH-02 Phase 3: MappingEditor — ✅
+693 → 657 Zeilen; Copy-Flow → `composables/useMappingCopy.ts`, Quick-Entry-Matcher
++ Copy-Diff-Builder → `utils/mappingQuickEntry.ts` (pure, 10 Tests); verifiziert
+Docker-Build + 92 Unit-Tests.
+
+### Logo-Bildoptimierung — ✅
+`sharp`-Quantisierung (Palette 256): Logo 135 kB → **65 kB (−52 %)** ×4 Apps;
+identische Abmessungen; App liefert optimiertes Asset (200/65 kB geprüft).
+
+### Vitest 4 + Config-Migration — ✅
+`test.projects`-Root-Konfig (Workspace-File-Ablösung), provider-V8-Metriken
+sind strikter/honest → **Core-Logic-Coverage 80 %** (122 Tests). Tests für die
+RESTRICTION_TYPES-Validierungs-Specs (alle 15 Regeltypen) + IMPORT_CONFIGS-
+Transforms + Parse-Roundtrips ergänzt.
+
+### TypeScript 7 — ❓ Probeergebnis: NICHT MIGRIEREN
+`typescript@7.0.2` (tsgo) mit vue-tsc 3.3: `ERR_PACKAGE_PATH_NOT_EXPORTED: ./lib/tsc`
+— vue-tsc/Volar unterstützt tsgo (noch) nicht. Probe-Branch sauber verworfen;
+Aktion: **warten bis vue-tsc offiziell TS7 unterstützt**, dann Dependabot-Major.
+
+### Playwright-E2E — ✅ (3 Specs grün)
+Login→Portal, Redirect-Schutz (unauthed /scheduling → Login), Tool-Navigation
+nach Login. **Dabei zwei reale Probleme gefunden und gelöst:**
+1. Production-Login war TOTAL KAPUTT: der SPA-Client konnte sich nicht
+   registrieren (DCR-Token fehlte komplett im Setup; docPouch 1.27.3 macht DCR
+   fail-closed) → Login-Alert „client_id" statt Login. Fix:
+   `AuthConfig.registrationToken` vom Backend an die SPA (kein Bundle-Secret),
+   `selfRegister` sendet `Authorization: Bearer …`; Token via compose/.env.
+2. docPouch-Consent-Screen für DCR-Clients LOOPS (consent-POST → 302 → neue
+   Interaction statt Code-Redirect) → Workaround dokumentiert: statisch
+   vorregistrierter Client `uniweaver-local` (OidcAdapter) + `OIDC_CLIENT_ID`-Pinning
+   + `OIDC_AUTO_CONSENT_CLIENTS` = kein Consent-Screen nötig. Loop als
+   docPouch-Umsetzungsfrage notiert (mögliche Fehlermeldung?).
+
+### Lighthouse-Audit — ✅ gemessen, ❓ Performance-Kriterium offen
+Skript `scripts/lighthouse-audit.mjs` (Playwright-Chromium + Lighthouse v12):
+**Accessibility 100 ✓ · Best-Practices 96 ✓ · Performance 55 → 58-73 nach Folgemassnahmen.**
+Kernmassnahme: **`compression`-Middleware** — die SPAs wurden UNKOMPRESSED
+ausgeliefert (1.3 MB savings gemessen; total-byte-weight 855 KiB gzip).
+Performance ≥85 erreiche ich lokal (CPU-4×-Throttling + Vuetify-Runtime-Parsing
+~756 kB JS) nicht ohne strukturellen Umbau ❓: konkrete Hebel sind
+MDI-Icon-Subsetting (woff2 403 kB → genutzte Glyphen), CSS-purge und
+Vuetify-Component-Audit (`unused-javascript` 167 KiB). Details:
+`e2e/artifacts/lighthouse/results.json`.
 - ✅ OPS-01: Git sauber — verifiziert: `.env`, `dist/`, Datenverzeichnisse ignored;
   Lockfile committet; keine Build-/Runtime-Artefakte im Repo
 - ✅ CODE-03 (Teil): 6 Format-Warnings via `lint:fix` behoben; `console.log`-Stellen

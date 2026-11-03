@@ -14,7 +14,8 @@ describe('IMPORT_CONFIGS transforms', () => {
       }
       const out = cfg.transform([row])
       expect(out).toHaveLength(1)
-      const entity = out[0] as Record<string, unknown>
+      const entity = out[0] as Record<string, unknown> | undefined
+      if (!entity) throw new Error('transform returned no entity')
       expect(entity.name).toBeDefined()
       expect(entity.id).toBe('x-1')
     })
@@ -25,7 +26,7 @@ describe('IMPORT_CONFIGS transforms', () => {
       for (const field of cfg.fields) if (field.required && field.key !== 'id') minimal[field.key] = 'x'
       const out = cfg.transform([minimal]) as Record<string, unknown>[]
       expect(out).toHaveLength(1)
-      expect(out[0].name).toBeDefined()
+      expect(out[0]?.name).toBeDefined()
     })
   }
 })
@@ -72,6 +73,6 @@ describe('csvSchemas round trip (parse → transform)', () => {
       return out
     })
     const entities = IMPORT_CONFIGS.departments.transform(rows)
-    expect((entities[0] as Record<string, unknown>).name).toBe('BWF')
+    expect((entities[0] as Record<string, unknown> | undefined)?.name).toBe('BWF')
   })
 })

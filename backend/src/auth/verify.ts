@@ -91,6 +91,9 @@ export async function fetchAuthConfig(): Promise<AuthConfig> {
     clientId,
     providerName: process.env.OIDC_PROVIDER_NAME || 'OIDC',
     authorizationEndpoint,
+    // Bearer token for the SPA's dynamic client registration; empty when
+    // provider-side DCR is open or a pinned clientId is configured instead.
+    registrationToken: process.env.OIDC_REGISTRATION_TOKEN || '',
   }
 }
 

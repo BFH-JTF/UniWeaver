@@ -362,6 +362,8 @@ export interface AuthConfig {
   clientId: string
   providerName: string
   authorizationEndpoint?: string
+  /** Bearer token for dynamic client registration (first-party SPA use). */
+  registrationToken?: string
 }
 
 export interface BootstrapStatus {
