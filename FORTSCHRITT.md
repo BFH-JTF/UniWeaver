@@ -185,7 +185,20 @@ Vieles (Geheimnisse, SQL-Parametrisierung, ACL, CI, README) ist bereits erfüllt
 1. Playwright-E2E für die 3–4 Hauptflows (Login → Portal → Tools).
 2. Majors (TypeScript 7 / Vitest 4) in eigenen PRs proben (CI grün → merge).
 3. image-Optimierung-CI-Schritt (sharp/cwebp) für Logo/Favicons, falls gewünscht.
-4. ARCH-02-Phase 3 (MappingEditor / entityService-Split).
+### ARCH-02 Phase 3: entityService — ✅ (nachgereicht 03.11.)
+657 → **273** Zeilen; Bulk-Import → `db/entityImport.ts` (203), Version-Copy →
+`db/entityVersioning.ts` (149), gemeinsame Hilfsfunktionen → `db/entityCommon.ts`
+(43). Konsumenten (routes/entities.ts) auf die neuen Module umgestellt; alle
+209 Backend-Tests grün, Docker-Build grün.
+
+### Icon-Subsetting — ❓ bewusst NICHT umgesetzt (Begründung)
+Der MDI-Font (403 kB woff2) ist der grösste einzelne Asset. Subsetting über
+`@mdi/js`/SVG-Sets bedeutet: 120 Icon-Referenzen in 4 Apps umschreiben plus
+eigene Icon-Resolution — mit stillschweigendem Ausfallrisiko für einzelne Icons
+ohne visuelle Test-Deckung. Performance ≥85 bleibt ohnehin an der
+Vuetify-Runtime hängen (JS-Parsing ~750 kB unter CPU-Throttling); der
+vernünftigste Ausbaupfad wäre `unplugin-icons` oder MDI-SVG-Migration je App
+in separaten PRs mit visueller Prüfung.
 
 ---
 
