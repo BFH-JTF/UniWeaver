@@ -36,7 +36,7 @@ describe('matchLecturerNames', () => {
   it('matches names case-insensitively and keeps raw values', () => {
     const out = matchLecturerNames(['ada lovelace', 'TOMÁS STALDER', ], lecturers)
     expect(out.matched.map(m => m.id)).toEqual(['l-1', 'l-2'])
-    expect(out.matched[1].raw).toBe('TOMÁS STALDER')
+    expect(out.matched[1]!.raw).toBe('TOMÁS STALDER')
   })
 
   it('reports unknown names', () => {

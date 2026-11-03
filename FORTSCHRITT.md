@@ -173,7 +173,9 @@ Vieles (Geheimnisse, SQL-Parametrisierung, ACL, CI, README) ist bereits erfüllt
   planen (Dependabot kann sie anbieten, CI fängt Regressionen).
 - Lighthouse-Performance-/A11Y-Scores: erfordern manuelles Browser-Audit
   (App läuft lokal); statische A11Y-Prüfung bestanden.
-- Logo-PNG (135 kB) nicht verlustlos optimiert (kein Image-Tool); optisch neutral.
+- Logo-Bildoptimierung ERLEDIGT (sharp, Palette-Quantisierung: 135 kB → 65 kB,
+  identische Abmessungen); `sharp` ist eine devDependency, das Skript liegt inline
+  in der FORTSCHRITT.md-Notiz — bei Bedarf als scripts/optimize-images.mjs auslagern
 - E2E mit Playwright wäre der sinnvollste Ausbau der Testpyramide.
 - ARCH-02-Restposten: CurriculumView (1573, Template-lastig), MappingEditor (693),
   entityService.ts (657) — sinnvoll für weitere inkrementelle Splits.
