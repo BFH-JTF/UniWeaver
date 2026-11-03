@@ -1,5 +1,6 @@
 import express, { Request, Response, NextFunction } from 'express'
 import cors from 'cors'
+import compression from 'compression'
 import path from 'path'
 import { existsSync } from 'fs'
 import { fileURLToPath } from 'url'
@@ -32,6 +33,10 @@ const isAllowedOrigin = (origin: string): boolean =>
   /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)
 
 app.set('trust proxy', 1)
+// gzip/deflate for the API and — above all — for the ~1.3 MB of Vuetify/MDI
+// assets the four SPAs ship; Lighthouse measured those uncompressed (1.3 MB
+// savings on a single load).
+app.use(compression())
 app.use(cors({
   credentials: true,
   origin: (origin: string | undefined, callback) => {
@@ -45,15 +50,20 @@ app.use(cors({
 // Minimal security headers (kept dependency-free): nosniff prevents MIME
 // sniffing, DENY blocks clickjacking via iframes, and a report-only CSP
 // observes violations without risking a broken frontend (inline styles are
-// unavoidable for Vuetify).
-app.use((_req: Request, res: Response, next: NextFunction) => {
+// unavoidable for Vuetify). The proxied provider pages (/oidc, /interaction)
+// are excluded: they are docPouch-served and rely on their own CSP, and our
+// headers would otherwise break their inline scripts.
+app.use((req: Request, res: Response, next: NextFunction) => {
   res.setHeader('X-Content-Type-Options', 'nosniff')
   res.setHeader('X-Frame-Options', 'DENY')
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin')
-  res.setHeader(
-    'Content-Security-Policy-Report-Only',
-    "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; font-src 'self'; connect-src 'self'",
-  )
+  const isProxiedPath = req.url.startsWith('/oidc') || req.url.startsWith('/interaction')
+  if (!isProxiedPath) {
+    res.setHeader(
+      'Content-Security-Policy-Report-Only',
+      "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; font-src 'self'; connect-src 'self'",
+    )
+  }
   next()
 })
 // Body parsers are scoped to the API routes; the OIDC proxy below must

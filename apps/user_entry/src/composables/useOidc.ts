@@ -39,7 +39,7 @@ export const useOidc = () => {
    * Falls back to the env value when probing/registration is not possible,
    * so misconfigurations surface as provider errors instead of silent drift.
    */
-  async function resolveClientId(issuer: string, envClientId: string): Promise<string> {
+  async function resolveClientId(issuer: string, envClientId: string, registrationToken = ''): Promise<string> {
     // 1. Previously persisted, dynamically registered client
     const stored = getStoredClientId()
     if (stored) {
@@ -55,7 +55,7 @@ export const useOidc = () => {
     }
 
     // 3. Dynamic client registration
-    const registered = await selfRegister(issuer)
+    const registered = await selfRegister(issuer, registrationToken)
     if (registered) return registered
 
     return envClientId || stored
@@ -73,12 +73,17 @@ export const useOidc = () => {
     return discovery.registration_endpoint
   }
 
-  async function selfRegister(issuer: string): Promise<string | null> {
+  async function selfRegister(issuer: string, registrationToken = ''): Promise<string | null> {
+    if (!registrationToken) {
+      // Without a token the provider keeps DCR disabled — skip the request
+      // instead of burning a guaranteed 401.
+      return null
+    }
     try {
       const registrationEndpoint = await fetchRegistrationEndpoint(issuer)
       const res = await fetch(registrationEndpoint, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${registrationToken}` },
         body: JSON.stringify({
           client_name: 'UniWeaver',
           application_type: 'web',
@@ -112,7 +117,7 @@ export const useOidc = () => {
       // Fail fast with a clear message when the provider is unreachable —
       // otherwise the user would be redirected to a dead URL.
       await assertProviderReachable(config.issuer)
-      const clientId = await resolveClientId(config.issuer, config.clientId)
+      const clientId = await resolveClientId(config.issuer, config.clientId, config.registrationToken)
       userManager = new UserManager({
         authority: config.issuer,
         client_id: clientId,

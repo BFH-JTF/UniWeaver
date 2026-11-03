@@ -11,3 +11,8 @@ scheduler/target/
 *.class
 # vitest coverage output
 coverage/
+
+# playwright / lighthouse artifacts
+e2e/artifacts/
+test-results/
+playwright-report/
